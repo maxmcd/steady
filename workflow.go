@@ -1,13 +1,13 @@
 package steady
 
 import (
-	"context"
-	"net/http"
+	"io"
+	"net"
 	"os"
-	"os/exec"
-	"sync"
+	"time"
 
 	"go.temporal.io/sdk/client"
+	"go.temporal.io/sdk/temporal"
 	"go.temporal.io/sdk/worker"
 	"go.temporal.io/sdk/workflow"
 )
@@ -17,14 +17,6 @@ const (
 )
 
 type Option func(*Workflow)
-
-func NewWorkflow(options ...Option) *Workflow {
-	s := &Workflow{}
-	for _, option := range options {
-		option(s)
-	}
-	return s
-}
 
 func NewClient() (client.Client, error) {
 	hostPort := os.Getenv("TEMPORAL_GRPC_ENDPOINT")
@@ -36,6 +28,17 @@ func NewClient() (client.Client, error) {
 		HostPort: hostPort,
 	})
 }
+
+func NewWorkflow(options ...Option) *Workflow {
+	s := &Workflow{
+		requestLogger: os.Stdout,
+	}
+	for _, option := range options {
+		option(s)
+	}
+	return s
+}
+
 func (w *Workflow) StartWorker() error {
 	c, err := NewClient()
 	if err != nil {
@@ -49,13 +52,17 @@ func (w *Workflow) StartWorker() error {
 		// EnableLoggingInReplay: true,
 	})
 	wkr.RegisterWorkflow(w.Workflow)
-	wkr.RegisterActivity(w.RunWorker)
+	wkr.RegisterActivity(w.RunWorkerActivity)
 
 	// This will block until its interrupted
 	return wkr.Run(worker.InterruptCh())
 }
 
-type Workflow struct{}
+type Workflow struct {
+	workerState   *WorkerState
+	requestLogger io.Writer
+	port          int
+}
 
 func (w *Workflow) writeApplicationScript(application string) (filename string, err error) {
 	f, err := os.CreateTemp("", "")
@@ -70,86 +77,87 @@ func (w *Workflow) writeApplicationScript(application string) (filename string, 
 	return f.Name(), nil
 }
 
-func (w *Workflow) Workflow(ctx workflow.Context, application string) (err error) {
-	logger := workflow.GetLogger(ctx)
-	var inFlightRequests int
+type Update struct {
+	Application *string
+	Stop        bool
+}
 
+func (w *Workflow) Workflow(ctx workflow.Context, application string) (err error) {
+	ctx = workflow.WithActivityOptions(ctx, workflow.ActivityOptions{
+		// https://docs.temporal.io/docs/concepts/what-is-a-start-to-close-timeout
+		StartToCloseTimeout: 15 * time.Minute,
+		HeartbeatTimeout:    time.Minute,
+		// https://docs.temporal.io/application-development/features/#activity-retry-simulator
+		// TODO: Consider removing? We don't retry?
+		RetryPolicy: &temporal.RetryPolicy{
+			BackoffCoefficient: 2,
+			InitialInterval:    1000,
+			MaximumAttempts:    20,
+		},
+	})
+
+	logger := workflow.GetLogger(ctx)
 	filename, err := w.writeApplicationScript(application)
 	if err != nil {
 		return err
 	}
 
-	var cmd *exec.Cmd
-	if err := workflow.SetQueryHandler(ctx, "request", func(Request) (Response, error) {
-		var err error
-		workerState.startWorkerIfDead(func() {
-		})
-		if err != nil {
-			return Response{}, err
-		}
+	w.port, err = getFreePort()
+	if err != nil {
+		return err
+	}
 
-		workerState.startWorkerIfDead(func() {
-			err = cmd.Process.Signal(os.Interrupt)
-		})
-
-		// TODO:
-		// - send request to running server if it is running
-		// - start server if it is not running
-		// - terminate server if this is the final request (you can use memory in the worker to track requests!)
-		return Response{}, nil
+	if err := workflow.SetQueryHandler(ctx, "metadata", func() (Meta, error) {
+		return Meta{
+			Port: w.port,
+		}, nil
 	}); err != nil {
 		return err
 	}
 
-	if err := workflow.ExecuteActivity(ctx, w.RunWorker, filename).Get(ctx, nil); err != nil {
-		logger.Error("Found unexpected activity error", "err", err)
-		return err
-	}
-	return nil
-}
+	selector := workflow.NewSelector(ctx)
+	updatesChannel := workflow.GetSignalChannel(ctx, "updates")
 
-type WorkerState struct {
-	mutex           sync.Mutex
-	inFlightCounter int
-}
-
-func (w *WorkerState) startWorkerIfDead(cb func()) {
-	w.mutex.Lock()
-	if w.inFlightCounter == 0 {
-		cb()
-	}
-	w.inFlightCounter++
-	w.mutex.Unlock()
-}
-func (w *WorkerState) stopWorkerIfDone(cb func()) {
-	w.mutex.Lock()
-	if w.inFlightCounter == 1 {
-		cb()
-		w.inFlightCounter--
-	}
-	w.mutex.Unlock()
-}
-
-// RunWorker just loops indefinitely until the context is killed, reserving a
-// spot on the server
-func (w *Workflow) RunWorker(ctx context.Context, filename string) (err error) {
-	workerState := &WorkerState{}
-	var cmd *exec.Cmd
-	http.ListenAndServe(":8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		workerState.startWorkerIfDead(func() {
-			cmd = exec.Command("bun", filename)
-			cmd.Env = []string{"PORT=9000"}
-			err = cmd.Start()
-		})
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
+	workflow.Go(ctx, func(ctx workflow.Context) {
+		if err := workflow.ExecuteActivity(ctx, w.RunWorkerActivity, WorkerData{
+			Port:     w.port,
+			Filename: filename,
+		}).Get(ctx, nil); err != nil {
+			logger.Error("Found unexpected activity error", "err", err)
 		}
+	})
 
-		workerState.stopWorkerIfDone(func() {})
-	}))
-
-	select {
-	case <-ctx.Done():
-		return nil
+	var update Update
+	selector.AddReceive(updatesChannel, func(c workflow.ReceiveChannel, more bool) {
+		c.Receive(ctx, &update)
+	})
+	for {
+		// continually listen for signals
+		selector.Select(ctx)
+		if update.Application != nil {
+			return workflow.NewContinueAsNewError(ctx,
+				w.Workflow,
+				*update.Application,
+			)
+		}
+		if update.Stop {
+			return nil
+		}
 	}
+}
+
+// getFreePort asks the kernel for a free open port that is ready to use.
+func getFreePort() (int, error) {
+	addr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:0")
+	if err != nil {
+		return 0, err
+	}
+
+	l, err := net.ListenTCP("tcp", addr)
+	if err != nil {
+		return 0, err
+	}
+	_ = l.Close()
+
+	return l.Addr().(*net.TCPAddr).Port, nil
 }
