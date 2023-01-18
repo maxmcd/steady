@@ -1,4 +1,4 @@
-package steady
+package daemon
 
 import (
 	"context"
@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os/exec"
+	"path/filepath"
 	"sync"
 	"time"
 
@@ -15,22 +16,29 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
-type WorkerData struct {
-	Filename string
-	Port     int
+type Daemon struct {
+	dataDirectory string
+	applications  map[string]Application
 }
 
-// RunWorkerActivity just loops indefinitely until the context is killed, reserving a
-// spot on the server
-func (w *Workflow) RunWorkerActivity(ctx context.Context, wd WorkerData) (err error) {
-	client := &http.Client{}
-	fmt.Println("Starting server")
+func NewDaemon(dataDirectory string) *Daemon {
+	return &Daemon{
+		dataDirectory: dataDirectory,
+		applications:  map[string]Application{},
+	}
+}
 
-	w.workerState = newWorkerState(wd.Filename)
+func (d *Daemon) applicationDirectory(name string) string {
+	return filepath.Join(d.dataDirectory, name)
+}
+
+func (d *Daemon) Run(port int) {
+
+	client := &http.Client{}
+
 	srv := http.Server{
-		Addr: fmt.Sprintf(":%d", wd.Port),
+		Addr: fmt.Sprintf(":%d", port),
 		Handler: http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			fmt.Fprintln(w.requestLogger, "Got new request")
 			if err := w.workerState.newRequest(); err != nil {
 				http.Error(rw, err.Error(), http.StatusInternalServerError)
 				return
@@ -41,6 +49,7 @@ func (w *Workflow) RunWorkerActivity(ctx context.Context, wd WorkerData) (err er
 					http.Error(rw, err.Error(), http.StatusInternalServerError)
 					return
 				}
+
 				resp, err := client.Do(req)
 				if err != nil {
 					http.Error(rw, err.Error(), http.StatusInternalServerError)
@@ -89,7 +98,10 @@ func (w *Workflow) RunWorkerActivity(ctx context.Context, wd WorkerData) (err er
 	return eg.Wait()
 }
 
-type WorkerState struct {
+type Application struct {
+	port int
+	name string
+
 	mutex           sync.Mutex
 	inFlightCounter int
 
@@ -105,8 +117,8 @@ type WorkerState struct {
 	startCount   int
 }
 
-func newWorkerState(filename string) *WorkerState {
-	w := &WorkerState{
+func newAppLifecycle(filename string) *Application {
+	w := &Application{
 		filename:        filename,
 		C:               make(chan struct{}),
 		stopRequestChan: make(chan struct{}),
@@ -115,7 +127,7 @@ func newWorkerState(filename string) *WorkerState {
 	return w
 }
 
-func (w *WorkerState) runLoop() {
+func (w *Application) runLoop() {
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
 		select {
@@ -128,7 +140,7 @@ func (w *WorkerState) runLoop() {
 	}
 }
 
-func (w *WorkerState) stopProcess() {
+func (w *Application) stopProcess() {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	if !w.running {
@@ -139,7 +151,7 @@ func (w *WorkerState) stopProcess() {
 
 }
 
-func (w *WorkerState) startProcess() error {
+func (w *Application) startProcess() error {
 	// Mutex must be acquired when this is called
 	w.startCount++
 	w.cmd = exec.Command("bun", w.filename)
@@ -162,7 +174,7 @@ func (w *WorkerState) startProcess() error {
 	return nil
 }
 
-func (w *WorkerState) newRequest() error {
+func (w *Application) newRequest() error {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.inFlightCounter++
@@ -175,7 +187,7 @@ func (w *WorkerState) newRequest() error {
 	return nil
 }
 
-func (w *WorkerState) endOfRequest() {
+func (w *Application) endOfRequest() {
 	w.mutex.Lock()
 	w.inFlightCounter--
 	if w.inFlightCounter == 0 {

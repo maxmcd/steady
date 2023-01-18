@@ -37,3 +37,30 @@ Worker workload:
 - Starts the daemon?
 - Sees each new job and downloads needed files
 - Handles migrations?
+
+
+### Walk Thoughts
+
+- Workflow per user
+- Workflow for application (handles the migrations!)
+- Slicer workload
+- Stats are collected per-host by a sqlite javascript job?!
+- Versioning is complicated because live service live data
+
+
+
+### More
+
+- Slicer
+    - Responsible for keeping track of hosts
+    - Handles resizing and migration
+    - When resizing:
+        - Query for stats to resize
+        - determine new mapping, return it
+        - send signals to every application that needs to migrate? query state in the case of partial failure?
+- Application
+    - Place application. Send http request to host to download files and start litestream and register application
+
+- User
+- Host daemon
+    - Load balancer and distribution
