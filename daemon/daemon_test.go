@@ -13,26 +13,31 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+var exampleServer = `
+export default {
+	port: process.env.PORT ?? 3000,
+	fetch(request: Request): Response {
+		return new Response("Hello %s " + request.url);
+	},
+};
+`
+
 func TestConcurrentRequests(t *testing.T) {
-	w := NewWorkflow()
+	d := NewDaemon(t.TempDir(), 8080)
 	timestamp := time.Now().Format(time.RFC3339)
-	filename, err := w.writeApplicationScript(
-		fmt.Sprintf(exampleServer, timestamp),
-	)
-	if err != nil {
-		t.Fatal(err)
-	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	eg, ctx := errgroup.WithContext(ctx)
 
-	eg.Go(func() error { return w.RunWorkerActivity(ctx, WorkerData{Filename: filename}) })
+	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
+
+	d.Start(ctx)
 
 	requestCount := 5
 	for i := 0; i < requestCount; i++ {
 		j := i
 		eg.Go(func() error {
-			resp, err := http.Get("http://localhost:8080")
+			resp, err := http.Get("http://localhost:8080/max.hello/hi")
 			if err != nil {
 				return err
 			}
@@ -49,23 +54,25 @@ func TestConcurrentRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 	cancel()
-
-	assert.Equal(t, requestCount, w.workerState.requestCount)
-	assert.Equal(t, 1, w.workerState.startCount)
-}
-
-func TestNonOverlappingTests(t *testing.T) {
-	w := NewWorkflow()
-	timestamp := time.Now().Format(time.RFC3339)
-	filename, err := w.writeApplicationScript(
-		fmt.Sprintf(exampleServer, timestamp),
-	)
-	if err != nil {
+	if err := d.Wait(); err != nil {
 		t.Fatal(err)
 	}
 
+	app := d.applications["max.hello"]
+	assert.Equal(t, requestCount, app.requestCount)
+	assert.Equal(t, 1, app.startCount)
+}
+
+func TestNonOverlappingTests(t *testing.T) {
+	d := NewDaemon(t.TempDir(), 8080)
+	timestamp := time.Now().Format(time.RFC3339)
+
+	ctx, cancel := context.WithCancel(context.Background())
+	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
+	d.Start(ctx)
+
 	makeRequest := func() {
-		resp, err := http.Get("http://localhost:8080")
+		resp, err := http.Get("http://localhost:8080/max.hello/hi")
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -74,46 +81,35 @@ func TestNonOverlappingTests(t *testing.T) {
 		assert.Contains(t, buf.String(), timestamp)
 	}
 
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
-
-	eg.Go(func() error { return w.RunWorkerActivity(ctx, WorkerData{Filename: filename}) })
-
 	makeRequest()
 
 	// Wait for shutdown
-	// TODO: parameterize
+	// TODO: parameterize delay time
 	time.Sleep(time.Second)
 
 	makeRequest()
-	cancel()
 
-	if err := eg.Wait(); err != nil {
+	cancel()
+	if err := d.Wait(); err != nil {
 		t.Fatal(err)
 	}
 
-	assert.Equal(t, 2, w.workerState.requestCount)
-	assert.Equal(t, 2, w.workerState.startCount)
+	app := d.applications["max.hello"]
+	assert.Equal(t, 2, app.requestCount)
+	assert.Equal(t, 2, app.startCount)
 }
 
 func BenchmarkActivity(b *testing.B) {
-	w := NewWorkflow()
-	w.requestLogger = io.Discard
-
+	d := NewDaemon(b.TempDir(), 8080)
 	timestamp := time.Now().Format(time.RFC3339)
-	filename, err := w.writeApplicationScript(
-		fmt.Sprintf(exampleServer, timestamp),
-	)
-	if err != nil {
-		b.Fatal(err)
-	}
+
+	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
 
 	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
+	d.Start(ctx)
 
-	eg.Go(func() error { return w.RunWorkerActivity(ctx, WorkerData{Filename: filename}) })
 	for i := 0; i < b.N; i++ {
-		resp, err := http.Get("http://localhost:8080")
+		resp, err := http.Get("http://localhost:8080/max.hello/hi")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -122,7 +118,8 @@ func BenchmarkActivity(b *testing.B) {
 		assert.Contains(b, buf.String(), timestamp)
 	}
 	cancel()
-	if err := eg.Wait(); err != nil {
+
+	if err := d.Wait(); err != nil {
 		b.Fatal(err)
 	}
 }

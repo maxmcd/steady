@@ -5,6 +5,6 @@ export default {
   port,
   fetch(request: Request): Response {
     console.log(`${request.url}`);
-    return new Response("Hello Steady");
+    return new Response("Hello Steady" + request.url);
   },
 };

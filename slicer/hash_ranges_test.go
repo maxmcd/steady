@@ -20,7 +20,7 @@ func TestNewHostMapping(t *testing.T) {
 			"second": {{100, 199}, {300, math.MaxInt64}},
 		}, false},
 		{"invalid Range", map[string][]Range{"backwards": {{2, 1}}}, true},
-		{"simple incomplete Range", map[string][]Range{"backwards": {{1, 2}}}, true},
+		{"simple incomplete Range", map[string][]Range{"too small": {{1, 2}}}, true},
 		{"disjoint incomplete Range", map[string][]Range{
 			"first":  {{0, 99}, {200, 201}},
 			"second": {{100, 199}, {300, math.MaxInt64}},
@@ -77,10 +77,10 @@ func Test_hostMapping_GetKeyHost(t *testing.T) {
 
 func TestHash(t *testing.T) {
 	// Just some precomputed hashes to ensure stability
-	assert.Equal(t, int64(3361437389424231003), Hash("asdf"))
-	assert.Equal(t, int64(7733010884486843343), Hash("asdfasdf"))
-	assert.Equal(t, int64(7049111091254413464), Hash("8adsfad"))
 	assert.Equal(t, int64(4316084372001321715), Hash("steady"))
+	assert.Equal(t, int64(4539478222691259463), Hash("fixed"))
+	assert.Equal(t, int64(1940846785606929000), Hash("stable"))
+	assert.Equal(t, int64(1995353473133317714), Hash("unmoving"))
 	assert.Equal(t, int64(6062514253447166957), Hash("slicer"))
 	assert.Equal(t, int64(8656414110124581126), Hash("$%^&*("))
 }
