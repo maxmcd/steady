@@ -1,6 +1,7 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -115,19 +116,81 @@ func (d *Daemon) addApplication(name, script string) error {
 	return nil
 }
 
+func (d *Daemon) validateApplicationScript(script []byte) (dir string, err error) {
+	dir, err = os.MkdirTemp(d.dataDirectory, "")
+	if err != nil {
+		return "", err
+	}
+	fileName := filepath.Join(dir, "index.ts")
+	if err := os.WriteFile(fileName, script, 0666); err != nil {
+		return "", errors.Wrapf(err, "error creating file %q", fileName)
+	}
+
+	port, err := getFreePort()
+	if err != nil {
+		return "", err
+	}
+
+	cmd, err := bunRun(dir, port)
+	if err != nil {
+		return "", err
+	}
+	return dir, cmd.Process.Kill() // maybe ignore kill err?
+}
+
 func (d *Daemon) Start(ctx context.Context) {
 	if d.eg != nil {
 		panic("Daemon has already started")
 	}
+	d.eg, ctx = errgroup.WithContext(ctx)
 
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	r.POST("/steady/application", func(ctx *gin.Context) {
-		fmt.Println("create")
+	steadyGroup := r.Group("/steady")
+
+	steadyGroup.POST("/application/:name", func(c *gin.Context) {
+		script, err := io.ReadAll(c.Request.Body)
+		if err != nil || len(script) == 0 {
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{"msg": "request body must contain a valid application script"})
+			return
+		}
+
+		if dir, err := d.validateApplicationScript(script); err != nil {
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{"msg": err.Error()})
+			return
+		}
+		name := c.Param("name")
+		d.applicationsLock.Lock()
+		_, found := d.applications[name]
+		if !found {
+			app = &Application{}
+			d.applications[name] = app
+		}
+		d.applicationsLock.Unlock()
+
+		if found {
+			c.JSON(
+				http.StatusBadRequest,
+				gin.H{"msg": "an application with this name is already present on this host"})
+			return
+		}
 	})
-	r.DELETE("/steady/application", func(ctx *gin.Context) {
-		fmt.Println("delete")
+	steadyGroup.DELETE("/application/:name", func(ctx *gin.Context) {
+
+	})
+	steadyGroup.POST("/application/:name/migrate", func(ctx *gin.Context) {
+
+	})
+
+	steadyGroup.Use(func(ctx *gin.Context) {
+		if len(ctx.Errors.Errors()) > 0 {
+
+		}
 	})
 
 	r.Any(":name/*path", d.applicationHandler)
@@ -137,7 +200,6 @@ func (d *Daemon) Start(ctx context.Context) {
 		Handler: r,
 	}
 
-	d.eg, ctx = errgroup.WithContext(ctx)
 	d.eg.Go(func() error {
 		err := srv.ListenAndServe()
 		if err == http.ErrServerClosed {
@@ -161,11 +223,15 @@ func (d *Daemon) Start(ctx context.Context) {
 
 		return nil
 	})
+
+	// TODO: wait until server is live to exit?
 }
 
 type Application struct {
+	// port is the port this application listens on
 	port int
-	dir  string
+	// dir is the directory that contains all application data
+	dir string
 
 	mutex           sync.Mutex
 	inFlightCounter int
@@ -193,6 +259,7 @@ func newApplication(dir string, port int) *Application {
 func (w *Application) runLoop() {
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
+		// TODO: stop loop
 		select {
 		case <-w.stopRequestChan:
 			killTimer.Reset(time.Second)
@@ -213,26 +280,52 @@ func (w *Application) stopProcess() {
 
 }
 
+func bunRun(dir string, port int) (*exec.Cmd, error) {
+	cmd := exec.Command("bun", "index.ts")
+	cmd.Dir = dir
+	cmd.Env = []string{fmt.Sprintf("PORT=%d", port)}
+
+	// TODO: log to file
+	var buf bytes.Buffer
+	cmd.Stderr = &buf
+	cmd.Stdout = &buf
+	err := cmd.Start()
+	if err != nil {
+		return nil, err
+	}
+	go func() { _ = cmd.Wait() }()
+	count := 15
+	for i := 0; i < count; i++ {
+		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		if err == nil {
+			_ = conn.Close()
+			break
+		}
+
+		if cmd.ProcessState != nil && cmd.ProcessState.Exited() {
+			code := cmd.ProcessState.ExitCode()
+			if cmd.ProcessState.ExitCode() != 0 {
+				if len(buf.Bytes()) == 0 {
+					return nil, fmt.Errorf("Exited with code %d", code)
+				}
+				return nil, fmt.Errorf(buf.String())
+			}
+			return nil, fmt.Errorf("Exited with code %d", code)
+		}
+
+		if i == count-1 {
+			_ = cmd.Process.Kill()
+			return nil, fmt.Errorf("Process is running, but nothing is listening on the expected port")
+		}
+		exponent := time.Duration(i + 1*i + 1)
+		time.Sleep(time.Millisecond * exponent)
+	}
+	return cmd, nil
+}
+
 func (w *Application) startProcess() error {
 	// Mutex must be acquired when this is called
 	w.startCount++
-	w.cmd = exec.Command("bun", "index.ts")
-	w.cmd.Dir = w.dir
-	w.cmd.Env = []string{fmt.Sprintf("PORT=%d", w.port)}
-	err := w.cmd.Start()
-	if err != nil {
-		return err
-	}
-	for {
-		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", w.port))
-		if err != nil {
-			time.Sleep(time.Millisecond)
-			// TODO: Error if the server never comes up
-			continue
-		}
-		conn.Close()
-		break
-	}
 	w.running = true
 
 	return nil
