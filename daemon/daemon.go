@@ -15,9 +15,12 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/maxmcd/steady/daemon/api"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
+
+//go:generate bash -c "oapi-codegen --package=api --generate=types,client,gin,spec ./openapi3.yaml > api/api.gen.go"
 
 type Daemon struct {
 	dataDirectory string
@@ -94,48 +97,46 @@ func (d *Daemon) applicationHandler(c *gin.Context) {
 
 }
 
-func (d *Daemon) addApplication(name, script string) error {
+func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Application, error) {
+	// If two requests are validated simultaneously we won't catch them here,
+	// but we'll error when adding them to the map later
+	d.applicationsLock.RLock()
+	_, found := d.applications[name]
+	d.applicationsLock.RUnlock()
+	if found {
+		return nil, fmt.Errorf("an application with this name is already present on this host")
+	}
+
+	tmpDir, err := os.MkdirTemp(d.dataDirectory, "")
+	if err != nil {
+		return nil, err
+	}
+	fileName := filepath.Join(tmpDir, "index.ts")
+	if err := os.WriteFile(fileName, script, 0666); err != nil {
+		return nil, errors.Wrapf(err, "error creating file %q", fileName)
+	}
+
 	port, err := getFreePort()
 	if err != nil {
-		return errors.Wrap(err, "error attempting to get free port")
+		return nil, err
 	}
 
-	dirName := d.applicationDirectory(name)
-	if err := os.Mkdir(dirName, 0777); err != nil {
-		return errors.Wrapf(err, "error creating directory %q", dirName)
+	cmd, err := bunRun(tmpDir, port)
+	if err != nil {
+		return nil, err
 	}
-	fileName := filepath.Join(dirName, "index.ts")
-	if err := os.WriteFile(fileName, []byte(script), 0666); err != nil {
-		return errors.Wrapf(err, "error creating file %q", fileName)
-	}
-	app := newApplication(dirName, port)
+	_ = cmd.Process.Kill()
 
+	app := newApplication(tmpDir, port)
 	d.applicationsLock.Lock()
+	if _, found = d.applications[name]; found {
+		d.applicationsLock.Unlock()
+		return nil, fmt.Errorf("an application with this name is already present on this host")
+	}
 	d.applications[name] = app
 	d.applicationsLock.Unlock()
-	return nil
-}
 
-func (d *Daemon) validateApplicationScript(script []byte) (dir string, err error) {
-	dir, err = os.MkdirTemp(d.dataDirectory, "")
-	if err != nil {
-		return "", err
-	}
-	fileName := filepath.Join(dir, "index.ts")
-	if err := os.WriteFile(fileName, script, 0666); err != nil {
-		return "", errors.Wrapf(err, "error creating file %q", fileName)
-	}
-
-	port, err := getFreePort()
-	if err != nil {
-		return "", err
-	}
-
-	cmd, err := bunRun(dir, port)
-	if err != nil {
-		return "", err
-	}
-	return dir, cmd.Process.Kill() // maybe ignore kill err?
+	return app, nil
 }
 
 func (d *Daemon) Start(ctx context.Context) {
@@ -147,51 +148,7 @@ func (d *Daemon) Start(ctx context.Context) {
 	gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
 
-	steadyGroup := r.Group("/steady")
-
-	steadyGroup.POST("/application/:name", func(c *gin.Context) {
-		script, err := io.ReadAll(c.Request.Body)
-		if err != nil || len(script) == 0 {
-			c.JSON(
-				http.StatusBadRequest,
-				gin.H{"msg": "request body must contain a valid application script"})
-			return
-		}
-
-		if dir, err := d.validateApplicationScript(script); err != nil {
-			c.JSON(
-				http.StatusBadRequest,
-				gin.H{"msg": err.Error()})
-			return
-		}
-		name := c.Param("name")
-		d.applicationsLock.Lock()
-		_, found := d.applications[name]
-		if !found {
-			app = &Application{}
-			d.applications[name] = app
-		}
-		d.applicationsLock.Unlock()
-
-		if found {
-			c.JSON(
-				http.StatusBadRequest,
-				gin.H{"msg": "an application with this name is already present on this host"})
-			return
-		}
-	})
-	steadyGroup.DELETE("/application/:name", func(ctx *gin.Context) {
-
-	})
-	steadyGroup.POST("/application/:name/migrate", func(ctx *gin.Context) {
-
-	})
-
-	steadyGroup.Use(func(ctx *gin.Context) {
-		if len(ctx.Errors.Errors()) > 0 {
-
-		}
-	})
+	api.RegisterHandlersWithOptions(r, server{daemon: d}, api.GinServerOptions{})
 
 	r.Any(":name/*path", d.applicationHandler)
 
@@ -323,23 +280,16 @@ func bunRun(dir string, port int) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (w *Application) startProcess() error {
-	// Mutex must be acquired when this is called
-	w.startCount++
-	w.running = true
-
-	return nil
-}
-
-func (w *Application) newRequest() error {
+func (w *Application) newRequest() (err error) {
 	w.mutex.Lock()
 	defer w.mutex.Unlock()
 	w.inFlightCounter++
 	w.requestCount++
 	if !w.running {
-		if err := w.startProcess(); err != nil {
-			return err
-		}
+		w.startCount++
+		w.running = true
+		w.cmd, err = bunRun(w.dir, w.port)
+		return err
 	}
 	return nil
 }

@@ -1,0 +1,89 @@
+openapi: "3.0.0"
+
+info:
+  version: 0.0.1
+  package: daemon
+  title: Steady Daemon
+
+paths:
+  /steady/application/{name}:
+    parameters:
+      - name: name
+        in: path
+        description: tags to filter by
+        required: true
+        schema:
+          type: string
+    post:
+      operationId: createApplication
+      requestBody:
+        description: Application to add to daemon
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required:
+                - script
+              properties:
+                script:
+                  type: string
+      responses:
+        "201":
+          description: "success response"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+    get:
+      operationId: getApplication
+      responses:
+        "200":
+          description: application response
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+components:
+  schemas:
+    # Pet:
+    #   allOf:
+    #     - $ref: "#/components/schemas/NewPet"
+    #     - type: object
+    #       required:
+    #         - id
+    #       properties:
+    #         id:
+    #           type: integer
+    #           format: int64
+
+    Application:
+      type: object
+      required:
+        - name
+        - port
+      properties:
+        name:
+          type: string
+        port:
+          type: integer
+
+    Error:
+      type: object
+      required:
+        - msg
+      properties:
+        msg:
+          type: string

@@ -11,6 +11,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/maxmcd/steady/daemon/api"
 	"github.com/stretchr/testify/assert"
 	"golang.org/x/sync/errgroup"
 )
@@ -31,7 +32,12 @@ func TestConcurrentRequests(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	eg, ctx := errgroup.WithContext(ctx)
 
-	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
+	app, err := d.validateAndAddApplication(
+		"max.hello", []byte(fmt.Sprintf(exampleServer, timestamp)))
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(app.port)
 
 	d.Start(ctx)
 
@@ -60,7 +66,6 @@ func TestConcurrentRequests(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	app := d.applications["max.hello"]
 	assert.Equal(t, requestCount, app.requestCount)
 	assert.Equal(t, 1, app.startCount)
 }
@@ -70,7 +75,9 @@ func TestNonOverlappingTests(t *testing.T) {
 	timestamp := time.Now().Format(time.RFC3339)
 
 	ctx, cancel := context.WithCancel(context.Background())
-	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
+	if _, err := d.validateAndAddApplication("max.hello", []byte(fmt.Sprintf(exampleServer, timestamp))); err != nil {
+		t.Fatal(err)
+	}
 	d.Start(ctx)
 
 	makeRequest := func() {
@@ -105,7 +112,9 @@ func BenchmarkActivity(b *testing.B) {
 	d := NewDaemon(b.TempDir(), 8080)
 	timestamp := time.Now().Format(time.RFC3339)
 
-	d.addApplication("max.hello", fmt.Sprintf(exampleServer, timestamp))
+	if _, err := d.validateAndAddApplication("max.hello", []byte(fmt.Sprintf(exampleServer, timestamp))); err != nil {
+		b.Fatal(err)
+	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	d.Start(ctx)
@@ -133,13 +142,17 @@ func TestCreateApplication(t *testing.T) {
 
 	d.Start(ctx)
 
-	resp, err := http.Post("http://localhost:8080/steady/application/max.hello", "", nil)
+	client, err := api.NewClientWithResponses("http://localhost:8080")
 	if err != nil {
 		t.Fatal(err)
 	}
-	var buf bytes.Buffer
-	io.Copy(&buf, resp.Body)
-	t.Logf("response: %q", buf.String())
+	resp, err := client.CreateApplicationWithResponse(context.Background(), "max.hello", api.CreateApplicationJSONRequestBody{
+		Script: exampleServer,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	fmt.Println(resp, resp.JSON201)
 
 	cancel()
 	if err := d.Wait(); err != nil {
