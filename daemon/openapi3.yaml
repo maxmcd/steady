@@ -72,13 +72,10 @@ components:
     Application:
       type: object
       required:
-        - name
         - port
       properties:
         name:
           type: string
-        port:
-          type: integer
 
     Error:
       type: object

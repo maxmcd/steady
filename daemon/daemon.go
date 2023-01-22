@@ -250,8 +250,12 @@ func bunRun(dir string, port int) (*exec.Cmd, error) {
 	if err != nil {
 		return nil, err
 	}
-	go func() { _ = cmd.Wait() }()
-	count := 15
+	go func() {
+		if err = cmd.Wait(); err != nil {
+			fmt.Println("TODO: remove", err)
+		}
+	}()
+	count := 20
 	for i := 0; i < count; i++ {
 		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
 		if err == nil {

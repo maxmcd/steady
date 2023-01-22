@@ -1,12 +1,18 @@
 package daemon
 
 import (
+	"bytes"
 	"context"
+	"fmt"
+	"io/ioutil"
+	"net/http"
 	"path/filepath"
 	"testing"
+	"time"
 
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
+	"github.com/stretchr/testify/assert"
 )
 
 var dbServer = `
@@ -46,6 +52,7 @@ func TestLitestream(t *testing.T) {
 	d.Start(ctx)
 
 	minIOServer := NewMinioServer(t)
+	fmt.Println(minIOServer.Address)
 
 	app, err := d.validateAndAddApplication("max.db", []byte(dbServer))
 	if err != nil {
@@ -53,27 +60,46 @@ func TestLitestream(t *testing.T) {
 	}
 	_ = app
 
+	createRecordRequest := func() {
+		resp, err := http.Post("http://localhost:8080/max.db/", "application/json", bytes.NewBuffer([]byte(`{"email":"lite"}`)))
+		if err != nil {
+			t.Fatal(err)
+		}
+		b, _ := ioutil.ReadAll(resp.Body)
+		fmt.Printf("%q\n", string(b))
+		assert.Equal(t, http.StatusOK, resp.StatusCode)
+
+	}
+
+	createRecordRequest()
+
 	server := litestream.NewServer()
 	if err := server.Open(); err != nil {
 		t.Fatal(err)
 	}
-	dbPath := filepath.Join(d.dataDirectory, "db.sql")
+	dbPath := filepath.Join(app.dir, "db.sql")
 	if err := server.Watch(dbPath, func(path string) (_ *litestream.DB, err error) {
 		db := litestream.NewDB(path)
 
 		client := s3.NewReplicaClient()
-		client.AccessKeyID = ""
-		client.SecretAccessKey = ""
-		client.Bucket = "foo"
+		client.AccessKeyID = minIOServer.Username
+		client.SecretAccessKey = minIOServer.Password
+		client.Bucket = minIOServer.BucketName
 		client.Path = "bar"
 		client.Endpoint = "http://" + minIOServer.Address
 		client.SkipVerify = true
+		client.ForcePathStyle = true
 		r := litestream.NewReplica(db, path, client)
 		db.Replicas = append(db.Replicas, r)
 		return db, nil
 	}); err != nil {
 		t.Fatal(err)
 	}
+
+	createRecordRequest()
+
+	time.Sleep(time.Second)
+
 	cancel()
 	if err := d.Wait(); err != nil {
 		t.Fatal(err)

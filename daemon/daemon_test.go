@@ -13,8 +13,77 @@ import (
 
 	"github.com/maxmcd/steady/daemon/api"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
+
+type DaemonSuite struct {
+	suite.Suite
+
+	d      *Daemon
+	cancel func()
+	port   int
+}
+
+var _ suite.SetupAllSuite = new(DaemonSuite)
+var _ suite.BeforeTest = new(DaemonSuite)
+var _ suite.AfterTest = new(DaemonSuite)
+
+func (suite *DaemonSuite) SetupSuite() {}
+
+func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {
+	var err error
+	suite.port, err = getFreePort()
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	suite.d = NewDaemon(suite.T().TempDir(), suite.port)
+	var ctx context.Context
+	ctx, suite.cancel = context.WithCancel(context.Background())
+	suite.d.Start(ctx)
+}
+
+func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
+	suite.cancel()
+	suite.cancel = nil
+	if err := suite.d.Wait(); err != nil {
+		suite.T().Fatal(err)
+	}
+}
+
+func (suite *DaemonSuite) TestConcurrentRequests() {
+	timestamp := time.Now().Format(time.RFC3339)
+	app, err := suite.d.validateAndAddApplication(
+		"max.hello", []byte(fmt.Sprintf(exampleServer, timestamp)))
+	suite.NoError(err)
+
+	eg, _ := errgroup.WithContext(context.Background())
+
+	fmt.Println(app.port)
+
+	requestCount := 5
+	for i := 0; i < requestCount; i++ {
+		eg.Go(func() error {
+			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/max.hello/hi", suite.port))
+			if err != nil {
+				return err
+			}
+			var buf bytes.Buffer
+			io.Copy(&buf, resp.Body)
+			suite.Contains(buf.String(), timestamp)
+			return nil
+		})
+	}
+	if err := eg.Wait(); err != nil {
+		suite.T().Fatal(err)
+	}
+
+	suite.Equal(requestCount, app.requestCount)
+	suite.Equal(1, app.startCount)
+}
+func TestDaemonSuite(t *testing.T) {
+	suite.Run(t, new(DaemonSuite))
+}
 
 var exampleServer = `
 export default {
@@ -24,51 +93,6 @@ export default {
 	},
 };
 `
-
-func TestConcurrentRequests(t *testing.T) {
-	d := NewDaemon(t.TempDir(), 8080)
-	timestamp := time.Now().Format(time.RFC3339)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	eg, ctx := errgroup.WithContext(ctx)
-
-	app, err := d.validateAndAddApplication(
-		"max.hello", []byte(fmt.Sprintf(exampleServer, timestamp)))
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(app.port)
-
-	d.Start(ctx)
-
-	requestCount := 5
-	for i := 0; i < requestCount; i++ {
-		j := i
-		eg.Go(func() error {
-			resp, err := http.Get("http://localhost:8080/max.hello/hi")
-			if err != nil {
-				return err
-			}
-			var buf bytes.Buffer
-			io.Copy(&buf, resp.Body)
-			assert.Contains(t, buf.String(), timestamp)
-			if j == 4 {
-				cancel()
-			}
-			return nil
-		})
-	}
-	if err := eg.Wait(); err != nil {
-		t.Fatal(err)
-	}
-	cancel()
-	if err := d.Wait(); err != nil {
-		t.Fatal(err)
-	}
-
-	assert.Equal(t, requestCount, app.requestCount)
-	assert.Equal(t, 1, app.startCount)
-}
 
 func TestNonOverlappingTests(t *testing.T) {
 	d := NewDaemon(t.TempDir(), 8080)

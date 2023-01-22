@@ -3,6 +3,7 @@ module github.com/maxmcd/steady
 go 1.19
 
 require (
+	github.com/aws/aws-sdk-go v1.44.71
 	github.com/benbjohnson/litestream v0.4.0-beta.2.0.20230118014729-8dbdf2b91cbf
 	github.com/deepmap/oapi-codegen v1.12.4
 	github.com/getkin/kin-openapi v0.113.0
@@ -36,6 +37,7 @@ require (
 	github.com/google/uuid v1.3.0 // indirect
 	github.com/grpc-ecosystem/go-grpc-middleware v1.3.0 // indirect
 	github.com/invopop/yaml v0.1.0 // indirect
+	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/leodido/go-urn v1.2.1 // indirect
