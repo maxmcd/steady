@@ -2,7 +2,6 @@ openapi: "3.0.0"
 
 info:
   version: 0.0.1
-  package: daemon
   title: Steady Daemon
 
 paths:
@@ -41,11 +40,11 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-    get:
-      operationId: getApplication
+    delete:
+      operationId: deleteApplication
       responses:
         "200":
-          description: application response
+          description: "application was deleted"
           content:
             application/json:
               schema:
@@ -58,21 +57,10 @@ paths:
                 $ref: "#/components/schemas/Error"
 components:
   schemas:
-    # Pet:
-    #   allOf:
-    #     - $ref: "#/components/schemas/NewPet"
-    #     - type: object
-    #       required:
-    #         - id
-    #       properties:
-    #         id:
-    #           type: integer
-    #           format: int64
-
     Application:
       type: object
       required:
-        - port
+        - name
       properties:
         name:
           type: string

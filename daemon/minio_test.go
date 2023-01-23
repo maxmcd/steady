@@ -5,6 +5,7 @@ import (
 	"io"
 	"os/exec"
 	"testing"
+	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/credentials"
@@ -39,6 +40,7 @@ func NewMinioServer(t *testing.T) MinioServer {
 			t.Fatal(err)
 		}
 	}()
+
 	server := MinioServer{
 		Address:    addr,
 		Username:   "minioadmin",
@@ -56,10 +58,14 @@ func NewMinioServer(t *testing.T) MinioServer {
 
 	s3Client := s3.New(newSession)
 
-	// Uhhh... no startup time needed? Maybe loop if we need that at some point.
-	_, err = s3Client.CreateBucket(&s3.CreateBucketInput{
-		Bucket: aws.String(server.BucketName),
-	})
+	for i := 0; i < 5; i++ {
+		time.Sleep(time.Millisecond * time.Duration(i*i))
+		if _, err = s3Client.CreateBucket(&s3.CreateBucketInput{
+			Bucket: aws.String(server.BucketName),
+		}); err == nil {
+			break
+		}
+	}
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -24,7 +24,6 @@ import (
 // Application defines model for Application.
 type Application struct {
 	Name string `json:"name"`
-	Port int    `json:"port"`
 }
 
 // Error defines model for Error.
@@ -113,8 +112,8 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
-	// GetApplication request
-	GetApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// DeleteApplication request
+	DeleteApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// CreateApplication request with any body
 	CreateApplicationWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -122,8 +121,8 @@ type ClientInterface interface {
 	CreateApplication(ctx context.Context, name string, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 }
 
-func (c *Client) GetApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetApplicationRequest(c.Server, name)
+func (c *Client) DeleteApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteApplicationRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -158,8 +157,8 @@ func (c *Client) CreateApplication(ctx context.Context, name string, body Create
 	return c.Client.Do(req)
 }
 
-// NewGetApplicationRequest generates requests for GetApplication
-func NewGetApplicationRequest(server string, name string) (*http.Request, error) {
+// NewDeleteApplicationRequest generates requests for DeleteApplication
+func NewDeleteApplicationRequest(server string, name string) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -184,7 +183,7 @@ func NewGetApplicationRequest(server string, name string) (*http.Request, error)
 		return nil, err
 	}
 
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -282,8 +281,8 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
-	// GetApplication request
-	GetApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetApplicationResponse, error)
+	// DeleteApplication request
+	DeleteApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteApplicationResponse, error)
 
 	// CreateApplication request with any body
 	CreateApplicationWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
@@ -291,7 +290,7 @@ type ClientWithResponsesInterface interface {
 	CreateApplicationWithResponse(ctx context.Context, name string, body CreateApplicationJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
 }
 
-type GetApplicationResponse struct {
+type DeleteApplicationResponse struct {
 	Body         []byte
 	HTTPResponse *http.Response
 	JSON200      *Application
@@ -299,7 +298,7 @@ type GetApplicationResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r GetApplicationResponse) Status() string {
+func (r DeleteApplicationResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -307,7 +306,7 @@ func (r GetApplicationResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r GetApplicationResponse) StatusCode() int {
+func (r DeleteApplicationResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -337,13 +336,13 @@ func (r CreateApplicationResponse) StatusCode() int {
 	return 0
 }
 
-// GetApplicationWithResponse request returning *GetApplicationResponse
-func (c *ClientWithResponses) GetApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetApplicationResponse, error) {
-	rsp, err := c.GetApplication(ctx, name, reqEditors...)
+// DeleteApplicationWithResponse request returning *DeleteApplicationResponse
+func (c *ClientWithResponses) DeleteApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteApplicationResponse, error) {
+	rsp, err := c.DeleteApplication(ctx, name, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseGetApplicationResponse(rsp)
+	return ParseDeleteApplicationResponse(rsp)
 }
 
 // CreateApplicationWithBodyWithResponse request with arbitrary body returning *CreateApplicationResponse
@@ -363,15 +362,15 @@ func (c *ClientWithResponses) CreateApplicationWithResponse(ctx context.Context,
 	return ParseCreateApplicationResponse(rsp)
 }
 
-// ParseGetApplicationResponse parses an HTTP response from a GetApplicationWithResponse call
-func ParseGetApplicationResponse(rsp *http.Response) (*GetApplicationResponse, error) {
+// ParseDeleteApplicationResponse parses an HTTP response from a DeleteApplicationWithResponse call
+func ParseDeleteApplicationResponse(rsp *http.Response) (*DeleteApplicationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &GetApplicationResponse{
+	response := &DeleteApplicationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -432,8 +431,8 @@ func ParseCreateApplicationResponse(rsp *http.Response) (*CreateApplicationRespo
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
 
-	// (GET /steady/application/{name})
-	GetApplication(c *gin.Context, name string)
+	// (DELETE /steady/application/{name})
+	DeleteApplication(c *gin.Context, name string)
 
 	// (POST /steady/application/{name})
 	CreateApplication(c *gin.Context, name string)
@@ -448,8 +447,8 @@ type ServerInterfaceWrapper struct {
 
 type MiddlewareFunc func(c *gin.Context)
 
-// GetApplication operation middleware
-func (siw *ServerInterfaceWrapper) GetApplication(c *gin.Context) {
+// DeleteApplication operation middleware
+func (siw *ServerInterfaceWrapper) DeleteApplication(c *gin.Context) {
 
 	var err error
 
@@ -466,7 +465,7 @@ func (siw *ServerInterfaceWrapper) GetApplication(c *gin.Context) {
 		middleware(c)
 	}
 
-	siw.Handler.GetApplication(c, name)
+	siw.Handler.DeleteApplication(c, name)
 }
 
 // CreateApplication operation middleware
@@ -519,7 +518,7 @@ func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options
 		ErrorHandler:       errorHandler,
 	}
 
-	router.GET(options.BaseURL+"/steady/application/:name", wrapper.GetApplication)
+	router.DELETE(options.BaseURL+"/steady/application/:name", wrapper.DeleteApplication)
 
 	router.POST(options.BaseURL+"/steady/application/:name", wrapper.CreateApplication)
 
@@ -529,14 +528,13 @@ func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8xSTY/TQAz9K5HhGDVZuOXGlxBnjqs9eGfc7CzNzKztIKoq/x150tK0jYSQEOI0yfjZ",
-	"8/zeO4BLQ06Rogp0BxD3RAOWz3c574JDDSnab+aUiTVQKUYcyE7dZ4IORDnEHqYacmJdFEJU6olhmmpg",
-	"ehkDk4fufu4/oh/qEzo9PpNTG/OJOfHts4P0K69ezTbQ7UxDhbhNZSi6b9hb1SMNKUINGnRnF1+V0O+r",
-	"j6f778RSFIB2027ujFvKFDEH6ODtpt20tgbqU+HXSGlv8Kxdc7BdJ6v2VKSxhUrpi4cOPpMulbZVJKco",
-	"88Jv2tYOl6JSLN3L0c8yezO7Zl+vmbbQwavmbGtz9LRZPlPk8CSOQ54dXg6uThygoLY47vSv0ZitXSEw",
-	"RvqRySn5is6YjIwDKbFAd3+4alHspdJUbcNOiavHPZjJ0BVHoD7G9JS2c0iUR6oXfK8D9WDRlBW3PjCh",
-	"0rVhLyOJvk9+/0ciXUZ7Xuv36T7i1gN+qc6CpomE3tvxK/KXckw3ybv7V8mT0TkS+X9SN03TzwAAAP//",
-	"mig8VhkFAAA=",
+	"H4sIAAAAAAAC/8RSwW7UMBD9lWjgGG1SuOUGlANnjlUPrj27dZXY7swEWEX+dzT2rjbbVKqQEJzGyTyP",
+	"37z3FrBxSjFgEIZhAbaPOJly/JTS6K0RH4N+JooJSTyWZjATapVjQhiAhXw4QM4tED7PntDBcFdR9+0Z",
+	"FR+e0ArkFr4SRdpOnfjw9lAFbWcqyod9LPe9jNr7Lmjcsbk1OMUALfxA4rIN9Lt+d6NEYsJgkocBPu76",
+	"XQ8tJCOPhUzH5XpnLjp0i26UtetwRCkS6AKl+83BALfl/1o7Zc8pBq47fuh7LTYGwSB6XD/wxFXt6oOe",
+	"3hPuYYB33cWo7uRSt36mKOCQLflUPVsPbn4abipnBwW4N/Mof41JNfQVDnPAXwmtoGvwgkmGzISCxDDc",
+	"LS+uiDlwI7HZ+1GQmocjqLUwFGugPWWvlnU0hGZsV3xfxui+hRRZtp59ITRbz55nZPkc3fGPRLoOdF3r",
+	"7UyfcK/H+lqdFU0VyTinxZ0zfi1H3oTv5l+Fj2drkbk5v//fU5dz/h0AAP//UcqM6u4EAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

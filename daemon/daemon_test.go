@@ -11,45 +11,18 @@ import (
 	"testing"
 	"time"
 
-	"github.com/maxmcd/steady/daemon/api"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
 
-type DaemonSuite struct {
-	suite.Suite
-
-	d      *Daemon
-	cancel func()
-	port   int
-}
-
-var _ suite.SetupAllSuite = new(DaemonSuite)
-var _ suite.BeforeTest = new(DaemonSuite)
-var _ suite.AfterTest = new(DaemonSuite)
-
-func (suite *DaemonSuite) SetupSuite() {}
-
-func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {
-	var err error
-	suite.port, err = getFreePort()
-	if err != nil {
-		suite.T().Fatal(err)
-	}
-	suite.d = NewDaemon(suite.T().TempDir(), suite.port)
-	var ctx context.Context
-	ctx, suite.cancel = context.WithCancel(context.Background())
-	suite.d.Start(ctx)
-}
-
-func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
-	suite.cancel()
-	suite.cancel = nil
-	if err := suite.d.Wait(); err != nil {
-		suite.T().Fatal(err)
-	}
-}
+var exampleServer = `
+export default {
+	port: process.env.PORT ?? 3000,
+	fetch(request: Request): Response {
+		return new Response("Hello %s" + request.url);
+	},
+};
+`
 
 func (suite *DaemonSuite) TestConcurrentRequests() {
 	timestamp := time.Now().Format(time.RFC3339)
@@ -81,18 +54,6 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	suite.Equal(requestCount, app.requestCount)
 	suite.Equal(1, app.startCount)
 }
-func TestDaemonSuite(t *testing.T) {
-	suite.Run(t, new(DaemonSuite))
-}
-
-var exampleServer = `
-export default {
-	port: process.env.PORT ?? 3000,
-	fetch(request: Request): Response {
-		return new Response("Hello %s " + request.url);
-	},
-};
-`
 
 func TestNonOverlappingTests(t *testing.T) {
 	d := NewDaemon(t.TempDir(), 8080)
@@ -159,29 +120,13 @@ func BenchmarkActivity(b *testing.B) {
 	}
 }
 
-func TestCreateApplication(t *testing.T) {
-	d := NewDaemon(t.TempDir(), 8080)
+func (suite *DaemonSuite) TestCreateApplication() {
+	client := suite.newClient()
 
-	ctx, cancel := context.WithCancel(context.Background())
+	app, err := client.CreateApplication("max.db", exampleServer)
+	suite.Require().NoError(err)
 
-	d.Start(ctx)
-
-	client, err := api.NewClientWithResponses("http://localhost:8080")
-	if err != nil {
-		t.Fatal(err)
-	}
-	resp, err := client.CreateApplicationWithResponse(context.Background(), "max.hello", api.CreateApplicationJSONRequestBody{
-		Script: exampleServer,
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-	fmt.Println(resp, resp.JSON201)
-
-	cancel()
-	if err := d.Wait(); err != nil {
-		t.Fatal(err)
-	}
+	fmt.Println(app.Name)
 }
 
 func Test_bunRun(t *testing.T) {

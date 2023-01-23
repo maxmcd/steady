@@ -1,28 +1,33 @@
 import sqlite from "bun:sqlite";
 
 let db: sqlite = (sqlite.default ? sqlite.default : sqlite).open("db.sql");
-db.exec(
-  "create table if not exists user (id integer primary key autoincrement, email text)"
-);
+
+// db.exec(`PRAGMA journal_mode=WAL`);
+db.exec(`create table if not exists user (
+  id integer primary key autoincrement,
+  email text
+)`);
 console.log(db.query("select * from user").all());
 
 const port = process.env.PORT ?? 3000;
-console.log(`Listening on port ${port}`);
+console.log("Listening on port " + port);
+
+let insertUser = db.query("insert into user (email) values (?) returning *");
 
 export default {
   port,
+  development: false,
   async fetch(request: Request): Promise<Response> {
     if (request.method === "POST") {
       let req: { email: string } = await request.json();
-      if (!req.email) return new Response("no");
-      return new Response(
-        JSON.stringify(
-          db
-            .query("insert into user (email) values (?) returning *")
-            .all(req.email)
-        )
-      );
+      // console.log(req, request, JSON.stringify(request.headers));
+      if (!req.email) return new Response("no", { status: 401 });
+      // db.exec("insert into user (email) values (?)", req.email);
+
+      // return new Response("");
+      return new Response(JSON.stringify(insertUser.all(req.email)[0]));
     }
+    // return all users
     return new Response(JSON.stringify(db.query("select * from user").all()));
   },
 };
