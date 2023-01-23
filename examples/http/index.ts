@@ -6,6 +6,7 @@ db.exec(`create table if not exists user (
   id integer primary key autoincrement,
   email text
 )`);
+
 console.log(db.query("select * from user").all());
 
 const port = process.env.PORT ?? 3000;

@@ -166,6 +166,14 @@ func (d *Daemon) applicationHandler(c *gin.Context) {
 	}
 }
 
+func (d *Daemon) StopAllApplications() {
+	d.applicationsLock.Lock()
+	for _, app := range d.applications {
+		app.stopProcess()
+	}
+	d.applicationsLock.Unlock()
+}
+
 func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
 	dbs, err := d.findDatabasesForApplication(name)
 	if err != nil {

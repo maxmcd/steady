@@ -77,9 +77,7 @@ func TestNonOverlappingTests(t *testing.T) {
 
 	makeRequest()
 
-	// Wait for shutdown
-	// TODO: parameterize delay time
-	time.Sleep(time.Second)
+	d.StopAllApplications()
 
 	makeRequest()
 

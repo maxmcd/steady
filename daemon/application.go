@@ -60,15 +60,15 @@ func (a *Application) Start() error {
 	return nil
 }
 
-func (w *Application) runLoop() {
+func (a *Application) runLoop() {
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
 		// TODO: stop loop
 		select {
-		case <-w.stopRequestChan:
+		case <-a.stopRequestChan:
 			killTimer.Reset(time.Second)
 		case <-killTimer.C:
-			w.stopProcess()
+			a.stopProcess()
 		}
 	}
 }
@@ -105,26 +105,34 @@ func (a *Application) checkForDBs() error {
 	if err != nil {
 		return err
 	}
-
-	if len(dbs) == 0 {
-		// No db-like files found
-		return nil
+	foundDBFiles := map[string]struct{}{}
+	for _, db := range dbs {
+		foundDBFiles[db] = struct{}{}
 	}
 
 	existingPaths := map[string]struct{}{}
 
 	if a.litestreamServer != nil {
 		for _, db := range a.litestreamServer.DBs() {
-			existingPaths[db.Path()] = struct{}{}
+			path := db.Path()
+			// If we didn't find a litestream db in our project, unwatch it.
+			// TODO: Is this even possible?
+			if _, found := foundDBFiles[path]; !found {
+				if err := a.litestreamServer.Unwatch(path); err != nil {
+					return err
+				}
+			} else {
+				existingPaths[path] = struct{}{}
+			}
 		}
 	}
-
 	newDBs := []string{}
 	for _, db := range dbs {
 		if _, found := existingPaths[db]; !found {
 			newDBs = append(newDBs, db)
 		}
 	}
+
 	if len(newDBs) == 0 {
 		// No new db-like files found that we haven't accounted for
 		return nil

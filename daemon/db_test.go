@@ -2,12 +2,9 @@ package daemon
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"time"
-
-	"github.com/stretchr/testify/assert"
 )
 
 func (suite *DaemonSuite) TestLitestream() {
@@ -31,6 +28,7 @@ func (suite *DaemonSuite) TestLitestream() {
 		t.Fatal(err)
 	}
 
+	counter := 0
 	createRecordRequest := func() {
 		resp, err := http.Post(
 			suite.daemonURL(app.Name),
@@ -38,19 +36,24 @@ func (suite *DaemonSuite) TestLitestream() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, _ := io.ReadAll(resp.Body)
-		fmt.Printf("%q\n", string(b))
-		assert.Equal(t, http.StatusOK, resp.StatusCode)
+		var jsonResponse map[string]interface{}
+		suite.Require().NoError(json.NewDecoder(resp.Body).Decode(&jsonResponse))
+		suite.Require().Equal(http.StatusOK, resp.StatusCode)
+
+		// Here's the real test. Ensure that every time we make a request the ID
+		// increments, even through deletes/restarts
+		counter++
+		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)))
 	}
 
 	fmt.Println(suite.d.dataDirectory)
 
 	createRecordRequest()
-	time.Sleep(time.Second)
+	suite.d.StopAllApplications()
 	createRecordRequest()
 	createRecordRequest()
 	createRecordRequest()
-	time.Sleep(time.Second)
+	suite.d.StopAllApplications()
 	createRecordRequest()
 	createRecordRequest()
 
