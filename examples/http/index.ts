@@ -1,8 +1,7 @@
-import sqlite from "bun:sqlite";
+import { Database } from "bun:sqlite";
 
-let db: sqlite = (sqlite.default ? sqlite.default : sqlite).open("db.sql");
+let db = new Database("db.sql");
 
-// db.exec(`PRAGMA journal_mode=WAL`);
 db.exec(`create table if not exists user (
   id integer primary key autoincrement,
   email text

@@ -3,7 +3,7 @@ package daemon
 import (
 	"context"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"path/filepath"
 	"testing"
@@ -66,7 +66,7 @@ func (suite *DaemonSuite) loadExampleScript(name string) string {
 	}
 	f, err := os.Open(filepath.Join(abs, "index.ts"))
 	suite.Require().NoError(err)
-	b, err := ioutil.ReadAll(f)
+	b, err := io.ReadAll(f)
 	suite.Require().NoError(err)
 	return string(b)
 }

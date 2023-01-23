@@ -55,13 +55,17 @@ func (hm *hostMapping) NewAssignments(assignments map[string][]Range) error {
 	var expectedNextStart int64 = 0
 	for _, r := range ranges {
 		if r.Range.Start != expectedNextStart {
-			return fmt.Errorf("Assignment range is invalid. Expected next range in series to begin with %d, but it began with %d", expectedNextStart, r.Range.Start)
+			return fmt.Errorf(
+				"Assignment range is invalid. Expected next range in series to begin with %d, but it began with %d",
+				expectedNextStart, r.Range.Start)
 		}
 		expectedNextStart = r.Range.End + 1
 		last = r.Range
 	}
 	if last.End != math.MaxInt64 {
-		return fmt.Errorf("Assignment range is invalid. Expected range to end with %d, but it ended with %d", math.MaxInt64, last.End)
+		return fmt.Errorf(
+			"Assignment range is invalid. Expected range to end with %d, but it ended with %d",
+			math.MaxInt64, last.End)
 	}
 
 	// Don't assign and edit values until all validation is complete

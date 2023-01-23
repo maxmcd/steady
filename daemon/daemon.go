@@ -1,15 +1,12 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
-	"math"
 	"net"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"strings"
 	"sync"
@@ -69,13 +66,9 @@ type S3Config struct {
 
 func DaemonOptionWithS3(cfg S3Config) func(*Daemon) { return func(d *Daemon) { d.s3Config = &cfg } }
 
-func (d *Daemon) applicationDirectory(name string) string {
-	return filepath.Join(d.dataDirectory, name)
-}
-
 func (d *Daemon) Wait() error { return d.eg.Wait() }
 
-func (d *Daemon) s3Client() *awss3.S3 {
+func (d *Daemon) s3Client() (*awss3.S3, error) {
 	if d.s3Config == nil {
 		panic("no s3 config")
 	}
@@ -89,9 +82,12 @@ func (d *Daemon) s3Client() *awss3.S3 {
 		DisableSSL:       aws.Bool(true),          // TODO
 		S3ForcePathStyle: aws.Bool(d.s3Config.ForcePathStyle),
 	}
-	newSession := session.New(s3Config)
+	newSession, err := session.NewSession(s3Config)
+	if err != nil {
+		return nil, err
+	}
 
-	return awss3.New(newSession)
+	return awss3.New(newSession), err
 }
 
 func (d *Daemon) newReplica(db *litestream.DB, name string) *litestream.Replica {
@@ -168,7 +164,74 @@ func (d *Daemon) applicationHandler(c *gin.Context) {
 		_, _ = io.Copy(rw, resp.Body)
 		_ = resp.Body.Close()
 	}
+}
 
+func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
+	dbs, err := d.findDatabasesForApplication(name)
+	if err != nil {
+		return err
+	}
+
+	for _, db := range dbs {
+		dbPath := filepath.Join(dir, db)
+
+		// TODO: ensure we validate applications in an isolated environment
+		// instead of just cleaning up after them
+		//
+		// TODO: also we just expect applications to run with an empty db? hmmm,
+		// think about full lifecycle?
+		_ = os.Remove(dbPath)
+
+		replica := d.newReplica(nil, filepath.Join(name, db))
+		generation, err := litestream.FindLatestGeneration(context.TODO(), replica.Client())
+		if err != nil {
+			return err
+		}
+		targetIndex, err := litestream.FindMaxIndexByGeneration(context.TODO(), replica.Client(), generation)
+		if err != nil {
+			return err
+		}
+
+		snapshotIndex, err := litestream.FindSnapshotForIndex(context.TODO(), replica.Client(), generation, targetIndex)
+		if err != nil {
+			return err
+		}
+		if err := litestream.Restore(context.TODO(),
+			replica.Client(),
+			dbPath, generation,
+			snapshotIndex, targetIndex,
+			litestream.NewRestoreOptions()); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error) {
+	s3Client, err := d.s3Client()
+	if err != nil {
+		return nil, err
+	}
+	output, err := s3Client.ListObjects(&awss3.ListObjectsInput{
+		Bucket:    aws.String("litestream"), // TODO
+		Prefix:    aws.String(name + "/"),
+		Delimiter: aws.String("/"),
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	var dbs []string
+	for _, dir := range output.CommonPrefixes {
+		dbName := strings.TrimSuffix(
+			strings.TrimPrefix(
+				*dir.Prefix,
+				name+"/"),
+			"/",
+		)
+		dbs = append(dbs, dbName)
+	}
+	return dbs, nil
 }
 
 func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Application, error) {
@@ -186,7 +249,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 		return nil, err
 	}
 	fileName := filepath.Join(tmpDir, "index.ts")
-	if err := os.WriteFile(fileName, script, 0666); err != nil {
+	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return nil, errors.Wrapf(err, "error creating file %q", fileName)
 	}
 
@@ -195,7 +258,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 		return nil, err
 	}
 
-	cmd, err := bunRun(tmpDir, port)
+	cmd, err := bunRun(tmpDir, port, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -203,62 +266,14 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 
 	var dbs []string
 	if d.s3Config != nil {
-		s3Client := d.s3Client()
-		output, err := s3Client.ListObjects(&awss3.ListObjectsInput{
-			Bucket:    aws.String("litestream"), //TODO
-			Prefix:    aws.String(name + "/"),
-			Delimiter: aws.String("/"),
-		})
-		if err != nil {
+		if err := d.downloadDatabasesIfFound(tmpDir, name); err != nil {
 			return nil, err
 		}
-
-		for _, dir := range output.CommonPrefixes {
-			dbName := strings.TrimSuffix(
-				strings.TrimPrefix(
-					*dir.Prefix,
-					name+"/"),
-				"/",
-			)
-			dbs = append(dbs, dbName)
-		}
 	}
 
-	for _, db := range dbs {
-		dbPath := filepath.Join(tmpDir, db)
-
-		_ = os.Remove(dbPath)
-		// TODO: ensure we validate applications in an isolated environment
-		// instead of just cleaning up after them
-		//
-		// TODO: also we just expect applications to run with an empty db? hmmm,
-		// think about full lifecycle?
-
-		replica := d.newReplica(nil, filepath.Join(name, db))
-		generation, err := litestream.FindLatestGeneration(context.TODO(), replica.Client())
-		if err != nil {
-			panic(err)
-		}
-		targetIndex, err := litestream.FindMaxIndexByGeneration(context.TODO(), replica.Client(), generation)
-		if err != nil {
-			panic(err)
-		}
-
-		snapshotIndex, err := litestream.FindSnapshotForIndex(context.TODO(), replica.Client(), generation, targetIndex)
-		if err != nil {
-			panic(err)
-		}
-		if err := litestream.Restore(context.TODO(),
-			replica.Client(),
-			dbPath, generation,
-			snapshotIndex, targetIndex,
-			litestream.NewRestoreOptions()); err != nil {
-			panic(err)
-		}
-
-	}
-
-	app := d.newApplication(name, tmpDir, port, dbs)
+	app := d.newApplication(name, tmpDir, port)
+	app.DBs = dbs
+	_ = app.Start()
 	d.applicationsLock.Lock()
 	if _, found = d.applications[name]; found {
 		d.applicationsLock.Unlock()
@@ -283,8 +298,9 @@ func (d *Daemon) Start(ctx context.Context) {
 	r.Any(":name/*path", d.applicationHandler)
 
 	srv := http.Server{
-		Addr:    fmt.Sprintf(":%d", d.port),
-		Handler: r,
+		Addr:              fmt.Sprintf(":%d", d.port),
+		Handler:           r,
+		ReadHeaderTimeout: time.Second * 15,
 	}
 
 	d.eg.Go(func() error {
@@ -296,238 +312,24 @@ func (d *Daemon) Start(ctx context.Context) {
 	})
 	d.eg.Go(func() error {
 		<-ctx.Done()
-		if err := srv.Shutdown(context.Background()); err != nil {
-			return err
+		timeoutCtx, _ := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
+		if err := srv.Shutdown(timeoutCtx); err != nil {
+			fmt.Printf("WARN: error shutting down http server: %v\n", err)
 		}
 		d.applicationsLock.Lock()
 		defer d.applicationsLock.Unlock()
 
-		for _, app := range d.applications {
+		for name, app := range d.applications {
 			// TODO: will need to be parallel if we ever care about shutdown
 			// speed with live applications
-			app.stopProcess()
+			if err := app.shutdown(); err != nil {
+				fmt.Printf("WARN: error shutting down application %q: %v\n", name, err)
+			}
 		}
-
 		return nil
 	})
 
 	// TODO: wait until server is live to exit?
-}
-
-type Application struct {
-	name string
-	// port is the port this application listens on
-	port int
-	// dir is the directory that contains all application data
-	dir string
-
-	mutex           sync.Mutex
-	inFlightCounter int
-
-	cmd     *exec.Cmd
-	running bool
-
-	C               chan struct{}
-	stopRequestChan chan struct{}
-
-	requestCount int
-	startCount   int
-
-	dbs              []string
-	litestreamServer *litestream.Server
-	createDBFunc     func(string) (*litestream.DB, error)
-}
-
-func (d *Daemon) newApplication(name string, dir string, port int, dbs []string) *Application {
-	w := &Application{
-		name:            name,
-		dir:             dir,
-		port:            port,
-		stopRequestChan: make(chan struct{}),
-		createDBFunc:    d.createDB(name),
-		dbs:             dbs,
-	}
-
-	if err := w.setupDBs(); err != nil {
-		panic(err)
-	}
-
-	go w.runLoop()
-	return w
-}
-
-func (w *Application) runLoop() {
-	killTimer := time.NewTimer(math.MaxInt64)
-	for {
-		// TODO: stop loop
-		select {
-		case <-w.stopRequestChan:
-			killTimer.Reset(time.Second)
-		case <-killTimer.C:
-			w.stopProcess()
-		}
-	}
-}
-
-func (w *Application) stopProcess() {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	if !w.running {
-		return
-	}
-	_ = w.cmd.Process.Kill()
-	w.running = false
-	if err := w.checkForDBs(); err != nil {
-		fmt.Println("Warn: ", err)
-	}
-}
-
-func (w *Application) shutdown() error {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	if !w.running {
-		return nil
-	}
-	_ = w.cmd.Process.Kill()
-	w.running = false
-	return w.litestreamServer.Close()
-}
-
-func (w *Application) setupDBs() error {
-	if w.dbs == nil {
-		return nil
-	}
-	w.litestreamServer = litestream.NewServer()
-	if err := w.litestreamServer.Open(); err != nil {
-		return err
-	}
-	for _, db := range w.dbs {
-		dbPath := filepath.Join(w.dir, db)
-		if err := w.litestreamServer.Watch(dbPath, w.createDBFunc); err != nil {
-			return err
-		}
-	}
-	for _, db := range w.litestreamServer.DBs() {
-		if err := db.Sync(context.Background()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-func (w *Application) checkForDBs() error {
-	if w.litestreamServer != nil {
-		return nil
-	}
-
-	dbs, err := filepath.Glob(filepath.Join(w.dir, "./*.sql"))
-	if err != nil {
-		return err
-	}
-
-	if len(dbs) == 0 {
-		return nil
-	}
-
-	w.litestreamServer = litestream.NewServer()
-	if err := w.litestreamServer.Open(); err != nil {
-		return err
-	}
-	for _, db := range dbs {
-		if err := w.litestreamServer.Watch(db, w.createDBFunc); err != nil {
-			return err
-		}
-	}
-	for _, db := range w.litestreamServer.DBs() {
-		if err := db.Sync(context.Background()); err != nil {
-			return err
-		}
-	}
-	return nil
-}
-
-func bunRun(dir string, port int) (*exec.Cmd, error) {
-	cmd := exec.Command("bun", "index.ts")
-	cmd.Dir = dir
-	cmd.Env = []string{fmt.Sprintf("PORT=%d", port)}
-
-	// TODO: log to file
-	var buf bytes.Buffer
-	cmd.Stderr = &buf
-	cmd.Stdout = &buf
-	err := cmd.Start()
-	if err != nil {
-		return nil, err
-	}
-	// Mutex to prevent race on access of process state both while ending the
-	// process and also during out checks
-	lock := sync.Mutex{}
-	var processState *os.ProcessState
-
-	go func() {
-		// Ensure ProcessState is populated in the event of a failure
-		_ = cmd.Wait()
-		lock.Lock()
-		processState = cmd.ProcessState
-		lock.Unlock()
-	}()
-	count := 20
-	for i := 0; i < count; i++ {
-		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-		if err == nil {
-			_ = conn.Close()
-			break
-		}
-		exited := false
-		exitCode := 0
-		lock.Lock()
-		// TODO: clean up!
-		exists := processState != nil
-		if exists {
-			exitCode = processState.ExitCode()
-			exited = processState.Exited()
-		}
-		lock.Unlock()
-		if exists && exited {
-			if exitCode != 0 {
-				if len(buf.Bytes()) == 0 {
-					return nil, fmt.Errorf("Exited with code %d", exitCode)
-				}
-				return nil, fmt.Errorf(buf.String())
-			}
-			return nil, fmt.Errorf("Exited with code %d", exitCode)
-		}
-
-		if i == count-1 {
-			_ = cmd.Process.Kill()
-			return nil, fmt.Errorf("Process is running, but nothing is listening on the expected port")
-		}
-		exponent := time.Duration(i + 1*i + 1)
-		time.Sleep(time.Millisecond * exponent)
-	}
-	return cmd, nil
-}
-
-func (w *Application) newRequest() (err error) {
-	w.mutex.Lock()
-	defer w.mutex.Unlock()
-	w.inFlightCounter++
-	w.requestCount++
-	if !w.running {
-		w.startCount++
-		w.running = true
-		w.cmd, err = bunRun(w.dir, w.port)
-		return err
-	}
-	return nil
-}
-
-func (w *Application) endOfRequest() {
-	w.mutex.Lock()
-	w.inFlightCounter--
-	if w.inFlightCounter == 0 {
-		w.stopRequestChan <- struct{}{}
-	}
-	w.mutex.Unlock()
 }
 
 func getFreePort() (int, error) {

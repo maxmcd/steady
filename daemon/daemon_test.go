@@ -42,7 +42,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 				return err
 			}
 			var buf bytes.Buffer
-			io.Copy(&buf, resp.Body)
+			_, _ = io.Copy(&buf, resp.Body)
 			suite.Contains(buf.String(), timestamp)
 			return nil
 		})
@@ -71,7 +71,7 @@ func TestNonOverlappingTests(t *testing.T) {
 			t.Fatal(err)
 		}
 		var buf bytes.Buffer
-		io.Copy(&buf, resp.Body)
+		_, _ = io.Copy(&buf, resp.Body)
 		assert.Contains(t, buf.String(), timestamp)
 	}
 
@@ -110,7 +110,7 @@ func BenchmarkActivity(b *testing.B) {
 			b.Fatal(err)
 		}
 		var buf bytes.Buffer
-		io.Copy(&buf, resp.Body)
+		_, _ = io.Copy(&buf, resp.Body)
 		assert.Contains(b, buf.String(), timestamp)
 	}
 	cancel()
@@ -147,13 +147,13 @@ func Test_bunRun(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			f.Write([]byte(tt.script))
+			_, _ = f.Write([]byte(tt.script))
 			_ = f.Close()
 			port, err := getFreePort()
 			if err != nil {
 				t.Fatal(err)
 			}
-			got, err := bunRun(dir, port)
+			got, err := bunRun(dir, port, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
 				return

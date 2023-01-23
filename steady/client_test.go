@@ -25,7 +25,4 @@ func (s *RobodialTestSuite) SetupTest() {
 	s.env.SetStartTime(s.now)
 }
 
-func (s *RobodialTestSuite) TestCreateUser() {
-	s.env.RegisterWorkflow(new(UserWorkflow).Workflow)
-
-}
+func (s *RobodialTestSuite) TestCreateUser() { s.env.RegisterWorkflow(new(UserWorkflow).Workflow) }

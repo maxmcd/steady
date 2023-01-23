@@ -11,11 +11,6 @@ type server struct {
 	daemon *Daemon
 }
 
-type HTTPError struct {
-	code int
-	err  error
-}
-
 var _ api.ServerInterface = server{}
 
 func (s server) GetApplication(c *gin.Context, name string) {

@@ -3,7 +3,7 @@ package daemon
 import (
 	"bytes"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"net/http"
 	"time"
 
@@ -38,7 +38,7 @@ func (suite *DaemonSuite) TestLitestream() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		b, _ := ioutil.ReadAll(resp.Body)
+		b, _ := io.ReadAll(resp.Body)
 		fmt.Printf("%q\n", string(b))
 		assert.Equal(t, http.StatusOK, resp.StatusCode)
 	}

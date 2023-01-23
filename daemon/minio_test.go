@@ -54,7 +54,10 @@ func NewMinioServer(t *testing.T) MinioServer {
 		DisableSSL:       aws.Bool(false),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	newSession := session.New(s3Config)
+	newSession, err := session.NewSession(s3Config)
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	s3Client := s3.New(newSession)
 
