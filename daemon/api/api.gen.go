@@ -23,7 +23,9 @@ import (
 
 // Application defines model for Application.
 type Application struct {
-	Name string `json:"name"`
+	Name         string `json:"name"`
+	RequestCount int    `json:"request_count"`
+	StartCount   int    `json:"start_count"`
 }
 
 // Error defines model for Error.
@@ -115,6 +117,9 @@ type ClientInterface interface {
 	// DeleteApplication request
 	DeleteApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetApplication request
+	GetApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateApplication request with any body
 	CreateApplicationWithBody(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -123,6 +128,18 @@ type ClientInterface interface {
 
 func (c *Client) DeleteApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeleteApplicationRequest(c.Server, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *Client) GetApplication(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetApplicationRequest(c.Server, name)
 	if err != nil {
 		return nil, err
 	}
@@ -184,6 +201,40 @@ func NewDeleteApplicationRequest(server string, name string) (*http.Request, err
 	}
 
 	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetApplicationRequest generates requests for GetApplication
+func NewGetApplicationRequest(server string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithLocation("simple", false, "name", runtime.ParamLocationPath, name)
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/steady/application/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -284,6 +335,9 @@ type ClientWithResponsesInterface interface {
 	// DeleteApplication request
 	DeleteApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*DeleteApplicationResponse, error)
 
+	// GetApplication request
+	GetApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetApplicationResponse, error)
+
 	// CreateApplication request with any body
 	CreateApplicationWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error)
 
@@ -307,6 +361,29 @@ func (r DeleteApplicationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeleteApplicationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetApplicationResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *Application
+	JSONDefault  *Error
+}
+
+// Status returns HTTPResponse.Status
+func (r GetApplicationResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetApplicationResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -345,6 +422,15 @@ func (c *ClientWithResponses) DeleteApplicationWithResponse(ctx context.Context,
 	return ParseDeleteApplicationResponse(rsp)
 }
 
+// GetApplicationWithResponse request returning *GetApplicationResponse
+func (c *ClientWithResponses) GetApplicationWithResponse(ctx context.Context, name string, reqEditors ...RequestEditorFn) (*GetApplicationResponse, error) {
+	rsp, err := c.GetApplication(ctx, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetApplicationResponse(rsp)
+}
+
 // CreateApplicationWithBodyWithResponse request with arbitrary body returning *CreateApplicationResponse
 func (c *ClientWithResponses) CreateApplicationWithBodyWithResponse(ctx context.Context, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateApplicationResponse, error) {
 	rsp, err := c.CreateApplicationWithBody(ctx, name, contentType, body, reqEditors...)
@@ -371,6 +457,39 @@ func ParseDeleteApplicationResponse(rsp *http.Response) (*DeleteApplicationRespo
 	}
 
 	response := &DeleteApplicationResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest Application
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest Error
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetApplicationResponse parses an HTTP response from a GetApplicationWithResponse call
+func ParseGetApplicationResponse(rsp *http.Response) (*GetApplicationResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetApplicationResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -434,6 +553,9 @@ type ServerInterface interface {
 	// (DELETE /steady/application/{name})
 	DeleteApplication(ctx echo.Context, name string) error
 
+	// (GET /steady/application/{name})
+	GetApplication(ctx echo.Context, name string) error
+
 	// (POST /steady/application/{name})
 	CreateApplication(ctx echo.Context, name string) error
 }
@@ -456,6 +578,22 @@ func (w *ServerInterfaceWrapper) DeleteApplication(ctx echo.Context) error {
 
 	// Invoke the callback with all the unmarshalled arguments
 	err = w.Handler.DeleteApplication(ctx, name)
+	return err
+}
+
+// GetApplication converts echo context to params.
+func (w *ServerInterfaceWrapper) GetApplication(ctx echo.Context) error {
+	var err error
+	// ------------- Path parameter "name" -------------
+	var name string
+
+	err = runtime.BindStyledParameterWithLocation("simple", false, "name", runtime.ParamLocationPath, ctx.Param("name"), &name)
+	if err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
+	}
+
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.GetApplication(ctx, name)
 	return err
 }
 
@@ -504,6 +642,7 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 	}
 
 	router.DELETE(baseURL+"/steady/application/:name", wrapper.DeleteApplication)
+	router.GET(baseURL+"/steady/application/:name", wrapper.GetApplication)
 	router.POST(baseURL+"/steady/application/:name", wrapper.CreateApplication)
 
 }
@@ -511,13 +650,14 @@ func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8RSPW/cMAz9Kwbb0Tg77eatbTp07hhkUCTeRYEtKSRd9GDovxeU7nC+OEBQoGgmyubj",
-	"13tvARunFAMGYRgWYPuIkynPLymN3hrxMehnopiQxGNJBjOhRjkmhAFYyIcD5NwC4fPsCR0MdxV1355R",
-	"8eEJrUBu4TtRpG3XiQ9vN1XQtqeifNjHUu9l1NxPQeOOza3BKQZo4RcSl2ug3/W7G10kJgwmeRjg867f",
-	"9dBCMvJYlum4lHfmwkO36EVZsw5HlEKBHlCyPxwMcFv+r7nT7TnFwPXGT32vwcYgGESf6wFPXNmuOujr",
-	"I+EeBvjQXYTqTip16zGFAYdsyaeq2boxlOTezKP8s+lVxFfmzgF/J7SCrsELJhkyEwoSw3C3vCgRc+BG",
-	"YrP3oyA1D0dQOWEockB78lsNazsIzdiu9n1pnfsWUmTZ6vSN0Gx1ep6R5Wt0x78i6drE9ay3fXzCvW7l",
-	"a3ZWaypJxjkN7uzrazryxnA3/8twPFuLzM15/ru7Luf8JwAA//8Brpde4gQAAA==",
+	"H4sIAAAAAAAC/+xUwY7TMBD9lWjgGDVZuOUGLEKcOa5WyGtPs64S28xMEFWVf0djt2raVCAkBJc92e2M",
+	"5828eS8HsHFMMWAQhu4AbJ9xNPn6LqXBWyM+Bv2ZKCYk8ZiDwYyop+wTQgcs5EMPcw2E3yZk+WrjFGSR",
+	"4YNgj6QpLIZ+kXAs4gkddA8F6fLRNcpjfSoSn3ZoRUE+EkVa9z1yf6PtK0hNWtfULB+2Mb/3Mmjsi6Bx",
+	"++re4BgD1PAdiTNf0G7azZ02EhMGkzx08HbTblqoIRl5zs00nJ835sx0c9B5Z406HFAyyTpAjn520MF9",
+	"/n+5He2eUwxcZnzTtnrYGAQLxUuAHZd9lk3r7TXhFjp41Zyl0Bx10CxhMgMO2ZJPRRXLwpCDWzMN8tfQ",
+	"yxJv4E4BfyS0gq7Cc06PsqbrE8oLV2uukiEzoiAxdA+Hqydieq4kVls/CFL1tAeVPnRZulAf3X+y5tk6",
+	"QhPWi36vbfZYQ4p8Y0kfCM1a09nj76Pb/xFJl4YvY/3e88e827a/ZGfRppJknNPDnb4Bl3TMK8Hd/SvB",
+	"8WQtMlcn/P+uunmefwYAAP//OHFMfHAGAAA=",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

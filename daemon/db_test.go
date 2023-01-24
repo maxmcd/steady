@@ -1,29 +1,33 @@
-package daemon
+package daemon_test
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/internal/daemontest"
 )
 
 func (suite *DaemonSuite) TestLitestream() {
 	t := suite.T()
 
-	minIOServer := NewMinioServer(t)
+	minIOServer := daemontest.NewMinioServer(t)
 	fmt.Println(minIOServer.Address)
 
-	suite.d.s3Config = &S3Config{
+	d, _, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(daemon.S3Config{
 		AccessKeyID:     minIOServer.Username,
 		SecretAccessKey: minIOServer.Password,
 		Bucket:          minIOServer.BucketName,
 		Endpoint:        "http://" + minIOServer.Address,
 		SkipVerify:      true,
 		ForcePathStyle:  true,
-	}
+	}))
 
-	client := suite.newClient()
-	app, err := client.CreateApplication("max.db", suite.loadExampleScript("http"))
+	client := suite.NewClient(d)
+	app, err := client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +35,7 @@ func (suite *DaemonSuite) TestLitestream() {
 	counter := 0
 	createRecordRequest := func() {
 		resp, err := http.Post(
-			suite.daemonURL(app.Name),
+			suite.DaemonURL(d, app.Name),
 			"application/json", bytes.NewBuffer([]byte(`{"email":"lite"}`)))
 		if err != nil {
 			t.Fatal(err)
@@ -45,23 +49,22 @@ func (suite *DaemonSuite) TestLitestream() {
 		counter++
 		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)))
 	}
-	fmt.Println(suite.d.dataDirectory)
 
 	createRecordRequest()
-	suite.d.StopAllApplications()
+	d.StopAllApplications()
 	createRecordRequest()
 	createRecordRequest()
 	createRecordRequest()
-	suite.d.StopAllApplications()
+	d.StopAllApplications()
 	createRecordRequest()
 	createRecordRequest()
 
-	if _, err := client.DeleteApplication(app.Name); err != nil {
+	if _, err := client.DeleteApplication(context.Background(), app.Name); err != nil {
 		t.Fatal(err)
 	}
 	fmt.Println("deleted")
 
-	app, err = client.CreateApplication("max.db", suite.loadExampleScript("http"))
+	app, err = client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))
 	if err != nil {
 		t.Fatal(err)
 	}

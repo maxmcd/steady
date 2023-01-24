@@ -34,8 +34,8 @@ func NewClient(server string) (*Client, error) {
 	return &Client{client: client}, nil
 }
 
-func (c *Client) CreateApplication(name, script string) (*api.Application, error) {
-	resp, err := c.client.CreateApplicationWithResponse(context.Background(), name, api.CreateApplicationJSONRequestBody{
+func (c *Client) CreateApplication(ctx context.Context, name, script string) (*api.Application, error) {
+	resp, err := c.client.CreateApplicationWithResponse(ctx, name, api.CreateApplicationJSONRequestBody{
 		Script: script,
 	})
 	if err != nil {
@@ -47,8 +47,20 @@ func (c *Client) CreateApplication(name, script string) (*api.Application, error
 	return resp.JSON201, nil
 }
 
-func (c *Client) DeleteApplication(name string) (*api.Application, error) {
-	resp, err := c.client.DeleteApplicationWithResponse(context.Background(), name)
+func (c *Client) DeleteApplication(ctx context.Context, name string) (*api.Application, error) {
+	resp, err := c.client.DeleteApplicationWithResponse(ctx, name)
+	if err != nil {
+		return nil, err
+	}
+	if resp.JSONDefault != nil {
+		return nil, errors.New(resp.JSONDefault.Msg)
+	}
+
+	return resp.JSON200, nil
+}
+
+func (c *Client) GetApplication(ctx context.Context, name string) (*api.Application, error) {
+	resp, err := c.client.GetApplicationWithResponse(ctx, name)
 	if err != nil {
 		return nil, err
 	}

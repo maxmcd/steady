@@ -13,7 +13,8 @@ type Client struct {
 }
 
 type User struct {
-	Email string
+	Email    string
+	Username string
 }
 
 func (c *Client) NewUser(ctx context.Context, user User) error {
@@ -24,5 +25,13 @@ func (c *Client) NewUser(ctx context.Context, user User) error {
 		return err
 	}
 	fmt.Println(run.GetID())
+
 	return nil
+}
+
+type ClientInterface interface {
+	CreateUser(email string) (User, error)
+	// LogIn(email string) (User, error)
+	CreateApplication(name string) error
+	DeployApplication(user, name string) error
 }

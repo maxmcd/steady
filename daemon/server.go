@@ -17,12 +17,16 @@ var _ api.ServerInterface = server{}
 
 func (s server) GetApplication(c echo.Context, name string) error {
 	s.daemon.applicationsLock.RLock()
-	_, found := s.daemon.applications[name]
+	app, found := s.daemon.applications[name]
 	s.daemon.applicationsLock.RUnlock()
 	if !found {
 		return echo.NewHTTPError(http.StatusNotFound, api.Error{Msg: "not found"})
 	}
-	return c.JSON(http.StatusOK, api.Application{Name: name})
+	return c.JSON(http.StatusOK, api.Application{
+		Name:         name,
+		RequestCount: app.requestCount,
+		StartCount:   app.startCount,
+	})
 }
 
 func (s server) CreateApplication(c echo.Context, name string) error {

@@ -1,4 +1,4 @@
-package daemon
+package daemon_test
 
 import (
 	"bytes"
@@ -6,12 +6,13 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
-	"path/filepath"
 	"testing"
 	"time"
 
+	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -24,20 +25,31 @@ export default {
 };
 `
 
+type DaemonSuite struct {
+	daemontest.DaemonSuite
+}
+
+func TestDaemonSuite(t *testing.T) { suite.Run(t, new(DaemonSuite)) }
+
 func (suite *DaemonSuite) TestConcurrentRequests() {
+	t := suite.T()
+	d, _, _ := suite.CreateDaemon()
+
+	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
-	app, err := suite.d.validateAndAddApplication(
-		"max.hello", []byte(fmt.Sprintf(exampleServer, timestamp)))
-	suite.NoError(err)
+
+	name := "max.hello"
+	_, err := client.CreateApplication(context.Background(), name, fmt.Sprintf(exampleServer, timestamp))
+	if err != nil {
+		t.Fatal(err)
+	}
 
 	eg, _ := errgroup.WithContext(context.Background())
-
-	fmt.Println(app.port)
 
 	requestCount := 5
 	for i := 0; i < requestCount; i++ {
 		eg.Go(func() error {
-			resp, err := http.Get(fmt.Sprintf("http://localhost:%d/max.hello/hi", suite.port))
+			resp, err := http.Get(suite.DaemonURL(d, name, "hi"))
 			if err != nil {
 				return err
 			}
@@ -51,25 +63,32 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 		})
 	}
 	if err := eg.Wait(); err != nil {
-		suite.T().Fatal(err)
-	}
-
-	suite.Equal(requestCount, app.requestCount)
-	suite.Equal(1, app.startCount)
-}
-
-func TestNonOverlappingTests(t *testing.T) {
-	d := NewDaemon(t.TempDir(), 8080)
-	timestamp := time.Now().Format(time.RFC3339)
-
-	ctx, cancel := context.WithCancel(context.Background())
-	if _, err := d.validateAndAddApplication("max.hello", []byte(fmt.Sprintf(exampleServer, timestamp))); err != nil {
 		t.Fatal(err)
 	}
-	d.Start(ctx)
+
+	app, err := client.GetApplication(context.Background(), name)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	suite.Equal(requestCount, app.RequestCount)
+	suite.Equal(1, app.StartCount)
+}
+
+func (suite *DaemonSuite) TestNonOverlappingTests() {
+	t := suite.T()
+	d, _, _ := suite.CreateDaemon()
+	client := suite.NewClient(d)
+	timestamp := time.Now().Format(time.RFC3339)
+
+	name := "max.hello"
+	if _, err := client.CreateApplication(context.Background(),
+		name, fmt.Sprintf(exampleServer, timestamp)); err != nil {
+		t.Fatal(err)
+	}
 
 	makeRequest := func() {
-		resp, err := http.Get("http://localhost:8080/max.hello/hi")
+		resp, err := http.Get(suite.DaemonURL(d, name, "hi"))
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -84,21 +103,24 @@ func TestNonOverlappingTests(t *testing.T) {
 
 	makeRequest()
 
-	cancel()
-	if err := d.Wait(); err != nil {
+	app, err := client.GetApplication(context.Background(), name)
+	if err != nil {
 		t.Fatal(err)
 	}
-
-	app := d.applications["max.hello"]
-	assert.Equal(t, 2, app.requestCount)
-	assert.Equal(t, 2, app.startCount)
+	assert.Equal(t, 2, app.RequestCount)
+	assert.Equal(t, 2, app.StartCount)
 }
 
 func BenchmarkActivity(b *testing.B) {
-	d := NewDaemon(b.TempDir(), 8080)
+	d := daemon.NewDaemon(b.TempDir(), "localhost:0")
 	timestamp := time.Now().Format(time.RFC3339)
 
-	if _, err := d.validateAndAddApplication("max.hello", []byte(fmt.Sprintf(exampleServer, timestamp))); err != nil {
+	client, err := daemon.NewClient(d.ServerAddr())
+	if err != nil {
+		b.Fatal(err)
+	}
+	name := "max.hello"
+	if _, err := client.CreateApplication(context.Background(), name, fmt.Sprintf(exampleServer, timestamp)); err != nil {
 		b.Fatal(err)
 	}
 
@@ -106,7 +128,7 @@ func BenchmarkActivity(b *testing.B) {
 	d.Start(ctx)
 
 	for i := 0; i < b.N; i++ {
-		resp, err := http.Get("http://localhost:8080/max.hello/hi")
+		resp, err := http.Get("http://" + d.ServerAddr() + "/max.hello/hi")
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -118,52 +140,5 @@ func BenchmarkActivity(b *testing.B) {
 
 	if err := d.Wait(); err != nil {
 		b.Fatal(err)
-	}
-}
-
-func (suite *DaemonSuite) TestCreateApplication() {
-	client := suite.newClient()
-
-	app, err := client.CreateApplication("max.db", exampleServer)
-	suite.Require().NoError(err)
-
-	fmt.Println(app.Name)
-}
-
-func Test_bunRun(t *testing.T) {
-	tests := []struct {
-		name    string
-		script  string
-		wantErr bool
-	}{
-		{"junk script", "asdfasdf", true},
-		{"no server", "console.log('hi')", true},
-		{"wrong port", `export default { port: 12345, fetch(request) { return new Response("Hello")} };`, true},
-		{"a good one", `export default { port: process.env.PORT, fetch(request) { return new Response("Hello")} };`, false},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			dir := t.TempDir()
-			f, err := os.Create(filepath.Join(dir, "index.ts"))
-			if err != nil {
-				t.Fatal(err)
-			}
-			_, _ = f.Write([]byte(tt.script))
-			_ = f.Close()
-			port, err := getFreePort()
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := bunRun(dir, port, nil)
-			if (err != nil) != tt.wantErr {
-				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
-				return
-			}
-			if got != nil && got.Process != nil {
-				if err := got.Process.Kill(); err != nil {
-					t.Fatal(err)
-				}
-			}
-		})
 	}
 }

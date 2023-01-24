@@ -21,13 +21,14 @@ import (
 	"github.com/labstack/echo/v4"
 	"github.com/labstack/echo/v4/middleware"
 	"github.com/maxmcd/steady/daemon/api"
+	"github.com/maxmcd/steady/internal/netx"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
 
 type Daemon struct {
 	dataDirectory string
-	port          int
+	addr          string
 	client        http.Client
 
 	s3Config *S3Config
@@ -35,16 +36,19 @@ type Daemon struct {
 	applicationsLock sync.RWMutex
 	applications     map[string]*Application
 
-	eg *errgroup.Group
+	listener     net.Listener
+	listenerWait *sync.WaitGroup
+	eg           *errgroup.Group
 }
 
 type DaemonOption func(*Daemon)
 
-func NewDaemon(dataDirectory string, port int, opts ...DaemonOption) *Daemon {
+func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon {
 	d := &Daemon{
 		dataDirectory: dataDirectory,
-		port:          port,
+		addr:          addr,
 		applications:  map[string]*Application{},
+		listenerWait:  &sync.WaitGroup{},
 		client: http.Client{
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
@@ -54,6 +58,8 @@ func NewDaemon(dataDirectory string, port int, opts ...DaemonOption) *Daemon {
 			},
 		},
 	}
+	d.listenerWait.Add(1)
+
 	for _, opt := range opts {
 		opt(d)
 	}
@@ -73,6 +79,14 @@ type S3Config struct {
 func DaemonOptionWithS3(cfg S3Config) func(*Daemon) { return func(d *Daemon) { d.s3Config = &cfg } }
 
 func (d *Daemon) Wait() error { return d.eg.Wait() }
+
+func (d *Daemon) ServerAddr() string {
+	if d.eg == nil {
+		panic(fmt.Errorf("server has not started"))
+	}
+	d.listenerWait.Wait()
+	return d.listener.Addr().String()
+}
 
 func (d *Daemon) s3Client() (*awss3.S3, error) {
 	if d.s3Config == nil {
@@ -271,7 +285,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 		return nil, errors.Wrapf(err, "error creating file %q", fileName)
 	}
 
-	port, err := getFreePort()
+	port, err := netx.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
@@ -320,13 +334,17 @@ func (d *Daemon) Start(ctx context.Context) {
 	e.Any("/:name", d.applicationHandler)
 
 	srv := http.Server{
-		Addr:              fmt.Sprintf(":%d", d.port),
 		Handler:           e,
 		ReadHeaderTimeout: time.Second * 15,
 	}
 
-	d.eg.Go(func() error {
-		err := srv.ListenAndServe()
+	d.eg.Go(func() (err error) {
+		d.listener, err = net.Listen("tcp", d.addr)
+		if err != nil {
+			return err
+		}
+		d.listenerWait.Done()
+		err = srv.Serve(d.listener)
 		if err == http.ErrServerClosed {
 			return nil
 		}
@@ -352,18 +370,4 @@ func (d *Daemon) Start(ctx context.Context) {
 	})
 
 	// TODO: wait until server is live to exit?
-}
-
-func getFreePort() (int, error) {
-	addr, err := net.ResolveTCPAddr("tcp", "0.0.0.0:0")
-	if err != nil {
-		return 0, err
-	}
-
-	l, err := net.ListenTCP("tcp", addr)
-	if err != nil {
-		return 0, err
-	}
-	defer l.Close()
-	return l.Addr().(*net.TCPAddr).Port, nil
 }

@@ -1,4 +1,4 @@
-package daemon
+package daemontest
 
 import (
 	"context"
@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/credentials"
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
+	"github.com/maxmcd/steady/internal/netx"
 )
 
 type MinioServer struct {
@@ -27,15 +28,17 @@ func NewMinioServer(t *testing.T) MinioServer {
 
 	dir := t.TempDir()
 
-	port, err := getFreePort()
+	port, err := netx.GetFreePort()
 	if err != nil {
 		t.Fatal(err)
 	}
-	addr := fmt.Sprintf("localhost:%d", port)
+	_ = port
+	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	cmd := exec.Command("minio", "server", "--address="+addr, dir)
 	cmd.Stderr = io.Discard
 	cmd.Stdout = io.Discard
 
+	fmt.Println(cmd.Path, cmd.Args)
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
@@ -82,5 +85,3 @@ func NewMinioServer(t *testing.T) MinioServer {
 	fmt.Println("minio startup", time.Since(start))
 	return server
 }
-
-func TestMinioServer(t *testing.T) { _ = NewMinioServer(t) }

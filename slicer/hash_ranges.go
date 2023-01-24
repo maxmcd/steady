@@ -2,8 +2,10 @@ package slicer
 
 import (
 	"encoding/binary"
+	"encoding/json"
 	"fmt"
 	"hash/fnv"
+	"io"
 	"math"
 	"sort"
 	"sync"
@@ -19,15 +21,7 @@ type RangeAndHost struct {
 	Range Range
 }
 
-type HostMapping interface {
-	// NewAssignments will add a new complete set of assignments. Will return an
-	// error if the total series of ranges is not complete, or if any of the
-	// ranges are invalid.
-	NewAssignments(assignments map[string][]Range) error
-	GetKeyHost(hash int64) RangeAndHost
-}
-
-type hostMapping struct {
+type HostMapping struct {
 	// Mapping of host and their ranges
 	// All ranges in a list, each with their host
 	lock        sync.RWMutex
@@ -35,9 +29,7 @@ type hostMapping struct {
 	ranges      []RangeAndHost
 }
 
-var _ HostMapping = new(hostMapping)
-
-func (hm *hostMapping) NewAssignments(assignments map[string][]Range) error {
+func (hm *HostMapping) NewAssignments(assignments map[string][]Range) error {
 	var ranges []RangeAndHost
 	for host, hostRanges := range assignments {
 		for _, r := range hostRanges {
@@ -75,7 +67,7 @@ func (hm *hostMapping) NewAssignments(assignments map[string][]Range) error {
 	hm.lock.Unlock()
 	return nil
 }
-func (hm *hostMapping) GetKeyHost(hash int64) RangeAndHost {
+func (hm *HostMapping) GetKeyHost(hash int64) RangeAndHost {
 	hm.lock.RLock()
 	defer hm.lock.RUnlock()
 	low := 0
@@ -95,12 +87,24 @@ func (hm *hostMapping) GetKeyHost(hash int64) RangeAndHost {
 	}
 }
 
+func (hm *HostMapping) Serialize(w io.Writer) error {
+	return json.NewEncoder(w).Encode(hm.assignments)
+}
+
 // NewHostMapping will create a new HostMapping from a complete set of
 // assignments. Will return an error if the total series of ranges is not
 // complete, or if any of the ranges are invalid.
-func NewHostMapping(assignments map[string][]Range) (HostMapping, error) {
-	hm := &hostMapping{}
+func NewHostMapping(assignments map[string][]Range) (*HostMapping, error) {
+	hm := &HostMapping{}
 	return hm, hm.NewAssignments(assignments)
+}
+
+func NewFromSerialized(r io.Reader) (*HostMapping, error) {
+	var assignments map[string][]Range
+	if err := json.NewDecoder(r).Decode(&assignments); err != nil {
+		return nil, err
+	}
+	return NewHostMapping(assignments)
 }
 
 func Hash(name string) int64 {

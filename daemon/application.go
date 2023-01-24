@@ -176,8 +176,8 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 
 	// TODO: log to file
 	var buf bytes.Buffer
-	cmd.Stderr = &buf
-	cmd.Stdout = &buf
+	cmd.Stderr = os.Stdout
+	cmd.Stdout = os.Stdout
 	err := cmd.Start()
 	if err != nil {
 		return nil, err

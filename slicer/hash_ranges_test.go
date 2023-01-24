@@ -1,6 +1,7 @@
 package slicer
 
 import (
+	"bytes"
 	"math"
 	"testing"
 
@@ -83,4 +84,24 @@ func TestHash(t *testing.T) {
 	assert.Equal(t, int64(1995353473133317714), Hash("unmoving"))
 	assert.Equal(t, int64(6062514253447166957), Hash("slicer"))
 	assert.Equal(t, int64(8656414110124581126), Hash("$%^&*("))
+}
+
+func TestSerialize(t *testing.T) {
+	mapping, err := NewHostMapping(map[string][]Range{
+		"first":  {{0, 99}, {200, 299}},
+		"second": {{100, 199}, {300, math.MaxInt64}}})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	var buf bytes.Buffer
+	if err := mapping.Serialize(&buf); err != nil {
+		t.Fatal(err)
+	}
+
+	new, err := NewFromSerialized(&buf)
+	if err != nil {
+		t.Fatal(err)
+	}
+	assert.Equal(t, new.assignments, mapping.assignments)
 }

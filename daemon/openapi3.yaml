@@ -40,6 +40,21 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
+    get:
+      operationId: getApplication
+      responses:
+        "200":
+          description: "application"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Application"
+        default:
+          description: unexpected error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
     delete:
       operationId: deleteApplication
       responses:
@@ -61,9 +76,15 @@ components:
       type: object
       required:
         - name
+        - start_count
+        - request_count
       properties:
         name:
           type: string
+        start_count:
+          type: integer
+        request_count:
+          type: integer
 
     Error:
       type: object
