@@ -3,6 +3,9 @@ package daemon
 import (
 	"context"
 	"errors"
+	"net"
+	"net/http"
+	"time"
 
 	"github.com/maxmcd/steady/daemon/api"
 )
@@ -16,7 +19,15 @@ type Client struct {
 }
 
 func NewClient(server string) (*Client, error) {
-	client, err := api.NewClientWithResponses(server)
+	client, err := api.NewClientWithResponses(server, api.WithHTTPClient(
+		&http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout: 5 * time.Second,
+				}).Dial,
+			},
+		},
+	))
 	if err != nil {
 		return nil, err
 	}
@@ -44,5 +55,6 @@ func (c *Client) DeleteApplication(name string) (*api.Application, error) {
 	if resp.JSONDefault != nil {
 		return nil, errors.New(resp.JSONDefault.Msg)
 	}
+
 	return resp.JSON200, nil
 }

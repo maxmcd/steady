@@ -6,5 +6,6 @@ mkShell {
         bun
         minio
         go
+        oapi-codegen
     ];
 }

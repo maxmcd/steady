@@ -20,7 +20,12 @@ type DaemonSuite struct {
 }
 
 func TestDaemonSuite(t *testing.T) {
+	// for i := 0; i < 100; i++ {
 	suite.Run(t, new(DaemonSuite))
+	// if t.Failed() {
+	// 	return
+	// }
+	// }
 }
 
 var _ suite.BeforeTest = new(DaemonSuite)

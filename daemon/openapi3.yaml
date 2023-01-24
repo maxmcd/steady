@@ -44,7 +44,7 @@ paths:
       operationId: deleteApplication
       responses:
         "200":
-          description: "application was deleted"
+          description: "application"
           content:
             application/json:
               schema:

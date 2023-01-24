@@ -1,3 +1,7 @@
+# 2023-01-24
+
+- Stress-testing seems to show that bun can die and then we are left without a process to kill. Figure out why bun is dying and how to recover.
+
 # 2023-01-23
 
 Rough optimistic sqlite migration path:
@@ -15,6 +19,8 @@ On-host startup process:
 
 - validate that script doesn't cause an obvious errors
 - check for existing databases and download them
+- ...
+
 
 # 2023-01-18
 

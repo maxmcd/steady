@@ -44,6 +44,9 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 			var buf bytes.Buffer
 			_, _ = io.Copy(&buf, resp.Body)
 			suite.Contains(buf.String(), timestamp)
+			if resp.StatusCode != http.StatusOK {
+				return fmt.Errorf("Unexpected HTTP status %d", resp.StatusCode)
+			}
 			return nil
 		})
 	}

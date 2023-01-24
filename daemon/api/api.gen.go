@@ -18,7 +18,7 @@ import (
 
 	"github.com/deepmap/oapi-codegen/pkg/runtime"
 	"github.com/getkin/kin-openapi/openapi3"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 )
 
 // Application defines model for Application.
@@ -432,109 +432,92 @@ func ParseCreateApplicationResponse(rsp *http.Response) (*CreateApplicationRespo
 type ServerInterface interface {
 
 	// (DELETE /steady/application/{name})
-	DeleteApplication(c *gin.Context, name string)
+	DeleteApplication(ctx echo.Context, name string) error
 
 	// (POST /steady/application/{name})
-	CreateApplication(c *gin.Context, name string)
+	CreateApplication(ctx echo.Context, name string) error
 }
 
-// ServerInterfaceWrapper converts contexts to parameters.
+// ServerInterfaceWrapper converts echo contexts to parameters.
 type ServerInterfaceWrapper struct {
-	Handler            ServerInterface
-	HandlerMiddlewares []MiddlewareFunc
-	ErrorHandler       func(*gin.Context, error, int)
+	Handler ServerInterface
 }
 
-type MiddlewareFunc func(c *gin.Context)
-
-// DeleteApplication operation middleware
-func (siw *ServerInterfaceWrapper) DeleteApplication(c *gin.Context) {
-
+// DeleteApplication converts echo context to params.
+func (w *ServerInterfaceWrapper) DeleteApplication(ctx echo.Context) error {
 	var err error
-
 	// ------------- Path parameter "name" -------------
 	var name string
 
-	err = runtime.BindStyledParameter("simple", false, "name", c.Param("name"), &name)
+	err = runtime.BindStyledParameterWithLocation("simple", false, "name", runtime.ParamLocationPath, ctx.Param("name"), &name)
 	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter name: %s", err), http.StatusBadRequest)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
 	}
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-	}
-
-	siw.Handler.DeleteApplication(c, name)
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.DeleteApplication(ctx, name)
+	return err
 }
 
-// CreateApplication operation middleware
-func (siw *ServerInterfaceWrapper) CreateApplication(c *gin.Context) {
-
+// CreateApplication converts echo context to params.
+func (w *ServerInterfaceWrapper) CreateApplication(ctx echo.Context) error {
 	var err error
-
 	// ------------- Path parameter "name" -------------
 	var name string
 
-	err = runtime.BindStyledParameter("simple", false, "name", c.Param("name"), &name)
+	err = runtime.BindStyledParameterWithLocation("simple", false, "name", runtime.ParamLocationPath, ctx.Param("name"), &name)
 	if err != nil {
-		siw.ErrorHandler(c, fmt.Errorf("Invalid format for parameter name: %s", err), http.StatusBadRequest)
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, fmt.Sprintf("Invalid format for parameter name: %s", err))
 	}
 
-	for _, middleware := range siw.HandlerMiddlewares {
-		middleware(c)
-	}
-
-	siw.Handler.CreateApplication(c, name)
+	// Invoke the callback with all the unmarshalled arguments
+	err = w.Handler.CreateApplication(ctx, name)
+	return err
 }
 
-// GinServerOptions provides options for the Gin server.
-type GinServerOptions struct {
-	BaseURL      string
-	Middlewares  []MiddlewareFunc
-	ErrorHandler func(*gin.Context, error, int)
+// This is a simple interface which specifies echo.Route addition functions which
+// are present on both echo.Echo and echo.Group, since we want to allow using
+// either of them for path registration
+type EchoRouter interface {
+	CONNECT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	DELETE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	GET(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	HEAD(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	OPTIONS(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PATCH(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	POST(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	PUT(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
+	TRACE(path string, h echo.HandlerFunc, m ...echo.MiddlewareFunc) *echo.Route
 }
 
-// RegisterHandlers creates http.Handler with routing matching OpenAPI spec.
-func RegisterHandlers(router *gin.Engine, si ServerInterface) *gin.Engine {
-	return RegisterHandlersWithOptions(router, si, GinServerOptions{})
+// RegisterHandlers adds each server route to the EchoRouter.
+func RegisterHandlers(router EchoRouter, si ServerInterface) {
+	RegisterHandlersWithBaseURL(router, si, "")
 }
 
-// RegisterHandlersWithOptions creates http.Handler with additional options
-func RegisterHandlersWithOptions(router *gin.Engine, si ServerInterface, options GinServerOptions) *gin.Engine {
-
-	errorHandler := options.ErrorHandler
-
-	if errorHandler == nil {
-		errorHandler = func(c *gin.Context, err error, statusCode int) {
-			c.JSON(statusCode, gin.H{"msg": err.Error()})
-		}
-	}
+// Registers handlers, and prepends BaseURL to the paths, so that the paths
+// can be served under a prefix.
+func RegisterHandlersWithBaseURL(router EchoRouter, si ServerInterface, baseURL string) {
 
 	wrapper := ServerInterfaceWrapper{
-		Handler:            si,
-		HandlerMiddlewares: options.Middlewares,
-		ErrorHandler:       errorHandler,
+		Handler: si,
 	}
 
-	router.DELETE(options.BaseURL+"/steady/application/:name", wrapper.DeleteApplication)
+	router.DELETE(baseURL+"/steady/application/:name", wrapper.DeleteApplication)
+	router.POST(baseURL+"/steady/application/:name", wrapper.CreateApplication)
 
-	router.POST(options.BaseURL+"/steady/application/:name", wrapper.CreateApplication)
-
-	return router
 }
 
 // Base64 encoded, gzipped, json marshaled Swagger object
 var swaggerSpec = []string{
 
-	"H4sIAAAAAAAC/8RSwW7UMBD9lWjgGG1SuOUGlANnjlUPrj27dZXY7swEWEX+dzT2rjbbVKqQEJzGyTyP",
-	"37z3FrBxSjFgEIZhAbaPOJly/JTS6K0RH4N+JooJSTyWZjATapVjQhiAhXw4QM4tED7PntDBcFdR9+0Z",
-	"FR+e0ArkFr4SRdpOnfjw9lAFbWcqyod9LPe9jNr7Lmjcsbk1OMUALfxA4rIN9Lt+d6NEYsJgkocBPu76",
-	"XQ8tJCOPhUzH5XpnLjp0i26UtetwRCkS6AKl+83BALfl/1o7Zc8pBq47fuh7LTYGwSB6XD/wxFXt6oOe",
-	"3hPuYYB33cWo7uRSt36mKOCQLflUPVsPbn4abipnBwW4N/Mof41JNfQVDnPAXwmtoGvwgkmGzISCxDDc",
-	"LS+uiDlwI7HZ+1GQmocjqLUwFGugPWWvlnU0hGZsV3xfxui+hRRZtp59ITRbz55nZPkc3fGPRLoOdF3r",
-	"7UyfcK/H+lqdFU0VyTinxZ0zfi1H3oTv5l+Fj2drkbk5v//fU5dz/h0AAP//UcqM6u4EAAA=",
+	"H4sIAAAAAAAC/8RSPW/cMAz9Kwbb0Tg77eatbTp07hhkUCTeRYEtKSRd9GDovxeU7nC+OEBQoGgmyubj",
+	"13tvARunFAMGYRgWYPuIkynPLymN3hrxMehnopiQxGNJBjOhRjkmhAFYyIcD5NwC4fPsCR0MdxV1355R",
+	"8eEJrUBu4TtRpG3XiQ9vN1XQtqeifNjHUu9l1NxPQeOOza3BKQZo4RcSl2ug3/W7G10kJgwmeRjg867f",
+	"9dBCMvJYlum4lHfmwkO36EVZsw5HlEKBHlCyPxwMcFv+r7nT7TnFwPXGT32vwcYgGESf6wFPXNmuOujr",
+	"I+EeBvjQXYTqTip16zGFAYdsyaeq2boxlOTezKP8s+lVxFfmzgF/J7SCrsELJhkyEwoSw3C3vCgRc+BG",
+	"YrP3oyA1D0dQOWEockB78lsNazsIzdiu9n1pnfsWUmTZ6vSN0Gx1ep6R5Wt0x78i6drE9ay3fXzCvW7l",
+	"a3ZWaypJxjkN7uzrazryxnA3/8twPFuLzM15/ru7Luf8JwAA//8Brpde4gQAAA==",
 }
 
 // GetSwagger returns the content of the embedded swagger specification file

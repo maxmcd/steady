@@ -36,6 +36,8 @@ type Application struct {
 	requestCount int
 	startCount   int
 
+	cancel func()
+
 	litestreamServer *litestream.Server
 	createDBFunc     func(string) (*litestream.DB, error)
 }
@@ -61,6 +63,8 @@ func (a *Application) Start() error {
 }
 
 func (a *Application) runLoop() {
+	ctx, cancel := context.WithCancel(context.Background())
+	a.cancel = cancel
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
 		// TODO: stop loop
@@ -69,6 +73,8 @@ func (a *Application) runLoop() {
 			killTimer.Reset(time.Second)
 		case <-killTimer.C:
 			a.stopProcess()
+		case <-ctx.Done():
+			return
 		}
 	}
 }
@@ -89,11 +95,11 @@ func (a *Application) stopProcess() {
 func (a *Application) shutdown() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if !a.running {
-		return nil
+	a.cancel()
+	if a.running {
+		_ = a.cmd.Process.Kill()
+		a.running = false
 	}
-	_ = a.cmd.Process.Kill()
-	a.running = false
 	if a.litestreamServer != nil {
 		return a.litestreamServer.Close()
 	}

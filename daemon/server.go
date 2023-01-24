@@ -3,9 +3,11 @@ package daemon
 import (
 	"net/http"
 
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
 	"github.com/maxmcd/steady/daemon/api"
 )
+
+//go:generate bash -c "oapi-codegen --package=api --generate=types,client,server,spec ./openapi3.yaml > api/api.gen.go"
 
 type server struct {
 	daemon *Daemon
@@ -13,41 +15,37 @@ type server struct {
 
 var _ api.ServerInterface = server{}
 
-func (s server) GetApplication(c *gin.Context, name string) {
+func (s server) GetApplication(c echo.Context, name string) error {
 	s.daemon.applicationsLock.RLock()
 	_, found := s.daemon.applications[name]
 	s.daemon.applicationsLock.RUnlock()
 	if !found {
-		c.JSON(http.StatusNotFound, api.Error{Msg: "not found"})
-		return
+		return echo.NewHTTPError(http.StatusNotFound, api.Error{Msg: "not found"})
 	}
-	c.JSON(http.StatusOK, api.Application{Name: name})
+	return c.JSON(http.StatusOK, api.Application{Name: name})
 }
 
-func (s server) CreateApplication(c *gin.Context, name string) {
+func (s server) CreateApplication(c echo.Context, name string) error {
 	var body api.CreateApplicationJSONBody
-	if err := c.BindJSON(&body); err != nil {
-		c.JSON(http.StatusBadRequest, api.Error{Msg: err.Error()})
-		return
+	if err := c.Bind(&body); err != nil {
+		return echo.NewHTTPError(http.StatusBadRequest, api.Error{Msg: err.Error()})
 	}
 
 	if _, err := s.daemon.validateAndAddApplication(name, []byte(body.Script)); err != nil {
-		c.JSON(http.StatusBadRequest, api.Error{Msg: err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusBadRequest, api.Error{Msg: err.Error()})
 	}
 
-	c.JSON(http.StatusCreated, api.Application{
+	return c.JSON(http.StatusCreated, api.Application{
 		Name: name,
 	})
 }
 
-func (s server) DeleteApplication(c *gin.Context, name string) {
+func (s server) DeleteApplication(c echo.Context, name string) error {
 	s.daemon.applicationsLock.RLock()
 	_, found := s.daemon.applications[name]
 	s.daemon.applicationsLock.RUnlock()
 	if !found {
-		c.JSON(http.StatusNotFound, api.Error{Msg: "not found"})
-		return
+		return echo.NewHTTPError(http.StatusNotFound, api.Error{Msg: "not found"})
 	}
 
 	s.daemon.applicationsLock.Lock()
@@ -56,11 +54,10 @@ func (s server) DeleteApplication(c *gin.Context, name string) {
 	s.daemon.applicationsLock.Unlock()
 
 	if err := app.shutdown(); err != nil {
-		c.JSON(http.StatusInternalServerError, api.Error{Msg: err.Error()})
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, api.Error{Msg: err.Error()})
 	}
 
-	c.JSON(http.StatusOK, api.Application{
+	return c.JSON(http.StatusOK, api.Application{
 		Name: name,
 	})
 }

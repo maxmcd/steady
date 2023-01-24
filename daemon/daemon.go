@@ -18,13 +18,12 @@ import (
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
-	"github.com/gin-gonic/gin"
+	"github.com/labstack/echo/v4"
+	"github.com/labstack/echo/v4/middleware"
 	"github.com/maxmcd/steady/daemon/api"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
-
-//go:generate bash -c "oapi-codegen --package=api --generate=types,client,gin,spec ./openapi3.yaml > api/api.gen.go"
 
 type Daemon struct {
 	dataDirectory string
@@ -46,7 +45,14 @@ func NewDaemon(dataDirectory string, port int, opts ...DaemonOption) *Daemon {
 		dataDirectory: dataDirectory,
 		port:          port,
 		applications:  map[string]*Application{},
-		client:        http.Client{},
+		client: http.Client{
+			Transport: &http.Transport{
+				Dial: (&net.Dialer{
+					Timeout: 1 * time.Second,
+				}).Dial,
+				ResponseHeaderTimeout: 10 * time.Second,
+			},
+		},
 	}
 	for _, opt := range opts {
 		opt(d)
@@ -116,44 +122,43 @@ func (d *Daemon) createDB(name string) func(path string) (_ *litestream.DB, err 
 	}
 }
 
-func (d *Daemon) applicationHandler(c *gin.Context) {
-	rw, r := c.Writer, c.Request
+func (d *Daemon) applicationHandler(c echo.Context) error {
+	rw, r := c.Response().Writer, c.Request()
 
-	name := c.Params.ByName("name")
+	name := c.Param("name")
 
 	d.applicationsLock.RLock()
 	app, found := d.applications[name]
 	d.applicationsLock.RUnlock()
 	if !found {
-		http.Error(rw, "not found", http.StatusNotFound)
-		return
+		return echo.NewHTTPError(http.StatusNotFound, "not found")
 	}
 
+	originalURL := r.URL
 	// Remove name from path and route to correct port
-	appURL := r.URL
-	appURL.Path = c.Params.ByName("path")
+	appURL := *r.URL
+	appURL.Path = c.Param("_")
 	appURL.Host = fmt.Sprintf("localhost:%d", app.port)
 	appURL.Scheme = "http"
 
 	if err := app.newRequest(); err != nil {
-		http.Error(rw, err.Error(), http.StatusInternalServerError)
-		return
+		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 	}
 	defer app.endOfRequest()
 
 	{
-		r.URL = appURL
+		r.URL = &appURL
 		//http: Request.RequestURI can't be set in client requests.
 		//http://golang.org/src/pkg/net/http/client.go
 
+		uri := r.RequestURI
 		r.RequestURI = ""
 		// TODO: Set to expected path for application to see
 		// req.Header.Set("Host", "TODO")
 
 		resp, err := d.client.Do(r)
 		if err != nil {
-			http.Error(rw, err.Error(), http.StatusInternalServerError)
-			return
+			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
 		}
 		_ = r.Body.Close()
 
@@ -163,7 +168,12 @@ func (d *Daemon) applicationHandler(c *gin.Context) {
 		rw.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(rw, resp.Body)
 		_ = resp.Body.Close()
+
+		// Restore the uri for use with the echo logger middleware
+		r.RequestURI = uri
+		r.URL = originalURL
 	}
+	return nil
 }
 
 func (d *Daemon) StopAllApplications() {
@@ -299,15 +309,19 @@ func (d *Daemon) Start(ctx context.Context) {
 	}
 	d.eg, ctx = errgroup.WithContext(ctx)
 
-	gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
+	e := echo.New()
+	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
+		// [GIN] 2023/01/23 - 21:00:26 | 200 |   30.208583ms |       127.0.0.1 | GET      "/max.hello/hi"
+		Format: "${time_rfc3339} | ${status} | ${latency_human}\t | ${host} | ${method} | ${path} \n",
+	}))
+	api.RegisterHandlers(e, server{daemon: d})
 
-	api.RegisterHandlersWithOptions(r, server{daemon: d}, api.GinServerOptions{})
-	r.Any(":name/*path", d.applicationHandler)
+	e.Any("/:name/*", d.applicationHandler)
+	e.Any("/:name", d.applicationHandler)
 
 	srv := http.Server{
 		Addr:              fmt.Sprintf(":%d", d.port),
-		Handler:           r,
+		Handler:           e,
 		ReadHeaderTimeout: time.Second * 15,
 	}
 

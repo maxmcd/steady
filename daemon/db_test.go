@@ -45,7 +45,6 @@ func (suite *DaemonSuite) TestLitestream() {
 		counter++
 		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)))
 	}
-
 	fmt.Println(suite.d.dataDirectory)
 
 	createRecordRequest()

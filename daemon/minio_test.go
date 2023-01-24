@@ -1,9 +1,11 @@
 package daemon
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"os/exec"
+	"strings"
 	"testing"
 	"time"
 
@@ -21,6 +23,8 @@ type MinioServer struct {
 }
 
 func NewMinioServer(t *testing.T) MinioServer {
+	start := time.Now()
+
 	dir := t.TempDir()
 
 	port, err := getFreePort()
@@ -35,11 +39,9 @@ func NewMinioServer(t *testing.T) MinioServer {
 	if err := cmd.Start(); err != nil {
 		t.Fatal(err)
 	}
-	go func() {
-		if err := cmd.Wait(); err != nil {
-			t.Fatal(err)
-		}
-	}()
+
+	go func() { _ = cmd.Wait() }()
+	t.Cleanup(func() { _ = cmd.Process.Kill() })
 
 	server := MinioServer{
 		Address:    addr,
@@ -61,18 +63,23 @@ func NewMinioServer(t *testing.T) MinioServer {
 
 	s3Client := s3.New(newSession)
 
-	for i := 0; i < 5; i++ {
+	for i := 0; i < 10; i++ {
+		fmt.Println("minio startup", time.Since(start))
 		time.Sleep(time.Millisecond * time.Duration(i*i))
-		if _, err = s3Client.CreateBucket(&s3.CreateBucketInput{
+		ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*50)
+		if _, err = s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 			Bucket: aws.String(server.BucketName),
 		}); err == nil {
+			break
+		} else if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+			err = nil
 			break
 		}
 	}
 	if err != nil {
 		t.Fatal(err)
 	}
-
+	fmt.Println("minio startup", time.Since(start))
 	return server
 }
 
