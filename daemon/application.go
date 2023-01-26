@@ -5,7 +5,7 @@ import (
 	"context"
 	"fmt"
 	"math"
-	"net"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -82,13 +82,16 @@ func (a *Application) runLoop() {
 func (a *Application) stopProcess() {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
+	if a.inFlightCounter > 0 {
+		return
+	}
 	if !a.running {
 		return
 	}
 	_ = a.cmd.Process.Kill()
 	a.running = false
 	if err := a.checkForDBs(); err != nil {
-		fmt.Println("Warn: ", err)
+		fmt.Println("WARN: ", err)
 	}
 }
 
@@ -196,11 +199,24 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	}()
 	count := 20
 	for i := 0; i < count; i++ {
-		conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		// TODO: replace this all with a custom version of Bun so that we don't
+		// impact user applications
+
+		req, err := http.Get(fmt.Sprintf("http://localhost:%d/health", port))
 		if err == nil {
-			_ = conn.Close()
+			_ = req.Body.Close()
 			break
 		}
+		// conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
+		// if err == nil {
+		// 	// Write a junk request
+		// 	_, _ = conn.Write([]byte("STEADY / HTTP/1.0\r\n\r\n"))
+		// 	_, err = io.Copy(os.Stdout, conn)
+		// 	_ = conn.Close()
+		// 	if err == nil {
+		// 		break
+		// 	}
+		// }
 		exited := false
 		exitCode := 0
 		lock.Lock()

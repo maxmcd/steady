@@ -71,7 +71,6 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 			hosts = append(hosts, host)
 		}
 	}
-	fmt.Printf("HAWST  %q\n", hosts)
 	host := hosts[0]
 	if len(hosts) > 1 {
 		host, err = lb.findLiveHost(r.Context(), hosts, name)
@@ -82,7 +81,6 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	fmt.Printf("HAWST  %q\n", host)
 	r.URL.Host = host
 	r.URL.Scheme = "http"
 	r.URL.Path = "/" + name + r.URL.Path
@@ -114,7 +112,6 @@ func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (ho
 		}
 		resp.Body.Close()
 		if resp.StatusCode == 200 {
-			fmt.Printf("HAWST  %q\n", host)
 			return host, nil
 		}
 	}

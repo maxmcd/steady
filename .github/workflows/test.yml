@@ -13,7 +13,4 @@ jobs:
       - env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
-          nix-shell --run "go test -v \
-            -coverpkg=./... -coverprofile=coverage.out \
-            -race ./... \
-            && codecov"
+          make test_ci

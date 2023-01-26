@@ -6,7 +6,6 @@ import (
 	"io"
 	"os"
 	"path/filepath"
-	"testing"
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/stretchr/testify/suite"
@@ -21,17 +20,11 @@ type DaemonSuite struct {
 	minioServer *MinioServer
 }
 
-func TestDaemonSuite(t *testing.T) {
-	// for i := 0; i < 1000; i++ {
-	suite.Run(t, new(DaemonSuite))
-	// if t.Failed() {
-	// 	return
-	// }
-	// }
-}
-
+var _ suite.SetupAllSuite = new(DaemonSuite)
 var _ suite.BeforeTest = new(DaemonSuite)
 var _ suite.AfterTest = new(DaemonSuite)
+
+func (suite *DaemonSuite) SetupSuite() {}
 
 // CreateDaemon creates a daemon with the provided options. If you've called
 // StartMinioServer, that server will be associated with the created Daemon

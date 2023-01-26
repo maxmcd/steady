@@ -17,8 +17,10 @@ import (
 )
 
 var exampleServer = `
+let port = process.env.PORT ?? 3000;
+console.log("Listening on port "+ port);
 export default {
-	port: process.env.PORT ?? 3000,
+	port: port,
 	fetch(request: Request): Response {
 		return new Response("Hello %s" + request.url);
 	},
@@ -30,7 +32,12 @@ type DaemonSuite struct {
 }
 
 func TestDaemonSuite(t *testing.T) {
+	// for i := 0; i < 1000; i++ {
 	suite.Run(t, new(DaemonSuite))
+	// if t.Failed() {
+	// return
+	// }
+	// }
 }
 
 func (suite *DaemonSuite) TestConcurrentRequests() {
@@ -96,6 +103,7 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 		}
 		var buf bytes.Buffer
 		_, _ = io.Copy(&buf, resp.Body)
+		suite.Equal(http.StatusOK, resp.StatusCode)
 		assert.Contains(t, buf.String(), timestamp)
 	}
 

@@ -62,7 +62,6 @@ func (suite *DaemonSuite) TestLitestream() {
 	if _, err := client.DeleteApplication(context.Background(), app.Name); err != nil {
 		t.Fatal(err)
 	}
-	fmt.Println("deleted")
 
 	app, err = client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))
 	if err != nil {
