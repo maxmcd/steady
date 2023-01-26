@@ -17,6 +17,8 @@ type DaemonSuite struct {
 
 	daemons []*daemon.Daemon
 	cancels []func()
+
+	minioServer *MinioServer
 }
 
 func TestDaemonSuite(t *testing.T) {
@@ -31,18 +33,35 @@ func TestDaemonSuite(t *testing.T) {
 var _ suite.BeforeTest = new(DaemonSuite)
 var _ suite.AfterTest = new(DaemonSuite)
 
-func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string, addr string) {
+// CreateDaemon creates a daemon with the provided options. If you've called
+// StartMinioServer, that server will be associated with the created Daemon
+func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
+
+	if suite.minioServer != nil {
+		opts = append(opts, daemon.DaemonOptionWithS3(daemon.S3Config{
+			AccessKeyID:     suite.minioServer.Username,
+			SecretAccessKey: suite.minioServer.Password,
+			Bucket:          suite.minioServer.BucketName,
+			Endpoint:        "http://" + suite.minioServer.Address,
+			SkipVerify:      true,
+			ForcePathStyle:  true,
+		}))
+	}
 	d = daemon.NewDaemon(dir, "localhost:0", opts...)
 	ctx, cancel := context.WithCancel(context.Background())
 	d.Start(ctx)
 	suite.cancels = append(suite.cancels, cancel)
 	suite.daemons = append(suite.daemons, d)
-	return d, dir, d.ServerAddr()
+	return d, dir
 }
 
-func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {
+func (suite *DaemonSuite) StartMinioServer() {
+	s := NewMinioServer(suite.T())
+	suite.minioServer = &s
 }
+
+func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {}
 
 func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
 	for _, cancel := range suite.cancels {

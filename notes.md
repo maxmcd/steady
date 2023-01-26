@@ -1,3 +1,16 @@
+# 2023-01-25
+
+Expected application migration timeline:
+
+- Slicer assignments are updated
+- List of migrations is produced
+- All hosts are notified of pending migrations and migrations begin
+- Load balancers are notified of new routing table and they have knowledge of old routing table
+- During migration period load balancer sends a HEAD request to confirm application is live at the server before sending, otherwise forwards to new host.
+- During period where application is fully down requests will queue at the new host
+
+Consider http2 for load balancer to host communication: https://pkg.go.dev/golang.org/x/net/http2/h2c#example-NewHandler
+
 # 2023-01-24
 
 - Stress-testing seems to show that bun can die and then we are left without a process to kill. Figure out why bun is dying and how to recover.

@@ -21,7 +21,7 @@ type RangeAndHost struct {
 	Range Range
 }
 
-type HostMapping struct {
+type HostAssignments struct {
 	// Mapping of host and their ranges
 	// All ranges in a list, each with their host
 	lock        sync.RWMutex
@@ -29,7 +29,7 @@ type HostMapping struct {
 	ranges      []RangeAndHost
 }
 
-func (hm *HostMapping) NewAssignments(assignments map[string][]Range) error {
+func (hm *HostAssignments) NewAssignments(assignments map[string][]Range) error {
 	var ranges []RangeAndHost
 	for host, hostRanges := range assignments {
 		for _, r := range hostRanges {
@@ -67,7 +67,11 @@ func (hm *HostMapping) NewAssignments(assignments map[string][]Range) error {
 	hm.lock.Unlock()
 	return nil
 }
-func (hm *HostMapping) GetKeyHost(hash int64) RangeAndHost {
+func (hm *HostAssignments) GetHost(name string) RangeAndHost {
+	return hm.GetKeyHost(Hash(name))
+}
+
+func (hm *HostAssignments) GetKeyHost(hash int64) RangeAndHost {
 	hm.lock.RLock()
 	defer hm.lock.RUnlock()
 	low := 0
@@ -87,24 +91,24 @@ func (hm *HostMapping) GetKeyHost(hash int64) RangeAndHost {
 	}
 }
 
-func (hm *HostMapping) Serialize(w io.Writer) error {
+func (hm *HostAssignments) Serialize(w io.Writer) error {
 	return json.NewEncoder(w).Encode(hm.assignments)
 }
 
-// NewHostMapping will create a new HostMapping from a complete set of
+// NewHostAssignments will create a new HostAssignments from a complete set of
 // assignments. Will return an error if the total series of ranges is not
 // complete, or if any of the ranges are invalid.
-func NewHostMapping(assignments map[string][]Range) (*HostMapping, error) {
-	hm := &HostMapping{}
+func NewHostAssignments(assignments map[string][]Range) (*HostAssignments, error) {
+	hm := &HostAssignments{}
 	return hm, hm.NewAssignments(assignments)
 }
 
-func NewFromSerialized(r io.Reader) (*HostMapping, error) {
+func NewFromSerialized(r io.Reader) (*HostAssignments, error) {
 	var assignments map[string][]Range
 	if err := json.NewDecoder(r).Decode(&assignments); err != nil {
 		return nil, err
 	}
-	return NewHostMapping(assignments)
+	return NewHostAssignments(assignments)
 }
 
 func Hash(name string) int64 {

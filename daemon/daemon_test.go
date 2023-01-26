@@ -29,11 +29,13 @@ type DaemonSuite struct {
 	daemontest.DaemonSuite
 }
 
-func TestDaemonSuite(t *testing.T) { suite.Run(t, new(DaemonSuite)) }
+func TestDaemonSuite(t *testing.T) {
+	suite.Run(t, new(DaemonSuite))
+}
 
 func (suite *DaemonSuite) TestConcurrentRequests() {
 	t := suite.T()
-	d, _, _ := suite.CreateDaemon()
+	d, _ := suite.CreateDaemon()
 
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
@@ -77,7 +79,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 
 func (suite *DaemonSuite) TestNonOverlappingTests() {
 	t := suite.T()
-	d, _, _ := suite.CreateDaemon()
+	d, _ := suite.CreateDaemon()
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
 

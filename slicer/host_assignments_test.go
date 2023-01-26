@@ -37,7 +37,7 @@ func TestNewHostMapping(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			_, err := NewHostMapping(tt.assignments)
+			_, err := NewHostAssignments(tt.assignments)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("NewHostMapping() error = %v, wantErr %v", err, tt.wantErr)
 				return
@@ -64,7 +64,7 @@ func Test_hostMapping_GetKeyHost(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			hm, err := NewHostMapping(tt.assignments)
+			hm, err := NewHostAssignments(tt.assignments)
 			if err != nil {
 				t.Errorf("NewHostMapping() error = %v", err)
 				return
@@ -87,7 +87,7 @@ func TestHash(t *testing.T) {
 }
 
 func TestSerialize(t *testing.T) {
-	mapping, err := NewHostMapping(map[string][]Range{
+	mapping, err := NewHostAssignments(map[string][]Range{
 		"first":  {{0, 99}, {200, 299}},
 		"second": {{100, 199}, {300, math.MaxInt64}}})
 	if err != nil {
@@ -104,4 +104,9 @@ func TestSerialize(t *testing.T) {
 		t.Fatal(err)
 	}
 	assert.Equal(t, new.assignments, mapping.assignments)
+
+	{
+		_, err := NewFromSerialized(&bytes.Buffer{})
+		assert.Error(t, err)
+	}
 }

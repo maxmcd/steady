@@ -14,14 +14,14 @@ import (
 func (suite *DaemonSuite) TestLitestream() {
 	t := suite.T()
 
-	minIOServer := daemontest.NewMinioServer(t)
-	fmt.Println(minIOServer.Address)
+	minioServer := daemontest.NewMinioServer(t)
+	fmt.Println(minioServer.Address)
 
-	d, _, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(daemon.S3Config{
-		AccessKeyID:     minIOServer.Username,
-		SecretAccessKey: minIOServer.Password,
-		Bucket:          minIOServer.BucketName,
-		Endpoint:        "http://" + minIOServer.Address,
+	d, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(daemon.S3Config{
+		AccessKeyID:     minioServer.Username,
+		SecretAccessKey: minioServer.Password,
+		Bucket:          minioServer.BucketName,
+		Endpoint:        "http://" + minioServer.Address,
 		SkipVerify:      true,
 		ForcePathStyle:  true,
 	}))

@@ -29,7 +29,7 @@ import (
 type Daemon struct {
 	dataDirectory string
 	addr          string
-	client        http.Client
+	client        *http.Client
 
 	s3Config *S3Config
 
@@ -49,7 +49,7 @@ func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon 
 		addr:          addr,
 		applications:  map[string]*Application{},
 		listenerWait:  &sync.WaitGroup{},
-		client: http.Client{
+		client: &http.Client{
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
 					Timeout: 1 * time.Second,
@@ -154,22 +154,27 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 	appURL.Path = c.Param("_")
 	appURL.Host = fmt.Sprintf("localhost:%d", app.port)
 	appURL.Scheme = "http"
+	r.URL = &appURL
+
+	// Request.RequestURI can't be set in client requests.
+	r.RequestURI = ""
+	uri := r.RequestURI
+
+	// TODO: Set to expected path for application to see
+	// req.Header.Set("Host", "TODO")
+
+	defer func() {
+		// Restore the uri for use with the echo logger middleware
+		r.RequestURI = uri
+		r.URL = originalURL
+	}()
 
 	if err := app.newRequest(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+		return echo.NewHTTPError(http.StatusInternalServerError, errors.Wrap(err, "error starting process").Error())
 	}
 	defer app.endOfRequest()
 
 	{
-		r.URL = &appURL
-		//http: Request.RequestURI can't be set in client requests.
-		//http://golang.org/src/pkg/net/http/client.go
-
-		uri := r.RequestURI
-		r.RequestURI = ""
-		// TODO: Set to expected path for application to see
-		// req.Header.Set("Host", "TODO")
-
 		resp, err := d.client.Do(r)
 		if err != nil {
 			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
@@ -182,10 +187,6 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 		rw.WriteHeader(resp.StatusCode)
 		_, _ = io.Copy(rw, resp.Body)
 		_ = resp.Body.Close()
-
-		// Restore the uri for use with the echo logger middleware
-		r.RequestURI = uri
-		r.URL = originalURL
 	}
 	return nil
 }
