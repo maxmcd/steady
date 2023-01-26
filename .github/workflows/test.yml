@@ -15,5 +15,5 @@ jobs:
         run: |
           nix-shell --run "go test -v \
             -coverpkg=./... -coverprofile=coverage.out \
-            -race ./..."
-          codecov
+            -race ./... \
+            && codecov"
