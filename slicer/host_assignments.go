@@ -71,6 +71,17 @@ func (hm *HostAssignments) GetHost(name string) RangeAndHost {
 	return hm.GetKeyHost(Hash(name))
 }
 
+// Assignments returns a full copy of the internal assignments
+func (hm *HostAssignments) Assignments() map[string][]Range {
+	assignments := map[string][]Range{}
+	hm.lock.RLock()
+	for k, v := range hm.assignments {
+		assignments[k] = v
+	}
+	hm.lock.RUnlock()
+	return assignments
+}
+
 func (hm *HostAssignments) GetKeyHost(hash int64) RangeAndHost {
 	hm.lock.RLock()
 	defer hm.lock.RUnlock()
@@ -92,6 +103,8 @@ func (hm *HostAssignments) GetKeyHost(hash int64) RangeAndHost {
 }
 
 func (hm *HostAssignments) Serialize(w io.Writer) error {
+	hm.lock.RLock()
+	defer hm.lock.RUnlock()
 	return json.NewEncoder(w).Encode(hm.assignments)
 }
 

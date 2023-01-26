@@ -1,5 +1,3 @@
-
-
 # Use nix
 SHELL := nix-shell
 .SHELLFLAGS := --run

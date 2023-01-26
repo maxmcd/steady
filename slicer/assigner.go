@@ -13,6 +13,10 @@ func (s *Assigner) Host(key string) string {
 	return s.hostAssignments.GetHost(key).Host
 }
 
+func (s *Assigner) Assignments() map[string][]Range {
+	return s.hostAssignments.Assignments()
+}
+
 func (s *Assigner) AddLocation(name string, liveKeys []string) (err error) {
 	if s.hostAssignments == nil {
 		s.hostAssignments, err = NewHostAssignments(map[string][]Range{

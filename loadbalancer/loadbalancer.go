@@ -90,8 +90,6 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
-	fmt.Println("HAWST", host)
-
 	r.URL.Host = host
 	r.URL.Scheme = "http"
 	r.URL.Path = "/" + name + r.URL.Path
