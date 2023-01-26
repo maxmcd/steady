@@ -7,5 +7,6 @@ mkShell {
         minio
         go
         oapi-codegen
+        python310Packages.codecov
     ];
 }
