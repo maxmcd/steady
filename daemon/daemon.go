@@ -202,7 +202,7 @@ func (d *Daemon) StopAllApplications() {
 func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
 	dbs, err := d.findDatabasesForApplication(name)
 	if err != nil {
-		return err
+		return errors.Wrap(err, "error finding databases")
 	}
 
 	for _, db := range dbs {
@@ -218,23 +218,23 @@ func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
 		replica := d.newReplica(nil, filepath.Join(name, db))
 		generation, err := litestream.FindLatestGeneration(context.TODO(), replica.Client())
 		if err != nil {
-			return err
+			return errors.Wrap(err, "finding latest generation")
 		}
 		targetIndex, err := litestream.FindMaxIndexByGeneration(context.TODO(), replica.Client(), generation)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "finding max index")
 		}
 
 		snapshotIndex, err := litestream.FindSnapshotForIndex(context.TODO(), replica.Client(), generation, targetIndex)
 		if err != nil {
-			return err
+			return errors.Wrap(err, "finding snapshot for index")
 		}
 		if err := litestream.Restore(context.TODO(),
 			replica.Client(),
 			dbPath, generation,
 			snapshotIndex, targetIndex,
 			litestream.NewRestoreOptions()); err != nil {
-			return err
+			return errors.Wrap(err, "restoring")
 		}
 	}
 	return nil
@@ -300,7 +300,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 	var dbs []string
 	if d.s3Config != nil {
 		if err := d.downloadDatabasesIfFound(tmpDir, name); err != nil {
-			return nil, err
+			return nil, errors.Wrap(err, "error downloading database")
 		}
 	}
 

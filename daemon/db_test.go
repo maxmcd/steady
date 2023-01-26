@@ -4,27 +4,17 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
-	"fmt"
 	"net/http"
 
 	"github.com/maxmcd/steady/daemon"
-	"github.com/maxmcd/steady/internal/daemontest"
 )
 
 func (suite *DaemonSuite) TestLitestream() {
 	t := suite.T()
 
-	minioServer := daemontest.NewMinioServer(t)
-	fmt.Println(minioServer.Address)
+	suite.StartMinioServer()
 
-	d, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(daemon.S3Config{
-		AccessKeyID:     minioServer.Username,
-		SecretAccessKey: minioServer.Password,
-		Bucket:          minioServer.BucketName,
-		Endpoint:        "http://" + minioServer.Address,
-		SkipVerify:      true,
-		ForcePathStyle:  true,
-	}))
+	d, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
 
 	client := suite.NewClient(d)
 	app, err := client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))

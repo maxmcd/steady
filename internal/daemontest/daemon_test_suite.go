@@ -30,6 +30,7 @@ func (suite *DaemonSuite) SetupSuite() {}
 // StartMinioServer, that server will be associated with the created Daemon
 func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
+	fmt.Println("WHAT", suite.minioServer)
 
 	if suite.minioServer != nil {
 		opts = append(opts, daemon.DaemonOptionWithS3(daemon.S3Config{
@@ -50,8 +51,21 @@ func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.D
 }
 
 func (suite *DaemonSuite) StartMinioServer() {
-	s := NewMinioServer(suite.T())
-	suite.minioServer = &s
+	suite.minioServer = NewMinioServer(suite.T())
+}
+
+func (suite *DaemonSuite) MinioServerS3Config() daemon.S3Config {
+	if suite.minioServer == nil {
+		suite.T().Fatal("must call StartMinioServer before this method")
+	}
+	return daemon.S3Config{
+		AccessKeyID:     suite.minioServer.Username,
+		SecretAccessKey: suite.minioServer.Password,
+		Bucket:          suite.minioServer.BucketName,
+		Endpoint:        "http://" + suite.minioServer.Address,
+		SkipVerify:      true,
+		ForcePathStyle:  true,
+	}
 }
 
 func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {}
@@ -64,6 +78,10 @@ func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
 		if err := daemon.Wait(); err != nil {
 			suite.T().Error(err)
 		}
+	}
+	if suite.minioServer != nil {
+		suite.minioServer.Stop(suite.T())
+		suite.minioServer = nil
 	}
 }
 

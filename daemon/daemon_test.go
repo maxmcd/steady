@@ -32,12 +32,7 @@ type DaemonSuite struct {
 }
 
 func TestDaemonSuite(t *testing.T) {
-	// for i := 0; i < 1000; i++ {
 	suite.Run(t, new(DaemonSuite))
-	// if t.Failed() {
-	// return
-	// }
-	// }
 }
 
 func (suite *DaemonSuite) TestConcurrentRequests() {
@@ -85,6 +80,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 }
 
 func (suite *DaemonSuite) TestNonOverlappingTests() {
+
 	t := suite.T()
 	d, _ := suite.CreateDaemon()
 	client := suite.NewClient(d)
