@@ -22,9 +22,11 @@ func TestLB(t *testing.T) {
 	shutdownApplication := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("URL", r.URL, shutdownApplication)
+		w.Header().Add("Content-Type", "application/json")
 		if shutdownApplication {
 			w.WriteHeader(http.StatusNotFound)
 		}
+		w.Write([]byte("{}"))
 	}))
 
 	uri, err := url.Parse(server.URL)
@@ -58,7 +60,8 @@ func TestLB(t *testing.T) {
 	makeRequest()
 
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-
+		w.Header().Add("Content-Type", "application/json")
+		w.Write([]byte("{}"))
 	}))
 
 	uri2, err := url.Parse(server2.URL)
@@ -73,7 +76,6 @@ func TestLB(t *testing.T) {
 		t.Fatal(err)
 	}
 	shutdownApplication = true
-	t.Log("happening")
 	makeRequest()
 
 	cancel()
