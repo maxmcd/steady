@@ -90,7 +90,7 @@ func (suite *DaemonSuite) DaemonURL(d *daemon.Daemon, paths ...string) string {
 }
 
 func (suite *DaemonSuite) NewClient(d *daemon.Daemon) *daemon.Client {
-	client, err := daemon.NewClient(suite.DaemonURL(d))
+	client, err := daemon.NewClient(suite.DaemonURL(d), nil)
 	suite.Require().NoError(err)
 	return client
 }

@@ -21,7 +21,7 @@ func TestLB(t *testing.T) {
 
 	shutdownApplication := false
 	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println(r.URL)
+		fmt.Println("URL", r.URL, shutdownApplication)
 		if shutdownApplication {
 			w.WriteHeader(http.StatusNotFound)
 		}

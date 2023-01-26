@@ -9,9 +9,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
+)
+
+var (
+	maxAssignments = 10
 )
 
 type LB struct {
@@ -52,6 +57,11 @@ func (lb *LB) NewHostAssignments(assignments map[string][]slicer.Range) error {
 	}
 	lb.hashRangesSetLock.Lock()
 	lb.hashRangesSet = append(lb.hashRangesSet, ha)
+	// cap the number of things in the list
+	if len(lb.hashRangesSet) > maxAssignments {
+		// Remove oldest generation
+		lb.hashRangesSet = lb.hashRangesSet[1:]
+	}
 	lb.hashRangesSetLock.Unlock()
 	return nil
 }
@@ -80,6 +90,7 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 			return
 		}
 	}
+	fmt.Println("HAWST", host)
 
 	r.URL.Host = host
 	r.URL.Scheme = "http"
@@ -101,19 +112,18 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 
 func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (host string, err error) {
 	for _, host := range hosts {
-		var req *http.Request
-		if req, err = http.NewRequestWithContext(ctx, http.MethodHead,
-			fmt.Sprintf("http://%s/alive", host), nil); err != nil {
+		fmt.Println(host, hosts)
+		var daemonClient *daemon.Client
+		if daemonClient, err = daemon.NewClient(fmt.Sprintf("http://%s", host), lb.client); err != nil {
+			// Shouldn't error here ever
+			return "", err
+		}
+
+		if _, err = daemonClient.GetApplication(ctx, name); err != nil {
 			continue
 		}
-		var resp *http.Response
-		if resp, err = lb.client.Do(req); err != nil {
-			continue
-		}
-		resp.Body.Close()
-		if resp.StatusCode == 200 {
-			return host, nil
-		}
+		// Success
+		return host, nil
 	}
 	return "", err
 }

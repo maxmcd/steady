@@ -121,7 +121,7 @@ func BenchmarkActivity(b *testing.B) {
 	d := daemon.NewDaemon(b.TempDir(), "localhost:0")
 	timestamp := time.Now().Format(time.RFC3339)
 
-	client, err := daemon.NewClient(d.ServerAddr())
+	client, err := daemon.NewClient(d.ServerAddr(), nil)
 	if err != nil {
 		b.Fatal(err)
 	}
