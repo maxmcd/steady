@@ -1,3 +1,7 @@
+// Package daemon provides the implementation of the Steady host daemon. The
+// Daemon handles receiving application http requests, backing up sqlite
+// databases, and managing the lifecycle of an application while it is on a
+// host.
 package daemon
 
 import (
@@ -76,7 +80,7 @@ type S3Config struct {
 	ForcePathStyle  bool
 }
 
-func DaemonOptionWithS3(cfg S3Config) func(*Daemon) { return func(d *Daemon) { d.s3Config = &cfg } }
+func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.s3Config = &cfg } }
 
 func (d *Daemon) Wait() error { return d.eg.Wait() }
 
@@ -299,7 +303,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 
 	app := d.newApplication(name, tmpDir, port)
 	app.waitForDB()
-	app.Start()
+	app.start()
 	d.applicationsLock.Lock()
 	if _, found = d.applications[name]; found {
 		d.applicationsLock.Unlock()

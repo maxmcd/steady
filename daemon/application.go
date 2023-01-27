@@ -67,7 +67,7 @@ func (a *Application) dbDownladed() error {
 	return nil
 }
 
-func (a *Application) Start() {
+func (a *Application) start() {
 	go a.runLoop()
 }
 
