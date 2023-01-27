@@ -297,16 +297,9 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 	}
 	_ = cmd.Process.Kill()
 
-	var dbs []string
-	if d.s3Config != nil {
-		if err := d.downloadDatabasesIfFound(tmpDir, name); err != nil {
-			return nil, errors.Wrap(err, "error downloading database")
-		}
-	}
-
 	app := d.newApplication(name, tmpDir, port)
-	app.DBs = dbs
-	_ = app.Start()
+	app.waitForDB()
+	app.Start()
 	d.applicationsLock.Lock()
 	if _, found = d.applications[name]; found {
 		d.applicationsLock.Unlock()
@@ -314,6 +307,17 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 	}
 	d.applications[name] = app
 	d.applicationsLock.Unlock()
+
+	var dbs []string
+	if d.s3Config != nil {
+		if err := d.downloadDatabasesIfFound(tmpDir, name); err != nil {
+			return nil, errors.Wrap(err, "error downloading database")
+		}
+	}
+	app.DBs = dbs
+	if err := app.dbDownladed(); err != nil {
+		panic(err)
+	}
 
 	return app, nil
 }

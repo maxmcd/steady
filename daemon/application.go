@@ -25,6 +25,8 @@ type Application struct {
 	DBs []string
 	Env []string
 
+	dbLimitWaiter *limitWaiter
+
 	mutex           sync.Mutex
 	inFlightCounter int
 
@@ -49,17 +51,24 @@ func (d *Daemon) newApplication(name string, dir string, port int) *Application 
 		port:            port,
 		stopRequestChan: make(chan struct{}),
 		createDBFunc:    d.createDB(name),
+		dbLimitWaiter:   newLimitWaiter(10),
 	}
 	return w
 }
+func (a *Application) waitForDB() {
+	a.dbLimitWaiter.Add(1)
+}
 
-func (a *Application) Start() error {
+func (a *Application) dbDownladed() error {
 	if err := a.checkForDBs(); err != nil {
 		return err
 	}
-
-	go a.runLoop()
+	a.dbLimitWaiter.Done()
 	return nil
+}
+
+func (a *Application) Start() {
+	go a.runLoop()
 }
 
 func (a *Application) runLoop() {
@@ -172,6 +181,32 @@ func (a *Application) checkForDBs() error {
 	return nil
 }
 
+func (a *Application) newRequest() (err error) {
+	if err := a.dbLimitWaiter.Wait(); err != nil {
+		return err
+	}
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+	a.inFlightCounter++
+	a.requestCount++
+	if !a.running {
+		a.startCount++
+		a.running = true
+		a.cmd, err = bunRun(a.dir, a.port, a.Env)
+		return err
+	}
+	return nil
+}
+
+func (a *Application) endOfRequest() {
+	a.mutex.Lock()
+	a.inFlightCounter--
+	if a.inFlightCounter == 0 {
+		a.stopRequestChan <- struct{}{}
+	}
+	a.mutex.Unlock()
+}
+
 func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	cmd := exec.Command("bun", "index.ts")
 	cmd.Dir = dir
@@ -199,24 +234,15 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	}()
 	count := 20
 	for i := 0; i < count; i++ {
-		// TODO: replace this all with a custom version of Bun so that we don't
-		// impact user applications
 
+		// TODO: replace this all with a custom version of Bun so that we don't
+		// impact user applications, or a wrapper script
 		req, err := http.Get(fmt.Sprintf("http://localhost:%d/health", port))
 		if err == nil {
 			_ = req.Body.Close()
 			break
 		}
-		// conn, err := net.Dial("tcp", fmt.Sprintf("localhost:%d", port))
-		// if err == nil {
-		// 	// Write a junk request
-		// 	_, _ = conn.Write([]byte("STEADY / HTTP/1.0\r\n\r\n"))
-		// 	_, err = io.Copy(os.Stdout, conn)
-		// 	_ = conn.Close()
-		// 	if err == nil {
-		// 		break
-		// 	}
-		// }
+
 		exited := false
 		exitCode := 0
 		lock.Lock()
@@ -247,25 +273,51 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-func (a *Application) newRequest() (err error) {
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-	a.inFlightCounter++
-	a.requestCount++
-	if !a.running {
-		a.startCount++
-		a.running = true
-		a.cmd, err = bunRun(a.dir, a.port, a.Env)
-		return err
-	}
-	return nil
+type limitWaiter struct {
+	wg         *sync.WaitGroup
+	count      int
+	maxWaiting int
+	waiting    int
+	lock       *sync.RWMutex
 }
 
-func (a *Application) endOfRequest() {
-	a.mutex.Lock()
-	a.inFlightCounter--
-	if a.inFlightCounter == 0 {
-		a.stopRequestChan <- struct{}{}
+func newLimitWaiter(maxWaiting int) *limitWaiter {
+	return &limitWaiter{
+		lock:       &sync.RWMutex{},
+		wg:         &sync.WaitGroup{},
+		maxWaiting: maxWaiting,
 	}
-	a.mutex.Unlock()
+}
+
+func (l *limitWaiter) Done() {
+	l.lock.Lock()
+	l.count--
+	l.wg.Done()
+	l.lock.Unlock()
+}
+
+func (l *limitWaiter) Add(i int) {
+	l.lock.Lock()
+	l.count += i
+	l.wg.Add(i)
+	l.lock.Unlock()
+}
+
+func (l *limitWaiter) Wait() error {
+	l.lock.RLock()
+	if l.count == 0 {
+		l.lock.RUnlock()
+		return nil
+	}
+
+	if l.waiting >= l.maxWaiting {
+		l.lock.RUnlock()
+		return fmt.Errorf("too many requests waiting")
+	}
+	l.lock.RUnlock()
+	l.lock.Lock()
+	l.waiting++
+	l.lock.Unlock()
+	l.wg.Wait()
+	return nil
 }
