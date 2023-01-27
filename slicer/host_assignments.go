@@ -21,14 +21,17 @@ type RangeAndHost struct {
 	Range Range
 }
 
+// HostAssignments stores hosts and their corresponding ranges of hash values.
+// Each host gets a set of key ranges that it owns. This struct handles
+// building, validating and querying those slice ranges.
 type HostAssignments struct {
-	// Mapping of host and their ranges
-	// All ranges in a list, each with their host
 	lock        sync.RWMutex
 	assignments map[string][]Range
 	ranges      []RangeAndHost
 }
 
+// NewAssignments takes a new set of assignments. If the assignment ranges are
+// not complete, or are overlapping, this function will return an error.
 func (hm *HostAssignments) NewAssignments(assignments map[string][]Range) error {
 	var ranges []RangeAndHost
 	for host, hostRanges := range assignments {
@@ -67,8 +70,10 @@ func (hm *HostAssignments) NewAssignments(assignments map[string][]Range) error 
 	hm.lock.Unlock()
 	return nil
 }
-func (hm *HostAssignments) GetHost(name string) RangeAndHost {
-	return hm.GetKeyHost(Hash(name))
+
+// GetHost get a host's identifier for a given key
+func (hm *HostAssignments) GetHost(key string) string {
+	return hm.getKeyHost(Hash(key)).Host
 }
 
 // Assignments returns a full copy of the internal assignments
@@ -82,7 +87,7 @@ func (hm *HostAssignments) Assignments() map[string][]Range {
 	return assignments
 }
 
-func (hm *HostAssignments) GetKeyHost(hash int64) RangeAndHost {
+func (hm *HostAssignments) getKeyHost(hash int64) RangeAndHost {
 	hm.lock.RLock()
 	defer hm.lock.RUnlock()
 	low := 0
@@ -109,8 +114,8 @@ func (hm *HostAssignments) Serialize(w io.Writer) error {
 }
 
 // NewHostAssignments will create a new HostAssignments from a complete set of
-// assignments. Will return an error if the total series of ranges is not
-// complete, or if any of the ranges are invalid.
+// assignments. If the assignment ranges are not complete, or are overlapping,
+// this function will return an error.
 func NewHostAssignments(assignments map[string][]Range) (*HostAssignments, error) {
 	hm := &HostAssignments{}
 	return hm, hm.NewAssignments(assignments)
@@ -124,9 +129,9 @@ func NewFromSerialized(r io.Reader) (*HostAssignments, error) {
 	return NewHostAssignments(assignments)
 }
 
-func Hash(name string) int64 {
+func Hash(key string) int64 {
 	h := fnv.New64()
-	_, _ = h.Write([]byte(name))
+	_, _ = h.Write([]byte(key))
 
 	i := int64(binary.BigEndian.Uint64(h.Sum(nil)))
 	if i < 0 {

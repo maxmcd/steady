@@ -15,7 +15,10 @@ import (
 	"github.com/benbjohnson/litestream"
 )
 
-type Application struct {
+// application is an application instance. Data for the application is stored in
+// a directory and the application is started to handle requests and killed
+// after a period of inactivity.
+type application struct {
 	name string
 	// port is the port this application listens on
 	port int
@@ -44,8 +47,8 @@ type Application struct {
 	createDBFunc     func(string) (*litestream.DB, error)
 }
 
-func (d *Daemon) newApplication(name string, dir string, port int) *Application {
-	w := &Application{
+func (d *Daemon) newApplication(name string, dir string, port int) *application {
+	w := &application{
 		name:            name,
 		dir:             dir,
 		port:            port,
@@ -55,11 +58,11 @@ func (d *Daemon) newApplication(name string, dir string, port int) *Application 
 	}
 	return w
 }
-func (a *Application) waitForDB() {
+func (a *application) waitForDB() {
 	a.dbLimitWaiter.Add(1)
 }
 
-func (a *Application) dbDownladed() error {
+func (a *application) dbDownladed() error {
 	if err := a.checkForDBs(); err != nil {
 		return err
 	}
@@ -67,11 +70,11 @@ func (a *Application) dbDownladed() error {
 	return nil
 }
 
-func (a *Application) start() {
+func (a *application) start() {
 	go a.runLoop()
 }
 
-func (a *Application) runLoop() {
+func (a *application) runLoop() {
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
 	killTimer := time.NewTimer(math.MaxInt64)
@@ -81,17 +84,19 @@ func (a *Application) runLoop() {
 		case <-a.stopRequestChan:
 			killTimer.Reset(time.Second)
 		case <-killTimer.C:
-			a.stopProcess()
+			a.stopProcess(false)
 		case <-ctx.Done():
 			return
 		}
 	}
 }
 
-func (a *Application) stopProcess() {
+func (a *application) stopProcess(force bool) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
-	if a.inFlightCounter > 0 {
+	// TODO: audit this, if we try to stop and in-flight counter is >0 do we
+	// always shut down correctly?
+	if !force && a.inFlightCounter > 0 {
 		return
 	}
 	if !a.running {
@@ -104,7 +109,7 @@ func (a *Application) stopProcess() {
 	}
 }
 
-func (a *Application) shutdown() error {
+func (a *application) shutdown() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.cancel()
@@ -118,7 +123,7 @@ func (a *Application) shutdown() error {
 	return nil
 }
 
-func (a *Application) checkForDBs() error {
+func (a *application) checkForDBs() error {
 	dbs, err := filepath.Glob(filepath.Join(a.dir, "./*.sql"))
 	if err != nil {
 		return err
@@ -181,7 +186,7 @@ func (a *Application) checkForDBs() error {
 	return nil
 }
 
-func (a *Application) newRequest() (err error) {
+func (a *application) newRequest() (err error) {
 	if err := a.dbLimitWaiter.Wait(); err != nil {
 		return err
 	}
@@ -198,7 +203,7 @@ func (a *Application) newRequest() (err error) {
 	return nil
 }
 
-func (a *Application) endOfRequest() {
+func (a *application) endOfRequest() {
 	a.mutex.Lock()
 	a.inFlightCounter--
 	if a.inFlightCounter == 0 {

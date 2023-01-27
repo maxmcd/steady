@@ -30,6 +30,8 @@ import (
 	"golang.org/x/sync/errgroup"
 )
 
+// Daemon is the steady daemon. It runs an http server, handles requests to
+// create and delete applications, and handles database backups and migrations.
 type Daemon struct {
 	dataDirectory string
 	addr          string
@@ -38,7 +40,7 @@ type Daemon struct {
 	s3Config *S3Config
 
 	applicationsLock sync.RWMutex
-	applications     map[string]*Application
+	applications     map[string]*application
 
 	listener     net.Listener
 	listenerWait *sync.WaitGroup
@@ -51,7 +53,7 @@ func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon 
 	d := &Daemon{
 		dataDirectory: dataDirectory,
 		addr:          addr,
-		applications:  map[string]*Application{},
+		applications:  map[string]*application{},
 		listenerWait:  &sync.WaitGroup{},
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -82,8 +84,11 @@ type S3Config struct {
 
 func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.s3Config = &cfg } }
 
+// Wait for the server to exit, returning any errors.
 func (d *Daemon) Wait() error { return d.eg.Wait() }
 
+// ServerAddr returns the address of the running server. Will panic if the
+// server hasn't been started yet.
 func (d *Daemon) ServerAddr() string {
 	if d.eg == nil {
 		panic(fmt.Errorf("server has not started"))
@@ -195,10 +200,13 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 	return nil
 }
 
+// StopAllApplications will loop through all applications and shut them down.
+// Useful for tests where we would otherwise wait for applications to shut down
+// normally.
 func (d *Daemon) StopAllApplications() {
 	d.applicationsLock.Lock()
 	for _, app := range d.applications {
-		app.stopProcess()
+		app.stopProcess(true)
 	}
 	d.applicationsLock.Unlock()
 }
@@ -271,7 +279,7 @@ func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error
 	return dbs, nil
 }
 
-func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Application, error) {
+func (d *Daemon) validateAndAddApplication(name string, script []byte) (*application, error) {
 	// If two requests are validated simultaneously we won't catch them here,
 	// but we'll error when adding them to the map later
 	d.applicationsLock.RLock()
@@ -326,6 +334,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*Applica
 	return app, nil
 }
 
+// Start starts the server.
 func (d *Daemon) Start(ctx context.Context) {
 	if d.eg != nil {
 		panic("Daemon has already started")

@@ -1,3 +1,5 @@
+// Package loadbalancer provides the internet-facing load balancer that is used
+// to interact with applications.
 package loadbalancer
 
 import (
@@ -16,7 +18,7 @@ import (
 )
 
 var (
-	maxAssignments = 10
+	MaxHostAssignments = 10
 )
 
 type LB struct {
@@ -33,7 +35,7 @@ type LB struct {
 
 type Option func(*LB)
 
-func OptionWithAppNameExtractor(a AppNameExtractor) func(*LB) {
+func OptionWithAppNameExtractor(a AppNameExtractor) Option {
 	return func(l *LB) { l.appNameExtractor = a }
 }
 
@@ -58,7 +60,7 @@ func (lb *LB) NewHostAssignments(assignments map[string][]slicer.Range) error {
 	lb.hashRangesSetLock.Lock()
 	lb.hashRangesSet = append(lb.hashRangesSet, ha)
 	// cap the number of things in the list
-	if len(lb.hashRangesSet) > maxAssignments {
+	if len(lb.hashRangesSet) > MaxHostAssignments {
 		// Remove oldest generation
 		lb.hashRangesSet = lb.hashRangesSet[1:]
 	}
@@ -75,7 +77,7 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 	}
 	var hosts []string
 	for _, hashRanges := range lb.hashRangesSet {
-		host := hashRanges.GetHost(name).Host
+		host := hashRanges.GetHost(name)
 		// Add if it's not the previous host
 		if len(hosts) == 0 || hosts[len(hosts)-1] != host {
 			hosts = append(hosts, host)
@@ -167,6 +169,8 @@ func (lb *LB) Start(ctx context.Context, addr string) {
 	})
 }
 
+// ServerAddr returns the address of the running server. Will panic if the
+// server hasn't been started yet.
 func (lb *LB) ServerAddr() string {
 	if lb.eg == nil {
 		panic(fmt.Errorf("server has not started"))
@@ -179,7 +183,7 @@ type AppNameExtractor func(req *http.Request) (string, error)
 
 var _ AppNameExtractor = TestHeaderExtractor
 
-func TestHeaderExtractor(req *http.Request) (string, error) {
+var TestHeaderExtractor AppNameExtractor = func(req *http.Request) (string, error) {
 	host := req.Header.Get("X-Host")
 	if host == "" {
 		return host, errors.New("app name not found")

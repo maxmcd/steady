@@ -5,19 +5,21 @@ import (
 	"sort"
 )
 
+// Assigner maintains hosts and their assignments.
 type Assigner struct {
 	hostAssignments *HostAssignments
 }
 
+// Host provides a host's identifier for a given ket
 func (s *Assigner) Host(key string) string {
-	return s.hostAssignments.GetHost(key).Host
+	return s.hostAssignments.GetHost(key)
 }
 
 func (s *Assigner) Assignments() map[string][]Range {
 	return s.hostAssignments.Assignments()
 }
 
-func (s *Assigner) AddLocation(name string, liveKeys []string) (err error) {
+func (s *Assigner) AddHost(name string, liveKeys []string) (err error) {
 	if s.hostAssignments == nil {
 		s.hostAssignments, err = NewHostAssignments(map[string][]Range{
 			name: {{0, math.MaxInt64}},

@@ -70,7 +70,7 @@ func Test_hostMapping_GetKeyHost(t *testing.T) {
 				return
 			}
 			for _, query := range tt.queries {
-				assert.Equal(t, query.wantHost, hm.GetKeyHost(query.searchKey).Host)
+				assert.Equal(t, query.wantHost, hm.getKeyHost(query.searchKey).Host)
 			}
 		})
 	}

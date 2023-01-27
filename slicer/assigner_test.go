@@ -8,11 +8,11 @@ import (
 func TestSlicer_AddLocation(t *testing.T) {
 	slicer := &Assigner{}
 
-	if err := slicer.AddLocation("one", nil); err != nil {
+	if err := slicer.AddHost("one", nil); err != nil {
 		t.Fatal(err)
 	}
 
-	if err := slicer.AddLocation("two", nil); err != nil {
+	if err := slicer.AddHost("two", nil); err != nil {
 		t.Fatal(err)
 	}
 

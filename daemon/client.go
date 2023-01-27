@@ -19,6 +19,7 @@ func errUnexpectedResponse(body []byte, code int) error {
 	return fmt.Errorf("Unexpected response from server %d: %s", code, string(body))
 }
 
+// Client is an http client that is used to communicate with host daemons.
 type Client struct {
 	client *api.ClientWithResponses
 }

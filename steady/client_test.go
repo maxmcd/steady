@@ -43,7 +43,7 @@ func (suite *TestSuite) TestDeploy() {
 	assigner := &slicer.Assigner{}
 
 	d, _ := suite.CreateDaemon()
-	if err := assigner.AddLocation(d.ServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d.ServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -100,7 +100,7 @@ func (suite *TestSuite) TestDeploy() {
 	d.StopAllApplications()
 
 	d2, _ := suite.CreateDaemon()
-	if err := assigner.AddLocation(d2.ServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d2.ServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := lb.NewHostAssignments(assigner.Assignments()); err != nil {
