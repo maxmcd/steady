@@ -178,7 +178,7 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 		r.URL = originalURL
 	}()
 
-	if err := app.newRequest(); err != nil {
+	if err := app.newRequest(r.Context()); err != nil {
 		return echo.NewHTTPError(http.StatusInternalServerError, errors.Wrap(err, "error starting process").Error())
 	}
 	defer app.endOfRequest()

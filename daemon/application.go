@@ -15,6 +15,10 @@ import (
 	"github.com/benbjohnson/litestream"
 )
 
+var (
+	maxBufferedRequestsDuringStartup = 10
+)
+
 // application is an application instance. Data for the application is stored in
 // a directory and the application is started to handle requests and killed
 // after a period of inactivity.
@@ -28,7 +32,7 @@ type application struct {
 	DBs []string
 	Env []string
 
-	dbLimitWaiter *limitWaiter
+	dbLimitWaiter *singeUseLimitedBroadcast
 
 	mutex           sync.Mutex
 	inFlightCounter int
@@ -59,14 +63,16 @@ func (d *Daemon) newApplication(name string, dir string, port int) *application 
 	return w
 }
 func (a *application) waitForDB() {
-	a.dbLimitWaiter.Add(1)
+	a.dbLimitWaiter = newLimitWaiter(maxBufferedRequestsDuringStartup)
 }
 
 func (a *application) dbDownladed() error {
 	if err := a.checkForDBs(); err != nil {
 		return err
 	}
-	a.dbLimitWaiter.Done()
+	if a.dbLimitWaiter != nil {
+		a.dbLimitWaiter.Signal()
+	}
 	return nil
 }
 
@@ -186,8 +192,8 @@ func (a *application) checkForDBs() error {
 	return nil
 }
 
-func (a *application) newRequest() (err error) {
-	if err := a.dbLimitWaiter.Wait(); err != nil {
+func (a *application) newRequest(ctx context.Context) (err error) {
+	if err := a.dbLimitWaiter.Wait(ctx); err != nil {
 		return err
 	}
 	a.mutex.Lock()
@@ -239,7 +245,6 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	}()
 	count := 20
 	for i := 0; i < count; i++ {
-
 		// TODO: replace this all with a custom version of Bun so that we don't
 		// impact user applications, or a wrapper script
 		req, err := http.Get(fmt.Sprintf("http://localhost:%d/health", port))
@@ -278,37 +283,27 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	return cmd, nil
 }
 
-type limitWaiter struct {
-	wg         *sync.WaitGroup
+type singeUseLimitedBroadcast struct {
+	notify     chan struct{}
 	count      int
 	maxWaiting int
 	waiting    int
 	lock       *sync.RWMutex
 }
 
-func newLimitWaiter(maxWaiting int) *limitWaiter {
-	return &limitWaiter{
+func newLimitWaiter(maxWaiting int) *singeUseLimitedBroadcast {
+	return &singeUseLimitedBroadcast{
 		lock:       &sync.RWMutex{},
-		wg:         &sync.WaitGroup{},
 		maxWaiting: maxWaiting,
+		notify:     make(chan struct{}),
 	}
 }
 
-func (l *limitWaiter) Done() {
-	l.lock.Lock()
-	l.count--
-	l.wg.Done()
-	l.lock.Unlock()
+func (l *singeUseLimitedBroadcast) Signal() {
+	close(l.notify)
 }
 
-func (l *limitWaiter) Add(i int) {
-	l.lock.Lock()
-	l.count += i
-	l.wg.Add(i)
-	l.lock.Unlock()
-}
-
-func (l *limitWaiter) Wait() error {
+func (l *singeUseLimitedBroadcast) Wait(ctx context.Context) error {
 	l.lock.RLock()
 	if l.count == 0 {
 		l.lock.RUnlock()
@@ -323,6 +318,13 @@ func (l *limitWaiter) Wait() error {
 	l.lock.Lock()
 	l.waiting++
 	l.lock.Unlock()
-	l.wg.Wait()
-	return nil
+	select {
+	case <-ctx.Done():
+		l.lock.Lock()
+		l.waiting--
+		l.lock.Unlock()
+		return nil
+	case <-l.notify:
+		return nil
+	}
 }
