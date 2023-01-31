@@ -14,6 +14,5 @@ type UserData struct {
 type UserWorkflow struct{}
 
 func (s *UserWorkflow) Workflow(ctx workflow.Context, userData UserData) (err error) {
-
 	return nil
 }

@@ -71,12 +71,12 @@ func (hm *HostAssignments) NewAssignments(assignments map[string][]Range) error 
 	return nil
 }
 
-// GetHost get a host's identifier for a given key
+// GetHost get a host's identifier for a given key.
 func (hm *HostAssignments) GetHost(key string) string {
 	return hm.getKeyHost(Hash(key)).Host
 }
 
-// Assignments returns a full copy of the internal assignments
+// Assignments returns a full copy of the internal assignments.
 func (hm *HostAssignments) Assignments() map[string][]Range {
 	assignments := map[string][]Range{}
 	hm.lock.RLock()

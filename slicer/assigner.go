@@ -10,7 +10,7 @@ type Assigner struct {
 	hostAssignments *HostAssignments
 }
 
-// Host provides a host's identifier for a given ket
+// Host provides a host's identifier for a given key.
 func (s *Assigner) Host(key string) string {
 	return s.hostAssignments.GetHost(key)
 }

@@ -80,7 +80,6 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 }
 
 func (suite *DaemonSuite) TestNonOverlappingTests() {
-
 	t := suite.T()
 	d, _ := suite.CreateDaemon()
 	client := suite.NewClient(d)

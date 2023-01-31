@@ -82,5 +82,4 @@ func TestLB(t *testing.T) {
 	if err := lb.Wait(); err != nil {
 		t.Fatal(err)
 	}
-
 }

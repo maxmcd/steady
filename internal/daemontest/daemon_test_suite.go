@@ -27,7 +27,7 @@ var _ suite.AfterTest = new(DaemonSuite)
 func (suite *DaemonSuite) SetupSuite() {}
 
 // CreateDaemon creates a daemon with the provided options. If you've called
-// StartMinioServer, that server will be associated with the created Daemon
+// StartMinioServer, that server will be associated with the created Daemon.
 func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
