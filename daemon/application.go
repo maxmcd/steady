@@ -130,7 +130,7 @@ func (a *application) shutdown() error {
 }
 
 func (a *application) checkForDBs() error {
-	dbs, err := filepath.Glob(filepath.Join(a.dir, "./*.sql"))
+	dbs, err := filepath.Glob(filepath.Join(a.dir, "./*.sqlite"))
 	if err != nil {
 		return err
 	}
