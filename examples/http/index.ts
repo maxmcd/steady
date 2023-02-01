@@ -1,6 +1,6 @@
 import { Database } from "bun:sqlite";
 
-let db = new Database("db.sql");
+let db = new Database("db.sqlite");
 
 db.exec(`create table if not exists user (
   id integer primary key autoincrement,

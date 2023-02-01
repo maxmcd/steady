@@ -1,4 +1,4 @@
-# Use nix
+# Use nix (requires GNU make)
 SHELL := nix-shell
 .SHELLFLAGS := --run
 
@@ -12,3 +12,6 @@ test_ci:
 		-coverpkg=./... -coverprofile=coverage.out \
         -race ./...
 	codecov
+
+generate:
+	go generate ./...

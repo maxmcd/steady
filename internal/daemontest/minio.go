@@ -62,15 +62,18 @@ func NewMinioServer(t *testing.T) *MinioServer {
 	for i := 0; i < 10; i++ {
 		fmt.Println("minio startup", time.Since(start))
 		time.Sleep(time.Millisecond * time.Duration(i*i))
-		ctx, _ := context.WithTimeout(context.Background(), time.Millisecond*50)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 		if _, err = s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
 			Bucket: aws.String(server.BucketName),
 		}); err == nil {
+			cancel()
 			break
 		} else if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
 			err = nil
+			cancel()
 			break
 		}
+		cancel()
 	}
 	if err != nil {
 		t.Fatal(err)

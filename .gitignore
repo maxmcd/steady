@@ -1,2 +1,2 @@
-*.sql
+*.sqlite
 node_modules

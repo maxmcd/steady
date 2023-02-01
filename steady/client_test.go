@@ -1,4 +1,4 @@
-package steady
+package steadyservice
 
 import (
 	"bytes"
