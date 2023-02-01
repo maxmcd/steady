@@ -32,6 +32,7 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 // ================
 
 type Steady interface {
+	// hi
 	CreateService(context.Context, *CreateServiceRequest) (*CreateServiceResponse, error)
 
 	CreateServiceVersion(context.Context, *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error)
