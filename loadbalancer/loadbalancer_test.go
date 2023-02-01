@@ -26,7 +26,7 @@ func TestLB(t *testing.T) {
 		if shutdownApplication {
 			w.WriteHeader(http.StatusNotFound)
 		}
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 
 	uri, err := url.Parse(server.URL)
@@ -61,7 +61,7 @@ func TestLB(t *testing.T) {
 
 	server2 := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Add("Content-Type", "application/json")
-		w.Write([]byte("{}"))
+		_, _ = w.Write([]byte("{}"))
 	}))
 
 	uri2, err := url.Parse(server2.URL)

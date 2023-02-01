@@ -16,6 +16,11 @@ linters:
     - gocritic
     - funlen
     - godot
+issues:
+  exclude-rules:
+    - linters:
+        - lll
+      source: "^//go:generate "
 linters-settings:
   staticcheck:
     checks: ["SA*", "S1*"]

@@ -16,5 +16,7 @@ func TestSlicer_AddLocation(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	slicer.hostAssignments.Serialize(os.Stdout)
+	if err := slicer.hostAssignments.Serialize(os.Stdout); err != nil {
+		t.Fatal(err)
+	}
 }

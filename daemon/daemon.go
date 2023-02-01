@@ -370,10 +370,11 @@ func (d *Daemon) Start(ctx context.Context) {
 	})
 	d.eg.Go(func() error {
 		<-ctx.Done()
-		timeoutCtx, _ := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
 		if err := srv.Shutdown(timeoutCtx); err != nil {
 			fmt.Printf("WARN: error shutting down http server: %v\n", err)
 		}
+		cancel()
 		d.applicationsLock.Lock()
 		defer d.applicationsLock.Unlock()
 
