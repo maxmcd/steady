@@ -10,16 +10,34 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestService(t *testing.T) {
+func TestServer(t *testing.T) {
+	ctx := context.Background()
 	tmpDir := t.TempDir()
-	service := &steady.Service{}
-	steady.OptionWithSqlite(filepath.Join(tmpDir, "db.sqlite"))(service)
+	server := &steady.Server{}
+	steady.OptionWithSqlite(filepath.Join(tmpDir, "db.sqlite"))(server)
 
-	resp, err := service.CreateService(context.Background(), &rpc.CreateServiceRequest{
-		Name: "foo",
-	})
-	if err != nil {
-		t.Fatal(err)
+	var service *rpc.Service
+	{
+		resp, err := server.CreateService(ctx, &rpc.CreateServiceRequest{
+			Name: "foo",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, "foo", resp.Service.Name)
+		service = resp.Service
 	}
-	assert.Equal(t, "foo", resp.Service.Name)
+
+	{
+		resp, err := server.CreateServiceVersion(ctx, &rpc.CreateServiceVersionRequest{
+			ServiceId: service.Id,
+			Version:   "v1",
+			Source:    "console.log('hi');",
+		})
+		if err != nil {
+			t.Fatal(err)
+		}
+		assert.Equal(t, service.Id, resp.ServiceVersion.ServiceId)
+	}
+
 }

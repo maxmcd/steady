@@ -32,9 +32,10 @@ message CreateServiceVersionRequest {
 message CreateServiceVersionResponse { ServiceVersion service_version = 1; }
 
 message ServiceVersion {
-  int64 service_id = 1;
-  string version = 2;
-  string source = 3;
+  int64 id = 1;
+  int64 service_id = 2;
+  string version = 3;
+  string source = 4;
 }
 
 message DeployApplicationRequeast {

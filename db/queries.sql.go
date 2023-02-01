@@ -69,14 +69,33 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const getService = `-- name: GetService :one
+SELECT id, name, user_id
+FROM services
+WHERE user_id = ?
+    and id = ?
+`
+
+type GetServiceParams struct {
+	UserID int64
+	ID     int64
+}
+
+func (q *Queries) GetService(ctx context.Context, arg GetServiceParams) (Service, error) {
+	row := q.queryRow(ctx, q.getServiceStmt, getService, arg.UserID, arg.ID)
+	var i Service
+	err := row.Scan(&i.ID, &i.Name, &i.UserID)
+	return i, err
+}
+
 const getServiceVersion = `-- name: GetServiceVersion :one
 SELECT id, service_id, version, source
 FROM service_versions
-WHERE version = ?
+WHERE id = ?
 `
 
-func (q *Queries) GetServiceVersion(ctx context.Context, version string) (ServiceVersion, error) {
-	row := q.queryRow(ctx, q.getServiceVersionStmt, getServiceVersion, version)
+func (q *Queries) GetServiceVersion(ctx context.Context, id int64) (ServiceVersion, error) {
+	row := q.queryRow(ctx, q.getServiceVersionStmt, getServiceVersion, id)
 	var i ServiceVersion
 	err := row.Scan(
 		&i.ID,

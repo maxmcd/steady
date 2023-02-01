@@ -33,6 +33,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
 	}
+	if q.getServiceStmt, err = db.PrepareContext(ctx, getService); err != nil {
+		return nil, fmt.Errorf("error preparing query GetService: %w", err)
+	}
 	if q.getServiceVersionStmt, err = db.PrepareContext(ctx, getServiceVersion); err != nil {
 		return nil, fmt.Errorf("error preparing query GetServiceVersion: %w", err)
 	}
@@ -66,6 +69,11 @@ func (q *Queries) Close() error {
 	if q.createUserStmt != nil {
 		if cerr := q.createUserStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
+		}
+	}
+	if q.getServiceStmt != nil {
+		if cerr := q.getServiceStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getServiceStmt: %w", cerr)
 		}
 	}
 	if q.getServiceVersionStmt != nil {
@@ -135,6 +143,7 @@ type Queries struct {
 	createServiceStmt        *sql.Stmt
 	createServiceVersionStmt *sql.Stmt
 	createUserStmt           *sql.Stmt
+	getServiceStmt           *sql.Stmt
 	getServiceVersionStmt    *sql.Stmt
 	getServiceVersionsStmt   *sql.Stmt
 	getUserStmt              *sql.Stmt
@@ -149,6 +158,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createServiceStmt:        q.createServiceStmt,
 		createServiceVersionStmt: q.createServiceVersionStmt,
 		createUserStmt:           q.createUserStmt,
+		getServiceStmt:           q.getServiceStmt,
 		getServiceVersionStmt:    q.getServiceVersionStmt,
 		getServiceVersionsStmt:   q.getServiceVersionsStmt,
 		getUserStmt:              q.getUserStmt,

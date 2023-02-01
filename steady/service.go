@@ -2,7 +2,6 @@ package steady
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -11,14 +10,15 @@ import (
 	"github.com/maxmcd/steady/steady/rpc"
 )
 
-type Service struct {
-	db db.Querier
+type Server struct {
+	db       *db.Queries
+	dbClient *sqlx.DB
 }
 
-type Option func(*Service)
+var _ rpc.Steady = new(Server)
 
 func OptionWithSqlite(path string) Option {
-	return func(s *Service) {
+	return func(s *Server) {
 		dbClient, err := sqlx.Open("sqlite3", path)
 		if err != nil {
 			panic(err)
@@ -45,12 +45,19 @@ func OptionWithSqlite(path string) Option {
 		if err := tx.Commit(); err != nil {
 			panic(err)
 		}
-		s.db = db.New(dbClient)
+		s.db, err = db.Prepare(ctx, dbClient)
+		if err != nil {
+			panic(err)
+		}
+		s.dbClient = dbClient
 	}
 }
+
+type Option func(*Server)
+
 func OptionWithPostgres(connectionString string) Option {
-	return func(s *Service) {
-		dbClient, err := sql.Open("postgres", connectionString)
+	return func(s *Server) {
+		dbClient, err := sqlx.Open("postgres", connectionString)
 		if err != nil {
 			panic(err)
 		}
@@ -58,13 +65,19 @@ func OptionWithPostgres(connectionString string) Option {
 		if _, err := dbClient.Exec(db.Migrations); err != nil {
 			panic(err)
 		}
-		s.db = db.New(dbClient)
+		s.dbClient = dbClient
 	}
 }
 
-var _ rpc.Steady = new(Service)
+func (s *Server) dbTX(ctx context.Context) (db.Querier, error) {
+	tx, err := s.dbClient.BeginTx(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	return s.db.WithTx(tx), nil
+}
 
-func (s *Service) CreateService(ctx context.Context, req *rpc.CreateServiceRequest) (
+func (s *Server) CreateService(ctx context.Context, req *rpc.CreateServiceRequest) (
 	_ *rpc.CreateServiceResponse, err error) {
 	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
 		Name:   req.Name,
@@ -81,13 +94,47 @@ func (s *Service) CreateService(ctx context.Context, req *rpc.CreateServiceReque
 		},
 	}, nil
 }
-
-func (s *Service) CreateServiceVersion(ctx context.Context, req *rpc.CreateServiceVersionRequest) (
+func (s *Server) CreateServiceVersion(ctx context.Context, req *rpc.CreateServiceVersionRequest) (
 	_ *rpc.CreateServiceVersionResponse, err error) {
-	return nil, err
+	dbtx, err := s.dbTX(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	if _, err := dbtx.GetService(ctx, db.GetServiceParams{
+		UserID: 1,
+		ID:     req.ServiceId,
+	}); err != nil {
+		return nil, err
+	}
+
+	serviceVersion, err := dbtx.CreateServiceVersion(ctx, db.CreateServiceVersionParams{
+		ServiceID: req.ServiceId,
+		Version:   req.Version,
+		Source:    req.Source,
+	})
+	if err != nil {
+		return nil, err
+	}
+
+	return &rpc.CreateServiceVersionResponse{
+		ServiceVersion: &rpc.ServiceVersion{
+			Id:        serviceVersion.ID,
+			ServiceId: serviceVersion.ServiceID,
+			Version:   serviceVersion.Version,
+			Source:    serviceVersion.Source,
+		},
+	}, nil
 }
 
-func (s *Service) DeployApplication(ctx context.Context, req *rpc.DeployApplicationRequeast) (
+func (s *Server) DeployApplication(ctx context.Context, req *rpc.DeployApplicationRequeast) (
 	_ *rpc.DeployApplicationResponse, err error) {
+	serviceVersion, err := s.db.GetServiceVersion(ctx, req.ServiceVersionId)
+	if err != nil {
+		return nil, err
+	}
+	_ = serviceVersion
+
+	// TODO: deploy application to host, confirm that it works
 	return nil, err
 }
