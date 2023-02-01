@@ -1,4 +1,4 @@
-# Use nix (requires GNU make)
+# Use nix (requires GNU make for SHELLFLAGS to work)
 SHELL := nix-shell
 .SHELLFLAGS := --run
 
@@ -15,3 +15,6 @@ test_ci:
 
 generate:
 	go generate ./...
+
+lint:
+	golangci-lint run

@@ -7,8 +7,6 @@ import (
 	"github.com/maxmcd/steady/daemon/api"
 )
 
-//go:generate bash -c "oapi-codegen --package=api --generate=types,client,server,spec ./openapi3.yaml > api/api.gen.go"
-
 type server struct {
 	daemon *Daemon
 }

@@ -9,11 +9,16 @@ jobs:
       - uses: cachix/install-nix-action@v18
         with:
           nix_path: nixpkgs=channel:nixos-unstable
-      - name: Confirm there are not untracked changes after generate
-        run: |
-          make generate
-          [[ -z $(git status -s) ]]
+      - name: download nix deps
+        run: nix-shell --run "echo \"Rock steady\""
       - env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
           make test_ci
+      - name: Confirm there are not untracked changes after generate
+        run: |
+          make generate
+          git status
+          [[ -z $(git status -s) ]]
+      - name: lint
+        run: make lint

@@ -68,7 +68,7 @@ func NewMinioServer(t *testing.T) *MinioServer {
 		}); err == nil {
 			cancel()
 			break
-		} else if err != nil && strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
+		} else if strings.Contains(err.Error(), "BucketAlreadyOwnedByYou") {
 			err = nil
 			cancel()
 			break
