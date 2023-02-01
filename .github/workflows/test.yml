@@ -9,6 +9,10 @@ jobs:
       - uses: cachix/install-nix-action@v18
         with:
           nix_path: nixpkgs=channel:nixos-unstable
+      - name: Confirm there are not untracked changes after generate
+        run: |
+          make generate
+          [[ -z $(git status -s) ]]
       - env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |
