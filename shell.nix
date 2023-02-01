@@ -11,5 +11,6 @@ mkShell {
         protobuf
         protoc-gen-go
         protoc-gen-twirp
+        golangci-lint
     ];
 }
