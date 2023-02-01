@@ -17,4 +17,4 @@ generate:
 	go generate ./...
 
 lint:
-	golangci-lint run --timeout=3m --verbose
+	golangci-lint run --timeout=3m

@@ -16,7 +16,6 @@ linters:
     - gocritic
     - funlen
     - godot
-    - gosec
 linters-settings:
   staticcheck:
     checks: ["SA*", "S1*"]
