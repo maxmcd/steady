@@ -1,3 +1,20 @@
+# 2023-02-02
+
+- request to run an application before deploy
+- not durable, will be GC'd, will overwrite on name-conflict
+
+- make request to deploy application
+- find host that will house the application
+- make request to that host
+
+
+How will that work?
+
+- Load balancer has public and private port
+- Private port will proxy api requests to hosts
+- Public will proxy application traffic
+
+
 # 2023-01-25
 
 Expected application migration timeline:

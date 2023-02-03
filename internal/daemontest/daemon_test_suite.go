@@ -1,9 +1,12 @@
 package daemontest
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
+	"net/http"
 	"os"
 	"path/filepath"
 
@@ -41,7 +44,7 @@ func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.D
 			ForcePathStyle:  true,
 		}))
 	}
-	d = daemon.NewDaemon(dir, "localhost:0", opts...)
+	d = daemon.NewDaemon(dir, "localhost:0", "localhost:0", opts...)
 	ctx, cancel := context.WithCancel(context.Background())
 	d.Start(ctx)
 	suite.cancels = append(suite.cancels, cancel)
@@ -84,14 +87,32 @@ func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
 	}
 }
 
+func (suite *DaemonSuite) Request(
+	d *daemon.Daemon, appName string,
+	method string, url string,
+	body string) (_ *http.Response, respBody string, err error) {
+	req, err := http.NewRequest(method, suite.DaemonURL(d, url), bytes.NewBufferString(body))
+	if err != nil {
+		return nil, "", err
+	}
+	req.Header.Set("Host", appName+".foo.com")
+	req.Host = appName + ".foo.com"
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return resp, "", err
+	}
+	b, err := ioutil.ReadAll(resp.Body)
+	if err != nil {
+		return resp, "", err
+	}
+	return resp, string(b), err
+}
 func (suite *DaemonSuite) DaemonURL(d *daemon.Daemon, paths ...string) string {
-	return fmt.Sprintf("http://"+d.ServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
+	return fmt.Sprintf("http://"+d.PublicServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
 }
 
-func (suite *DaemonSuite) NewClient(d *daemon.Daemon) *daemon.Client {
-	client, err := daemon.NewClient(suite.DaemonURL(d), nil)
-	suite.Require().NoError(err)
-	return client
+func (suite *DaemonSuite) NewClient(d *daemon.Daemon) daemon.Client {
+	return daemon.NewClient(fmt.Sprintf("http://"+d.PrivateServerAddr()), nil)
 }
 
 func (suite *DaemonSuite) LoadExampleScript(name string) string {

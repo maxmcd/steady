@@ -39,5 +39,4 @@ func TestServer(t *testing.T) {
 		}
 		assert.Equal(t, service.Id, resp.ServiceVersion.ServiceId)
 	}
-
 }

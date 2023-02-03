@@ -1,11 +1,11 @@
 syntax = "proto3";
 
-package steady.steady.steady;
+package steady.steady;
 
 option go_package = "github.com/maxmcd/steady/steady/rpc";
 
 service Steady {
-  // hi
+
   rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
   rpc CreateServiceVersion(CreateServiceVersionRequest)
       returns (CreateServiceVersionResponse);

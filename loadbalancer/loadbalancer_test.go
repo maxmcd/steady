@@ -39,8 +39,8 @@ func TestLB(t *testing.T) {
 		t.Fatal(err)
 	}
 
-	lb.Start(ctx, ":0")
-	addr := lb.ServerAddr()
+	lb.Start(ctx, ":0", ":0")
+	addr := lb.PublicServerAddr()
 
 	makeRequest := func() {
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", addr), nil)

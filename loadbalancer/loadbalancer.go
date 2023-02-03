@@ -12,6 +12,7 @@ import (
 	"time"
 
 	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -24,10 +25,11 @@ var (
 type LB struct {
 	appNameExtractor AppNameExtractor
 
-	eg           *errgroup.Group
-	listenerWait *sync.WaitGroup
-	listener     net.Listener
-	client       *http.Client
+	eg              *errgroup.Group
+	listenerWait    *sync.WaitGroup
+	publicListener  net.Listener
+	privateListener net.Listener
+	client          *http.Client
 
 	hashRangesSetLock *sync.Mutex
 	hashRangesSet     []*slicer.HostAssignments
@@ -45,7 +47,6 @@ func NewLB(opts ...Option) *LB {
 		hashRangesSetLock: &sync.Mutex{},
 		client:            &http.Client{},
 	}
-	lb.listenerWait.Add(1)
 	for _, opt := range opts {
 		opt(lb)
 	}
@@ -113,13 +114,11 @@ func (lb *LB) Handler(rw http.ResponseWriter, r *http.Request) {
 func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (host string, err error) {
 	for _, host := range hosts {
 		fmt.Println(host, hosts)
-		var daemonClient *daemon.Client
-		if daemonClient, err = daemon.NewClient(fmt.Sprintf("http://%s", host), lb.client); err != nil {
-			// Shouldn't error here ever
-			return "", err
-		}
+		daemonClient := daemon.NewClient(fmt.Sprintf("http://%s", host), lb.client)
 
-		if _, err = daemonClient.GetApplication(ctx, name); err != nil {
+		if _, err = daemonClient.GetApplication(ctx, &rpc.GetApplicationRequest{
+			Name: name,
+		}); err != nil {
 			continue
 		}
 		// Success
@@ -132,29 +131,33 @@ func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (ho
 func (lb *LB) Wait() error { return lb.eg.Wait() }
 
 // Start the server and listen at the provided address.
-func (lb *LB) Start(ctx context.Context, addr string) {
+func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) {
 	if lb.eg != nil {
 		panic("LB has already started")
 	}
 	if len(lb.hashRangesSet) == 0 {
 		panic("can't start without host assignments")
 	}
+	lb.listenerWait.Add(2)
 
 	lb.eg, ctx = errgroup.WithContext(ctx)
 
-	srv := http.Server{
+	publicServer := http.Server{
+		Handler:           http.HandlerFunc(lb.Handler),
+		ReadHeaderTimeout: time.Second * 15,
+	}
+	privateServer := http.Server{
 		Handler:           http.HandlerFunc(lb.Handler),
 		ReadHeaderTimeout: time.Second * 15,
 	}
 
 	lb.eg.Go(func() (err error) {
-		lb.listener, err = net.Listen("tcp", addr)
+		lb.publicListener, err = net.Listen("tcp", publicAddr)
 		if err != nil {
 			return err
 		}
 		lb.listenerWait.Done()
-		err = srv.Serve(lb.listener)
-		if err == http.ErrServerClosed {
+		if err = publicServer.Serve(lb.publicListener); err == http.ErrServerClosed {
 			return nil
 		}
 		return err
@@ -162,7 +165,28 @@ func (lb *LB) Start(ctx context.Context, addr string) {
 	lb.eg.Go(func() error {
 		<-ctx.Done()
 		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := srv.Shutdown(timeoutCtx); err != nil {
+		if err := publicServer.Shutdown(timeoutCtx); err != nil {
+			fmt.Printf("WARN: error shutting down http server: %v\n", err)
+		}
+		cancel()
+		return nil
+	})
+	lb.eg.Go(func() (err error) {
+		lb.privateListener, err = net.Listen("tcp", privateAddr)
+		if err != nil {
+			return err
+		}
+		lb.listenerWait.Done()
+		if err = publicServer.Serve(lb.privateListener); err == http.ErrServerClosed {
+			return nil
+		}
+
+		return err
+	})
+	lb.eg.Go(func() error {
+		<-ctx.Done()
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
+		if err := privateServer.Shutdown(timeoutCtx); err != nil {
 			fmt.Printf("WARN: error shutting down http server: %v\n", err)
 		}
 		cancel()
@@ -170,14 +194,24 @@ func (lb *LB) Start(ctx context.Context, addr string) {
 	})
 }
 
-// ServerAddr returns the address of the running server. Will panic if the
+// PublicServerAddr returns the address of the running server. Will panic if the
 // server hasn't been started yet.
-func (lb *LB) ServerAddr() string {
+func (lb *LB) PublicServerAddr() string {
 	if lb.eg == nil {
 		panic(fmt.Errorf("server has not started"))
 	}
 	lb.listenerWait.Wait()
-	return lb.listener.Addr().String()
+	return lb.publicListener.Addr().String()
+}
+
+// PrivateServerAddr returns the address of the running server. Will panic if
+// the server hasn't been started yet.
+func (lb *LB) PrivateServerAddr() string {
+	if lb.eg == nil {
+		panic(fmt.Errorf("server has not started"))
+	}
+	lb.listenerWait.Wait()
+	return lb.privateListener.Addr().String()
 }
 
 type AppNameExtractor func(req *http.Request) (string, error)

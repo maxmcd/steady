@@ -8,6 +8,7 @@ import (
 	"net/http"
 	"testing"
 
+	"github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/maxmcd/steady/loadbalancer"
 	"github.com/maxmcd/steady/slicer"
@@ -43,7 +44,7 @@ func (suite *TestSuite) TestDeploy() {
 	assigner := &slicer.Assigner{}
 
 	d, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d.ServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d.PublicServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -52,11 +53,11 @@ func (suite *TestSuite) TestDeploy() {
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = cancel
-	lb.Start(ctx, ":0")
+	lb.Start(ctx, ":0", ":0")
 
 	{
 		// Confirm the application currently returns a 404
-		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", lb.ServerAddr()), nil)
+		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", lb.PublicServerAddr()), nil)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -69,14 +70,17 @@ func (suite *TestSuite) TestDeploy() {
 	}
 
 	dClient := suite.NewClient(d)
-	if _, err := dClient.CreateApplication(ctx, appName, suite.LoadExampleScript("http")); err != nil {
+	if _, err := dClient.CreateApplication(ctx, &rpc.CreateApplicationRequest{
+		Name:   appName,
+		Script: suite.LoadExampleScript("http"),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
 	counter := 0
 	createRecordRequest := func() {
 		req, err := http.NewRequest(http.MethodPost,
-			fmt.Sprintf("http://%s", lb.ServerAddr()),
+			fmt.Sprintf("http://%s", lb.PublicServerAddr()),
 			bytes.NewBuffer([]byte(`{"email":"lite"}`)))
 		if err != nil {
 			t.Fatal(err)
@@ -100,7 +104,7 @@ func (suite *TestSuite) TestDeploy() {
 	d.StopAllApplications()
 
 	d2, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d2.ServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d2.PublicServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := lb.NewHostAssignments(assigner.Assignments()); err != nil {
@@ -108,12 +112,15 @@ func (suite *TestSuite) TestDeploy() {
 	}
 
 	// How are we finding what to move?
-	if _, err := dClient.DeleteApplication(ctx, appName); err != nil {
+	if _, err := dClient.DeleteApplication(ctx, &rpc.DeleteApplicationRequest{Name: appName}); err != nil {
 		t.Fatal(err)
 	}
 
 	d2Client := suite.NewClient(d)
-	if _, err := d2Client.CreateApplication(ctx, appName, suite.LoadExampleScript("http")); err != nil {
+	if _, err := d2Client.CreateApplication(ctx, &rpc.CreateApplicationRequest{
+		Name:   appName,
+		Script: suite.LoadExampleScript("http"),
+	}); err != nil {
 		t.Fatal(err)
 	}
 	createRecordRequest()
