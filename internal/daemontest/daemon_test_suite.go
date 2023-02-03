@@ -11,13 +11,18 @@ import (
 	"path/filepath"
 
 	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/loadbalancer"
+	"github.com/maxmcd/steady/slicer"
 	"github.com/stretchr/testify/suite"
 )
 
 type DaemonSuite struct {
 	suite.Suite
 
-	daemons []*daemon.Daemon
+	daemons       []*daemon.Daemon
+	assigner      *slicer.Assigner
+	loadBalancers []*loadbalancer.LB
+
 	cancels []func()
 
 	minioServer *MinioServer
@@ -29,9 +34,9 @@ var _ suite.AfterTest = new(DaemonSuite)
 
 func (suite *DaemonSuite) SetupSuite() {}
 
-// CreateDaemon creates a daemon with the provided options. If you've called
+// NewDaemon creates a daemon with the provided options. If you've called
 // StartMinioServer, that server will be associated with the created Daemon.
-func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
+func (suite *DaemonSuite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
 	if suite.minioServer != nil {
@@ -49,7 +54,31 @@ func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.D
 	d.Start(ctx)
 	suite.cancels = append(suite.cancels, cancel)
 	suite.daemons = append(suite.daemons, d)
+	if err := suite.assigner.AddHost(d.ServerAddr(), nil); err != nil {
+		suite.T().Fatal(err)
+	}
+	newAssignments := suite.assigner.Assignments()
+	for _, lb := range suite.loadBalancers {
+		if err := lb.NewHostAssignments(newAssignments); err != nil {
+			suite.T().Fatal(err)
+		}
+	}
 	return d, dir
+}
+
+func (suite *DaemonSuite) NewLB() *loadbalancer.LB {
+	if len(suite.daemons) == 0 {
+		suite.T().Fatal("You cannot create a load balancer if no daemon servers exis")
+	}
+	lb := loadbalancer.NewLB()
+	if err := lb.NewHostAssignments(suite.assigner.Assignments()); err != nil {
+		suite.T().Fatal(err)
+	}
+	if err := lb.Start(context.Background(), ":0", ":0"); err != nil {
+		suite.T().Fatal(err)
+	}
+	suite.loadBalancers = append(suite.loadBalancers, lb)
+	return lb
 }
 
 func (suite *DaemonSuite) StartMinioServer() {
@@ -70,7 +99,9 @@ func (suite *DaemonSuite) MinioServerS3Config() daemon.S3Config {
 	}
 }
 
-func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {}
+func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {
+	suite.assigner = &slicer.Assigner{}
+}
 
 func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
 	for _, cancel := range suite.cancels {

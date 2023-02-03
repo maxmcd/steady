@@ -101,7 +101,6 @@ func (lb *LB) Handler(name string, rw http.ResponseWriter, r *http.Request) {
 
 func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (host string, err error) {
 	for _, host := range hosts {
-		fmt.Println(host, hosts)
 		daemonClient := daemon.NewClient(fmt.Sprintf("http://%s", host), lb.client)
 		if _, err = daemonClient.GetApplication(ctx, &rpc.GetApplicationRequest{
 			Name: name,

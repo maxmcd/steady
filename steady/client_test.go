@@ -5,13 +5,14 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
 	"testing"
 
-	"github.com/maxmcd/steady/daemon/rpc"
+	daemonrpc "github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/internal/daemontest"
-	"github.com/maxmcd/steady/loadbalancer"
-	"github.com/maxmcd/steady/slicer"
+	"github.com/maxmcd/steady/steady/rpc"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -33,25 +34,17 @@ func (suite *TestSuite) TestDeploy() {
 	// migrate the job to another daemon
 	// ensure all requests make it to a live job
 
-	appName := "bar-max-max"
+	appName := "whee"
 	httpClient := &http.Client{}
 
-	lb := loadbalancer.NewLB()
-
 	suite.StartMinioServer()
-	assigner := &slicer.Assigner{}
 
-	d, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d.ServerAddr(), nil); err != nil {
-		t.Fatal(err)
-	}
+	d, _ := suite.NewDaemon()
 
-	if err := lb.NewHostAssignments(assigner.Assignments()); err != nil {
-		t.Fatal(err)
-	}
+	lb := suite.NewLB()
+
 	ctx, cancel := context.WithCancel(context.Background())
 	_ = cancel
-	lb.Start(ctx, ":0", ":0")
 
 	{
 		// Confirm the application currently returns a 404
@@ -68,7 +61,7 @@ func (suite *TestSuite) TestDeploy() {
 	}
 
 	dClient := suite.NewClient(d)
-	if _, err := dClient.CreateApplication(ctx, &rpc.CreateApplicationRequest{
+	if _, err := dClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
 	}); err != nil {
@@ -101,25 +94,68 @@ func (suite *TestSuite) TestDeploy() {
 	createRecordRequest()
 	d.StopAllApplications()
 
-	d2, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d2.ServerAddr(), nil); err != nil {
-		t.Fatal(err)
-	}
-	if err := lb.NewHostAssignments(assigner.Assignments()); err != nil {
-		t.Fatal(err)
-	}
+	d2, _ := suite.NewDaemon()
 
 	// How are we finding what to move?
-	if _, err := dClient.DeleteApplication(ctx, &rpc.DeleteApplicationRequest{Name: appName}); err != nil {
+	if _, err := dClient.DeleteApplication(ctx, &daemonrpc.DeleteApplicationRequest{Name: appName}); err != nil {
 		t.Fatal(err)
 	}
 
-	d2Client := suite.NewClient(d)
-	if _, err := d2Client.CreateApplication(ctx, &rpc.CreateApplicationRequest{
+	d2Client := suite.NewClient(d2)
+	if _, err := d2Client.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
 	}); err != nil {
 		t.Fatal(err)
 	}
 	createRecordRequest()
+}
+
+func (suite *TestSuite) TestServer() {
+	t := suite.T()
+
+	// Migrate job
+	// Start job on daemon
+	// send requests to it from the load balancer
+	// add another host
+	// migrate the job to another daemon
+	// ensure all requests make it to a live job
+
+	suite.StartMinioServer()
+
+	ctx := context.Background()
+
+	d, _ := suite.NewDaemon()
+
+	lb := suite.NewLB()
+
+	server := NewServer(ServerOptions{
+		PrivateLoadBalancerURL: lb.PrivateServerAddr(),
+		PublicLoadBalancerURL:  lb.PublicServerAddr(),
+		DaemonClient:           suite.NewClient(d),
+	}, OptionWithSqlite(t.TempDir()+"/foo.sqlite"))
+
+	resp, err := server.DeploySource(ctx, &rpc.DeploySourceRequest{
+		Source: suite.LoadExampleScript("http"),
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	fmt.Println(resp.Url)
+	{
+		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
+		if err != nil {
+			t.Fatal(err)
+		}
+		req.Host = resp.Url
+
+		httpResp, err := http.DefaultClient.Do(req)
+		if err != nil {
+			t.Fatal(err)
+		}
+		suite.Equal(http.StatusOK, httpResp.StatusCode)
+		io.Copy(os.Stdout, httpResp.Body)
+	}
+
 }

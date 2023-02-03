@@ -38,7 +38,7 @@ func TestDaemonSuite(t *testing.T) {
 
 func (suite *DaemonSuite) TestConcurrentRequests() {
 	t := suite.T()
-	d, _ := suite.CreateDaemon()
+	d, _ := suite.NewDaemon()
 
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
@@ -82,7 +82,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 
 func (suite *DaemonSuite) TestNonOverlappingTests() {
 	t := suite.T()
-	d, _ := suite.CreateDaemon()
+	d, _ := suite.NewDaemon()
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
 

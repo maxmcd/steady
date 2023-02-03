@@ -171,5 +171,21 @@ func (s *Server) DeployApplication(ctx context.Context, req *rpc.DeployApplicati
 	return &rpc.DeployApplicationResponse{
 		Application: &rpc.Application{Name: app.Name},
 		Url:         s.publicLoadBalancerURL,
-	}, err
+	}, nil
+}
+
+func (s *Server) DeploySource(ctx context.Context, req *rpc.DeploySourceRequest) (
+	_ *rpc.DeploySourceResponse, err error) {
+	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
+		Name:   "faketemporaryname",
+		Script: req.Source,
+	})
+	if err != nil {
+		return nil, err
+	}
+	_ = app
+	// TODO: deploy application to host, confirm that it works
+	return &rpc.DeploySourceResponse{
+		Url: app.Name,
+	}, nil
 }

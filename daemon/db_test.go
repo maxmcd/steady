@@ -16,7 +16,7 @@ func (suite *DaemonSuite) TestLitestream() {
 
 	suite.StartMinioServer()
 
-	d, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
+	d, _ := suite.NewDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
 
 	client := suite.NewClient(d)
 	app, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{

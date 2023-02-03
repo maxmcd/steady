@@ -11,6 +11,7 @@ service Steady {
       returns (CreateServiceVersionResponse);
   rpc DeployApplication(DeployApplicationRequeast)
       returns (DeployApplicationResponse);
+  rpc DeploySource(DeploySourceRequest) returns (DeploySourceResponse);
 }
 
 message CreateServiceRequest { string name = 1; }
@@ -54,3 +55,6 @@ message Application {
   int64 user_id = 3;
   string name = 4;
 }
+
+message DeploySourceRequest { string source = 1; }
+message DeploySourceResponse { string url = 1; }
