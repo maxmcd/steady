@@ -33,19 +33,13 @@ func (suite *TestSuite) TestDeploy() {
 	// add another host
 	// migrate the job to another daemon
 	// ensure all requests make it to a live job
-
 	appName := "whee"
 	httpClient := &http.Client{}
 
 	suite.StartMinioServer()
-
 	d, _ := suite.NewDaemon()
-
 	lb := suite.NewLB()
-
-	ctx, cancel := context.WithCancel(context.Background())
-	_ = cancel
-
+	ctx := context.Background()
 	{
 		// Confirm the application currently returns a 404
 		req, err := http.NewRequest(http.MethodGet, fmt.Sprintf("http://%s", lb.PublicServerAddr()), nil)
@@ -155,7 +149,6 @@ func (suite *TestSuite) TestServer() {
 			t.Fatal(err)
 		}
 		suite.Equal(http.StatusOK, httpResp.StatusCode)
-		io.Copy(os.Stdout, httpResp.Body)
+		_, _ = io.Copy(os.Stdout, httpResp.Body)
 	}
-
 }

@@ -35,8 +35,7 @@ type Daemon struct {
 	dataDirectory string
 	client        *http.Client
 
-	addr        string
-	privateAddr string
+	addr string
 
 	s3Config *S3Config
 
@@ -388,5 +387,4 @@ func (d *Daemon) Start(ctx context.Context) {
 		}
 		return nil
 	})
-
 }

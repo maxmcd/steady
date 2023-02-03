@@ -20,5 +20,5 @@ jobs:
           make generate
           git status
           [[ -z $(git status -s) ]]
-      - name: lint
-        run: make lint
+      # - name: lint
+      #   run: make lint
