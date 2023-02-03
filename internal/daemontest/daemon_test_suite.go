@@ -44,7 +44,7 @@ func (suite *DaemonSuite) CreateDaemon(opts ...daemon.DaemonOption) (d *daemon.D
 			ForcePathStyle:  true,
 		}))
 	}
-	d = daemon.NewDaemon(dir, "localhost:0", "localhost:0", opts...)
+	d = daemon.NewDaemon(dir, "localhost:0", opts...)
 	ctx, cancel := context.WithCancel(context.Background())
 	d.Start(ctx)
 	suite.cancels = append(suite.cancels, cancel)
@@ -108,11 +108,11 @@ func (suite *DaemonSuite) Request(
 	return resp, string(b), err
 }
 func (suite *DaemonSuite) DaemonURL(d *daemon.Daemon, paths ...string) string {
-	return fmt.Sprintf("http://"+d.PublicServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
+	return fmt.Sprintf("http://"+d.ServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
 }
 
 func (suite *DaemonSuite) NewClient(d *daemon.Daemon) daemon.Client {
-	return daemon.NewClient(fmt.Sprintf("http://"+d.PrivateServerAddr()), nil)
+	return daemon.NewClient(fmt.Sprintf("http://"+d.ServerAddr()), nil)
 }
 
 func (suite *DaemonSuite) LoadExampleScript(name string) string {

@@ -1,3 +1,9 @@
+# 2023-02-03
+
+Loadbalancer gets *.steady.page
+Loadbalancer get *.steady.sh
+
+
 # 2023-02-02
 
 - request to run an application before deploy

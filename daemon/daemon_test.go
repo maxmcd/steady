@@ -119,10 +119,10 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 
 func BenchmarkActivity(b *testing.B) {
 	b.Skip("re-make this when we care")
-	d := daemon.NewDaemon(b.TempDir(), "localhost:0", "localhost:0")
+	d := daemon.NewDaemon(b.TempDir(), "localhost:0")
 	timestamp := time.Now().Format(time.RFC3339)
 
-	client := daemon.NewClient(d.PublicServerAddr(), nil)
+	client := daemon.NewClient(d.ServerAddr(), nil)
 	name := "max-hello"
 	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
 		Name:   name,
@@ -135,7 +135,7 @@ func BenchmarkActivity(b *testing.B) {
 	d.Start(ctx)
 
 	for i := 0; i < b.N; i++ {
-		resp, err := http.Get("http://" + d.PublicServerAddr() + "/max-hello/hi")
+		resp, err := http.Get("http://" + d.ServerAddr() + "/max-hello/hi")
 		if err != nil {
 			b.Fatal(err)
 		}

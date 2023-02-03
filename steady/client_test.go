@@ -33,18 +33,16 @@ func (suite *TestSuite) TestDeploy() {
 	// migrate the job to another daemon
 	// ensure all requests make it to a live job
 
-	appName := "bar.max.max"
+	appName := "bar-max-max"
 	httpClient := &http.Client{}
 
-	lb := loadbalancer.NewLB(
-		loadbalancer.OptionWithAppNameExtractor(
-			loadbalancer.TestHeaderExtractor))
+	lb := loadbalancer.NewLB()
 
 	suite.StartMinioServer()
 	assigner := &slicer.Assigner{}
 
 	d, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d.PublicServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d.ServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 
@@ -85,15 +83,15 @@ func (suite *TestSuite) TestDeploy() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		req.Header.Set("X-Host", appName)
+		req.Host = appName
 		req.Header.Set("Content-Type", "application/json")
 		resp, err := httpClient.Do(req)
 		if err != nil {
 			t.Fatal(err)
 		}
+		suite.Require().Equal(http.StatusOK, resp.StatusCode)
 		var jsonResponse map[string]interface{}
 		suite.Require().NoError(json.NewDecoder(resp.Body).Decode(&jsonResponse))
-		suite.Require().Equal(http.StatusOK, resp.StatusCode)
 
 		// Here's the real test. Ensure that every time we make a request the ID
 		// increments, even through deletes/restarts
@@ -104,7 +102,7 @@ func (suite *TestSuite) TestDeploy() {
 	d.StopAllApplications()
 
 	d2, _ := suite.CreateDaemon()
-	if err := assigner.AddHost(d2.PublicServerAddr(), nil); err != nil {
+	if err := assigner.AddHost(d2.ServerAddr(), nil); err != nil {
 		t.Fatal(err)
 	}
 	if err := lb.NewHostAssignments(assigner.Assignments()); err != nil {

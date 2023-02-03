@@ -6,6 +6,8 @@ import (
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
+	"github.com/maxmcd/steady/daemon"
+	daemonrpc "github.com/maxmcd/steady/daemon/rpc"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/steady/rpc"
 )
@@ -13,9 +15,52 @@ import (
 type Server struct {
 	db       *db.Queries
 	dbClient *sqlx.DB
+
+	daemonClient daemon.Client
+
+	privateLoadBalancerHost string
+	publicLoadBalancerURL   string
+}
+
+type ServerOptions struct {
+	PrivateLoadBalancerURL string
+	PublicLoadBalancerURL  string
+	DaemonClient           daemon.Client
+}
+
+func NewServer(options ServerOptions, opts ...Option) *Server {
+	s := &Server{
+		daemonClient:            options.DaemonClient,
+		publicLoadBalancerURL:   options.PublicLoadBalancerURL,
+		privateLoadBalancerHost: options.PrivateLoadBalancerURL,
+	}
+	for _, opt := range opts {
+		opt(s)
+	}
+	return s
 }
 
 var _ rpc.Steady = new(Server)
+
+func (s *Server) CreateService(ctx context.Context, req *rpc.CreateServiceRequest) (
+	_ *rpc.CreateServiceResponse, err error) {
+	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
+		Name:   req.Name,
+		UserID: 1,
+	})
+	if err != nil {
+		return nil, err
+	}
+	return &rpc.CreateServiceResponse{
+		Service: &rpc.Service{
+			Name:   service.Name,
+			Id:     service.ID,
+			UserId: service.UserID,
+		},
+	}, nil
+}
+
+type Option func(*Server)
 
 func OptionWithSqlite(path string) Option {
 	return func(s *Server) {
@@ -53,8 +98,6 @@ func OptionWithSqlite(path string) Option {
 	}
 }
 
-type Option func(*Server)
-
 func OptionWithPostgres(connectionString string) Option {
 	return func(s *Server) {
 		dbClient, err := sqlx.Open("postgres", connectionString)
@@ -77,23 +120,6 @@ func (s *Server) dbTX(ctx context.Context) (db.Querier, error) {
 	return s.db.WithTx(tx), nil
 }
 
-func (s *Server) CreateService(ctx context.Context, req *rpc.CreateServiceRequest) (
-	_ *rpc.CreateServiceResponse, err error) {
-	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
-		Name:   req.Name,
-		UserID: 1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &rpc.CreateServiceResponse{
-		Service: &rpc.Service{
-			Name:   service.Name,
-			Id:     service.ID,
-			UserId: service.UserID,
-		},
-	}, nil
-}
 func (s *Server) CreateServiceVersion(ctx context.Context, req *rpc.CreateServiceVersionRequest) (
 	_ *rpc.CreateServiceVersionResponse, err error) {
 	dbtx, err := s.dbTX(ctx)
@@ -133,8 +159,17 @@ func (s *Server) DeployApplication(ctx context.Context, req *rpc.DeployApplicati
 	if err != nil {
 		return nil, err
 	}
-	_ = serviceVersion
+	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
+		Name:   req.Name,
+		Script: serviceVersion.Source,
+	})
+	if err != nil {
+		return nil, err
+	}
 
 	// TODO: deploy application to host, confirm that it works
-	return nil, err
+	return &rpc.DeployApplicationResponse{
+		Application: &rpc.Application{Name: app.Name},
+		Url:         s.publicLoadBalancerURL,
+	}, err
 }

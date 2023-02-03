@@ -5,9 +5,11 @@ import (
 	"path/filepath"
 	"testing"
 
+	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/maxmcd/steady/steady"
 	"github.com/maxmcd/steady/steady/rpc"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 )
 
 func TestServer(t *testing.T) {
@@ -39,4 +41,16 @@ func TestServer(t *testing.T) {
 		}
 		assert.Equal(t, service.Id, resp.ServiceVersion.ServiceId)
 	}
+}
+
+type ServerSuite struct {
+	daemontest.DaemonSuite
+}
+
+func TestServerSuite(t *testing.T) {
+	suite.Run(t, new(ServerSuite))
+}
+
+func (suite *ServerSuite) TestCreateApplication() {
+
 }

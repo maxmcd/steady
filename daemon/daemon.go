@@ -24,6 +24,7 @@ import (
 	"github.com/benbjohnson/litestream/s3"
 	"github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/internal/netx"
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
 )
@@ -34,7 +35,7 @@ type Daemon struct {
 	dataDirectory string
 	client        *http.Client
 
-	publicAddr  string
+	addr        string
 	privateAddr string
 
 	s3Config *S3Config
@@ -42,19 +43,17 @@ type Daemon struct {
 	applicationsLock sync.RWMutex
 	applications     map[string]*application
 
-	listenerWait    *sync.WaitGroup
-	publicListener  net.Listener
-	privateListener net.Listener
-	eg              *errgroup.Group
+	listenerWait *sync.WaitGroup
+	listener     net.Listener
+	eg           *errgroup.Group
 }
 
 type DaemonOption func(*Daemon)
 
-func NewDaemon(dataDirectory string, publicAddr, privateAddr string, opts ...DaemonOption) *Daemon {
+func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon {
 	d := &Daemon{
 		dataDirectory: dataDirectory,
-		publicAddr:    publicAddr,
-		privateAddr:   privateAddr,
+		addr:          addr,
 		applications:  map[string]*application{},
 		listenerWait:  &sync.WaitGroup{},
 		client: &http.Client{
@@ -88,24 +87,14 @@ func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.
 // Wait for the server to exit, returning any errors.
 func (d *Daemon) Wait() error { return d.eg.Wait() }
 
-// PublicServerAddr returns the address of the running server. Will panic if the
+// ServerAddr returns the address of the running server. Will panic if the
 // server hasn't been started yet.
-func (d *Daemon) PublicServerAddr() string {
+func (d *Daemon) ServerAddr() string {
 	if d.eg == nil {
 		panic(fmt.Errorf("server has not started"))
 	}
 	d.listenerWait.Wait()
-	return d.publicListener.Addr().String()
-}
-
-// PrivateServerAddr returns the address of the running server. Will panic if the
-// server hasn't been started yet.
-func (d *Daemon) PrivateServerAddr() string {
-	if d.eg == nil {
-		panic(fmt.Errorf("server has not started"))
-	}
-	d.listenerWait.Wait()
-	return d.privateListener.Addr().String()
+	return d.listener.Addr().String()
 }
 
 func (d *Daemon) s3Client() (*awss3.S3, error) {
@@ -156,15 +145,7 @@ func (d *Daemon) createDB(name string) func(path string) (_ *litestream.DB, err 
 	}
 }
 
-func (d *Daemon) applicationHandler(rw http.ResponseWriter, r *http.Request) {
-	host := r.Host
-	hostParts := strings.Split(host, ".")
-	if host == "" || len(hostParts) == 0 || hostParts[0] == "" {
-		http.Error(rw, "invalid host header", http.StatusBadRequest)
-		return
-	}
-	name := hostParts[0]
-
+func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http.Request) {
 	d.applicationsLock.RLock()
 	app, found := d.applications[name]
 	d.applicationsLock.RUnlock()
@@ -356,26 +337,33 @@ func (d *Daemon) Start(ctx context.Context) {
 	if d.eg != nil {
 		panic("Daemon has already started")
 	}
-	d.listenerWait.Add(2)
+	d.listenerWait.Add(1)
 	d.eg, ctx = errgroup.WithContext(ctx)
 
-	publicServer := http.Server{
-		Handler:           http.HandlerFunc(d.applicationHandler),
-		ReadHeaderTimeout: time.Second * 15,
-	}
-
-	privateServer := http.Server{
-		Handler:           rpc.NewDaemonServer(server{daemon: d}),
+	daemonServer := rpc.NewDaemonServer(server{daemon: d})
+	srv := http.Server{
+		Handler: http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+			name := steadyutil.ExtractAppName(r)
+			if name == "" {
+				http.Error(rw, "invalid host header", http.StatusBadRequest)
+				return
+			}
+			if name == "steady" {
+				daemonServer.ServeHTTP(rw, r)
+			} else {
+				d.applicationHandler(name, rw, r)
+			}
+		}),
 		ReadHeaderTimeout: time.Second * 15,
 	}
 
 	d.eg.Go(func() (err error) {
-		d.publicListener, err = net.Listen("tcp", d.publicAddr)
+		d.listener, err = net.Listen("tcp", d.addr)
 		if err != nil {
 			return err
 		}
 		d.listenerWait.Done()
-		err = publicServer.Serve(d.publicListener)
+		err = srv.Serve(d.listener)
 		if err == http.ErrServerClosed {
 			return nil
 		}
@@ -384,7 +372,7 @@ func (d *Daemon) Start(ctx context.Context) {
 	d.eg.Go(func() error {
 		<-ctx.Done()
 		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := publicServer.Shutdown(timeoutCtx); err != nil {
+		if err := srv.Shutdown(timeoutCtx); err != nil {
 			fmt.Printf("WARN: error shutting down http server: %v\n", err)
 		}
 		cancel()
@@ -400,25 +388,5 @@ func (d *Daemon) Start(ctx context.Context) {
 		}
 		return nil
 	})
-	d.eg.Go(func() (err error) {
-		d.privateListener, err = net.Listen("tcp", d.privateAddr)
-		if err != nil {
-			return err
-		}
-		d.listenerWait.Done()
-		err = privateServer.Serve(d.privateListener)
-		if err == http.ErrServerClosed {
-			return nil
-		}
-		return err
-	})
-	d.eg.Go(func() error {
-		<-ctx.Done()
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := privateServer.Shutdown(timeoutCtx); err != nil {
-			fmt.Printf("WARN: error shutting down http server: %v\n", err)
-		}
-		cancel()
-		return nil
-	})
+
 }

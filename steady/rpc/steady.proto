@@ -43,7 +43,10 @@ message DeployApplicationRequeast {
   string name = 2;
 }
 
-message DeployApplicationResponse { Application application = 1; }
+message DeployApplicationResponse {
+  Application application = 1;
+  string url = 2;
+}
 
 message Application {
   int64 id = 1;
