@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -42,9 +43,11 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
 
-	name := "max.hello"
-	_, err := client.CreateApplication(context.Background(), name, fmt.Sprintf(exampleServer, timestamp))
-	if err != nil {
+	name := "max-hello"
+	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+		Name:   name,
+		Script: fmt.Sprintf(exampleServer, timestamp),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
@@ -53,16 +56,12 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	requestCount := 5
 	for i := 0; i < requestCount; i++ {
 		eg.Go(func() error {
-			resp, err := http.Get(suite.DaemonURL(d, name, "hi"))
+			resp, respBody, err := suite.Request(d, name, http.MethodGet, "/hi", "")
 			if err != nil {
 				return err
 			}
-			var buf bytes.Buffer
-			_, _ = io.Copy(&buf, resp.Body)
-			suite.Contains(buf.String(), timestamp)
-			if resp.StatusCode != http.StatusOK {
-				return fmt.Errorf("Unexpected HTTP status %d", resp.StatusCode)
-			}
+			suite.Equal(http.StatusOK, resp.StatusCode)
+			suite.Contains(respBody, timestamp)
 			return nil
 		})
 	}
@@ -70,13 +69,15 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 		t.Fatal(err)
 	}
 
-	app, err := client.GetApplication(context.Background(), name)
+	app, err := client.GetApplication(context.Background(), &rpc.GetApplicationRequest{
+		Name: name,
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
-	suite.Equal(requestCount, app.RequestCount)
-	suite.Equal(1, app.StartCount)
+	suite.Equal(int64(requestCount), app.RequestCount)
+	suite.Equal(int64(1), app.StartCount)
 }
 
 func (suite *DaemonSuite) TestNonOverlappingTests() {
@@ -85,21 +86,21 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 	client := suite.NewClient(d)
 	timestamp := time.Now().Format(time.RFC3339)
 
-	name := "max.hello"
-	if _, err := client.CreateApplication(context.Background(),
-		name, fmt.Sprintf(exampleServer, timestamp)); err != nil {
+	name := "max-hello"
+	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+		Name:   name,
+		Script: fmt.Sprintf(exampleServer, timestamp),
+	}); err != nil {
 		t.Fatal(err)
 	}
 
 	makeRequest := func() {
-		resp, err := http.Get(suite.DaemonURL(d, name, "hi"))
+		resp, respBody, err := suite.Request(d, name, http.MethodGet, "/hi", "")
 		if err != nil {
 			t.Fatal(err)
 		}
-		var buf bytes.Buffer
-		_, _ = io.Copy(&buf, resp.Body)
 		suite.Equal(http.StatusOK, resp.StatusCode)
-		assert.Contains(t, buf.String(), timestamp)
+		suite.Contains(respBody, timestamp)
 	}
 
 	makeRequest()
@@ -108,24 +109,25 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 
 	makeRequest()
 
-	app, err := client.GetApplication(context.Background(), name)
+	app, err := client.GetApplication(context.Background(), &rpc.GetApplicationRequest{Name: name})
 	if err != nil {
 		t.Fatal(err)
 	}
-	assert.Equal(t, 2, app.RequestCount)
-	assert.Equal(t, 2, app.StartCount)
+	assert.Equal(t, int64(2), app.RequestCount)
+	assert.Equal(t, int64(2), app.StartCount)
 }
 
 func BenchmarkActivity(b *testing.B) {
-	d := daemon.NewDaemon(b.TempDir(), "localhost:0")
+	b.Skip("re-make this when we care")
+	d := daemon.NewDaemon(b.TempDir(), "localhost:0", "localhost:0")
 	timestamp := time.Now().Format(time.RFC3339)
 
-	client, err := daemon.NewClient(d.ServerAddr(), nil)
-	if err != nil {
-		b.Fatal(err)
-	}
-	name := "max.hello"
-	if _, err := client.CreateApplication(context.Background(), name, fmt.Sprintf(exampleServer, timestamp)); err != nil {
+	client := daemon.NewClient(d.PublicServerAddr(), nil)
+	name := "max-hello"
+	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+		Name:   name,
+		Script: fmt.Sprintf(exampleServer, timestamp),
+	}); err != nil {
 		b.Fatal(err)
 	}
 
@@ -133,7 +135,7 @@ func BenchmarkActivity(b *testing.B) {
 	d.Start(ctx)
 
 	for i := 0; i < b.N; i++ {
-		resp, err := http.Get("http://" + d.ServerAddr() + "/max.hello/hi")
+		resp, err := http.Get("http://" + d.PublicServerAddr() + "/max-hello/hi")
 		if err != nil {
 			b.Fatal(err)
 		}

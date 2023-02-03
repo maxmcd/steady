@@ -1,53 +1,34 @@
 package daemon
 
 import (
-	"net/http"
+	"context"
 
-	"github.com/labstack/echo/v4"
-	"github.com/maxmcd/steady/daemon/api"
+	"github.com/maxmcd/steady/daemon/rpc"
+	"github.com/twitchtv/twirp"
 )
 
 type server struct {
 	daemon *Daemon
 }
 
-var _ api.ServerInterface = server{}
+var _ rpc.Daemon = new(server)
 
-func (s server) GetApplication(c echo.Context, name string) error {
-	s.daemon.applicationsLock.RLock()
-	app, found := s.daemon.applications[name]
-	s.daemon.applicationsLock.RUnlock()
-	if !found {
-		return echo.NewHTTPError(http.StatusNotFound, api.Error{Msg: "not found"})
+func (s server) CreateApplication(ctx context.Context, req *rpc.CreateApplicationRequest) (
+	_ *rpc.Application, err error) {
+	if _, err := s.daemon.validateAndAddApplication(ctx, req.Name, []byte(req.Script)); err != nil {
+		return nil, twirp.NewError(twirp.InvalidArgument, err.Error())
 	}
-	return c.JSON(http.StatusOK, api.Application{
-		Name:         name,
-		RequestCount: app.requestCount,
-		StartCount:   app.startCount,
-	})
+	return &rpc.Application{Name: req.Name}, nil
 }
 
-func (s server) CreateApplication(c echo.Context, name string) error {
-	var body api.CreateApplicationJSONBody
-	if err := c.Bind(&body); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, api.Error{Msg: err.Error()})
-	}
-
-	if _, err := s.daemon.validateAndAddApplication(name, []byte(body.Script)); err != nil {
-		return echo.NewHTTPError(http.StatusBadRequest, api.Error{Msg: err.Error()})
-	}
-
-	return c.JSON(http.StatusCreated, api.Application{
-		Name: name,
-	})
-}
-
-func (s server) DeleteApplication(c echo.Context, name string) error {
+func (s server) DeleteApplication(ctx context.Context, req *rpc.DeleteApplicationRequest) (
+	_ *rpc.Application, err error) {
+	name := req.Name
 	s.daemon.applicationsLock.RLock()
 	_, found := s.daemon.applications[name]
 	s.daemon.applicationsLock.RUnlock()
 	if !found {
-		return echo.NewHTTPError(http.StatusNotFound, api.Error{Msg: "not found"})
+		return nil, twirp.NewError(twirp.NotFound, "not found")
 	}
 
 	s.daemon.applicationsLock.Lock()
@@ -56,10 +37,27 @@ func (s server) DeleteApplication(c echo.Context, name string) error {
 	s.daemon.applicationsLock.Unlock()
 
 	if err := app.shutdown(); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, api.Error{Msg: err.Error()})
+		return nil, twirp.NewError(twirp.Internal, err.Error())
 	}
 
-	return c.JSON(http.StatusOK, api.Application{
-		Name: name,
-	})
+	return &rpc.Application{
+		Name:         name,
+		RequestCount: int64(app.requestCount),
+		StartCount:   int64(app.startCount),
+	}, nil
+}
+
+func (s server) GetApplication(ctx context.Context, req *rpc.GetApplicationRequest) (
+	_ *rpc.Application, err error) {
+	s.daemon.applicationsLock.RLock()
+	app, found := s.daemon.applications[req.Name]
+	s.daemon.applicationsLock.RUnlock()
+	if !found {
+		return nil, twirp.NewError(twirp.NotFound, "not found")
+	}
+	return &rpc.Application{
+		Name:         req.Name,
+		RequestCount: int64(app.requestCount),
+		StartCount:   int64(app.startCount),
+	}, nil
 }

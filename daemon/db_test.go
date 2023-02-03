@@ -4,9 +4,11 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 
 	"github.com/maxmcd/steady/daemon"
+	"github.com/maxmcd/steady/daemon/rpc"
 )
 
 func (suite *DaemonSuite) TestLitestream() {
@@ -17,22 +19,24 @@ func (suite *DaemonSuite) TestLitestream() {
 	d, _ := suite.CreateDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
 
 	client := suite.NewClient(d)
-	app, err := client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))
+	app, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+		Name:   "max-db",
+		Script: suite.LoadExampleScript("http"),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}
 
 	counter := 0
 	createRecordRequest := func() {
-		resp, err := http.Post(
-			suite.DaemonURL(d, app.Name),
-			"application/json", bytes.NewBuffer([]byte(`{"email":"lite"}`)))
+		resp, respBody, err := suite.Request(d, app.Name, http.MethodPost, "/", `{"email":"lite"}`)
 		if err != nil {
 			t.Fatal(err)
 		}
-		var jsonResponse map[string]interface{}
-		suite.Require().NoError(json.NewDecoder(resp.Body).Decode(&jsonResponse))
 		suite.Require().Equal(http.StatusOK, resp.StatusCode)
+		var jsonResponse map[string]interface{}
+		fmt.Println(respBody)
+		suite.Require().NoError(json.NewDecoder(bytes.NewBufferString(respBody)).Decode(&jsonResponse))
 
 		// Here's the real test. Ensure that every time we make a request the ID
 		// increments, even through deletes/restarts
@@ -49,11 +53,16 @@ func (suite *DaemonSuite) TestLitestream() {
 	createRecordRequest()
 	createRecordRequest()
 
-	if _, err := client.DeleteApplication(context.Background(), app.Name); err != nil {
+	if _, err := client.DeleteApplication(context.Background(), &rpc.DeleteApplicationRequest{
+		Name: app.Name,
+	}); err != nil {
 		t.Fatal(err)
 	}
 
-	app, err = client.CreateApplication(context.Background(), "max.db", suite.LoadExampleScript("http"))
+	app, err = client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+		Name:   "max-db",
+		Script: suite.LoadExampleScript("http"),
+	})
 	if err != nil {
 		t.Fatal(err)
 	}

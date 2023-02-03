@@ -22,9 +22,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
-	"github.com/labstack/echo/v4"
-	"github.com/labstack/echo/v4/middleware"
-	"github.com/maxmcd/steady/daemon/api"
+	"github.com/maxmcd/steady/daemon/rpc"
 	"github.com/maxmcd/steady/internal/netx"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"
@@ -34,25 +32,29 @@ import (
 // create and delete applications, and handles database backups and migrations.
 type Daemon struct {
 	dataDirectory string
-	addr          string
 	client        *http.Client
+
+	publicAddr  string
+	privateAddr string
 
 	s3Config *S3Config
 
 	applicationsLock sync.RWMutex
 	applications     map[string]*application
 
-	listener     net.Listener
-	listenerWait *sync.WaitGroup
-	eg           *errgroup.Group
+	listenerWait    *sync.WaitGroup
+	publicListener  net.Listener
+	privateListener net.Listener
+	eg              *errgroup.Group
 }
 
 type DaemonOption func(*Daemon)
 
-func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon {
+func NewDaemon(dataDirectory string, publicAddr, privateAddr string, opts ...DaemonOption) *Daemon {
 	d := &Daemon{
 		dataDirectory: dataDirectory,
-		addr:          addr,
+		publicAddr:    publicAddr,
+		privateAddr:   privateAddr,
 		applications:  map[string]*application{},
 		listenerWait:  &sync.WaitGroup{},
 		client: &http.Client{
@@ -64,7 +66,6 @@ func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon 
 			},
 		},
 	}
-	d.listenerWait.Add(1)
 
 	for _, opt := range opts {
 		opt(d)
@@ -87,14 +88,24 @@ func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.
 // Wait for the server to exit, returning any errors.
 func (d *Daemon) Wait() error { return d.eg.Wait() }
 
-// ServerAddr returns the address of the running server. Will panic if the
+// PublicServerAddr returns the address of the running server. Will panic if the
 // server hasn't been started yet.
-func (d *Daemon) ServerAddr() string {
+func (d *Daemon) PublicServerAddr() string {
 	if d.eg == nil {
 		panic(fmt.Errorf("server has not started"))
 	}
 	d.listenerWait.Wait()
-	return d.listener.Addr().String()
+	return d.publicListener.Addr().String()
+}
+
+// PrivateServerAddr returns the address of the running server. Will panic if the
+// server hasn't been started yet.
+func (d *Daemon) PrivateServerAddr() string {
+	if d.eg == nil {
+		panic(fmt.Errorf("server has not started"))
+	}
+	d.listenerWait.Wait()
+	return d.privateListener.Addr().String()
 }
 
 func (d *Daemon) s3Client() (*awss3.S3, error) {
@@ -145,22 +156,26 @@ func (d *Daemon) createDB(name string) func(path string) (_ *litestream.DB, err 
 	}
 }
 
-func (d *Daemon) applicationHandler(c echo.Context) error {
-	rw, r := c.Response().Writer, c.Request()
-
-	name := c.Param("name")
+func (d *Daemon) applicationHandler(rw http.ResponseWriter, r *http.Request) {
+	host := r.Host
+	hostParts := strings.Split(host, ".")
+	if host == "" || len(hostParts) == 0 || hostParts[0] == "" {
+		http.Error(rw, "invalid host header", http.StatusBadRequest)
+		return
+	}
+	name := hostParts[0]
 
 	d.applicationsLock.RLock()
 	app, found := d.applications[name]
 	d.applicationsLock.RUnlock()
 	if !found {
-		return echo.NewHTTPError(http.StatusNotFound, "not found")
+		http.Error(rw, "not found", http.StatusNotFound)
+		return
 	}
 
 	originalURL := r.URL
-	// Remove name from path and route to correct port
+	// Route to correct port
 	appURL := *r.URL
-	appURL.Path = c.Param("_")
 	appURL.Host = fmt.Sprintf("localhost:%d", app.port)
 	appURL.Scheme = "http"
 	r.URL = &appURL
@@ -171,6 +186,7 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 
 	// TODO: Set to expected path for application to see
 	// req.Header.Set("Host", "TODO")
+	// TODO: x-forwarded-for
 
 	defer func() {
 		// Restore the uri for use with the echo logger middleware
@@ -179,14 +195,16 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 	}()
 
 	if err := app.newRequest(r.Context()); err != nil {
-		return echo.NewHTTPError(http.StatusInternalServerError, errors.Wrap(err, "error starting process").Error())
+		http.Error(rw, errors.Wrap(err, "error starting process").Error(), http.StatusInternalServerError)
+		return
 	}
 	defer app.endOfRequest()
 
 	{
 		resp, err := d.client.Do(r)
 		if err != nil {
-			return echo.NewHTTPError(http.StatusInternalServerError, err.Error())
+			http.Error(rw, err.Error(), http.StatusInternalServerError)
+			return
 		}
 		_ = r.Body.Close()
 
@@ -197,7 +215,6 @@ func (d *Daemon) applicationHandler(c echo.Context) error {
 		_, _ = io.Copy(rw, resp.Body)
 		_ = resp.Body.Close()
 	}
-	return nil
 }
 
 // StopAllApplications will loop through all applications and shut them down.
@@ -211,7 +228,7 @@ func (d *Daemon) StopAllApplications() {
 	d.applicationsLock.Unlock()
 }
 
-func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
+func (d *Daemon) downloadDatabasesIfFound(ctx context.Context, dir, name string) (err error) {
 	dbs, err := d.findDatabasesForApplication(name)
 	if err != nil {
 		return errors.Wrap(err, "error finding databases")
@@ -228,20 +245,20 @@ func (d *Daemon) downloadDatabasesIfFound(dir, name string) (err error) {
 		_ = os.Remove(dbPath)
 
 		replica := d.newReplica(nil, filepath.Join(name, db))
-		generation, err := litestream.FindLatestGeneration(context.TODO(), replica.Client())
+		generation, err := litestream.FindLatestGeneration(ctx, replica.Client())
 		if err != nil {
 			return errors.Wrap(err, "finding latest generation")
 		}
-		targetIndex, err := litestream.FindMaxIndexByGeneration(context.TODO(), replica.Client(), generation)
+		targetIndex, err := litestream.FindMaxIndexByGeneration(ctx, replica.Client(), generation)
 		if err != nil {
 			return errors.Wrap(err, "finding max index")
 		}
 
-		snapshotIndex, err := litestream.FindSnapshotForIndex(context.TODO(), replica.Client(), generation, targetIndex)
+		snapshotIndex, err := litestream.FindSnapshotForIndex(ctx, replica.Client(), generation, targetIndex)
 		if err != nil {
 			return errors.Wrap(err, "finding snapshot for index")
 		}
-		if err := litestream.Restore(context.TODO(),
+		if err := litestream.Restore(ctx,
 			replica.Client(),
 			dbPath, generation,
 			snapshotIndex, targetIndex,
@@ -279,7 +296,7 @@ func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error
 	return dbs, nil
 }
 
-func (d *Daemon) validateAndAddApplication(name string, script []byte) (*application, error) {
+func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, script []byte) (*application, error) {
 	// If two requests are validated simultaneously we won't catch them here,
 	// but we'll error when adding them to the map later
 	d.applicationsLock.RLock()
@@ -322,7 +339,7 @@ func (d *Daemon) validateAndAddApplication(name string, script []byte) (*applica
 
 	var dbs []string
 	if d.s3Config != nil {
-		if err := d.downloadDatabasesIfFound(tmpDir, name); err != nil {
+		if err := d.downloadDatabasesIfFound(ctx, tmpDir, name); err != nil {
 			return nil, errors.Wrap(err, "error downloading database")
 		}
 	}
@@ -339,30 +356,26 @@ func (d *Daemon) Start(ctx context.Context) {
 	if d.eg != nil {
 		panic("Daemon has already started")
 	}
+	d.listenerWait.Add(2)
 	d.eg, ctx = errgroup.WithContext(ctx)
 
-	e := echo.New()
-	e.Use(middleware.LoggerWithConfig(middleware.LoggerConfig{
-		// [GIN] 2023/01/23 - 21:00:26 | 200 |   30.208583ms |       127.0.0.1 | GET      "/max.hello/hi"
-		Format: "${time_rfc3339} | ${status} | ${latency_human}\t | ${host} | ${method} | ${path} \n",
-	}))
-	api.RegisterHandlers(e, server{daemon: d})
+	publicServer := http.Server{
+		Handler:           http.HandlerFunc(d.applicationHandler),
+		ReadHeaderTimeout: time.Second * 15,
+	}
 
-	e.Any("/:name/*", d.applicationHandler)
-	e.Any("/:name", d.applicationHandler)
-
-	srv := http.Server{
-		Handler:           e,
+	privateServer := http.Server{
+		Handler:           rpc.NewDaemonServer(server{daemon: d}),
 		ReadHeaderTimeout: time.Second * 15,
 	}
 
 	d.eg.Go(func() (err error) {
-		d.listener, err = net.Listen("tcp", d.addr)
+		d.publicListener, err = net.Listen("tcp", d.publicAddr)
 		if err != nil {
 			return err
 		}
 		d.listenerWait.Done()
-		err = srv.Serve(d.listener)
+		err = publicServer.Serve(d.publicListener)
 		if err == http.ErrServerClosed {
 			return nil
 		}
@@ -371,7 +384,7 @@ func (d *Daemon) Start(ctx context.Context) {
 	d.eg.Go(func() error {
 		<-ctx.Done()
 		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := srv.Shutdown(timeoutCtx); err != nil {
+		if err := publicServer.Shutdown(timeoutCtx); err != nil {
 			fmt.Printf("WARN: error shutting down http server: %v\n", err)
 		}
 		cancel()
@@ -387,6 +400,25 @@ func (d *Daemon) Start(ctx context.Context) {
 		}
 		return nil
 	})
-
-	// TODO: wait until server is live to exit?
+	d.eg.Go(func() (err error) {
+		d.privateListener, err = net.Listen("tcp", d.privateAddr)
+		if err != nil {
+			return err
+		}
+		d.listenerWait.Done()
+		err = privateServer.Serve(d.privateListener)
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	})
+	d.eg.Go(func() error {
+		<-ctx.Done()
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
+		if err := privateServer.Shutdown(timeoutCtx); err != nil {
+			fmt.Printf("WARN: error shutting down http server: %v\n", err)
+		}
+		cancel()
+		return nil
+	})
 }
