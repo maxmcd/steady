@@ -81,8 +81,10 @@ func (a *application) start() {
 }
 
 func (a *application) runLoop() {
+	a.mutex.Lock()
 	ctx, cancel := context.WithCancel(context.Background())
 	a.cancel = cancel
+	a.mutex.Unlock()
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
 		// TODO: stop loop
