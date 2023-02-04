@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package steady.steady;
+
+option go_package = "github.com/maxmcd/steady/steady/steadyrpc";
+
+service Steady {
+
+  rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
+  rpc CreateServiceVersion(CreateServiceVersionRequest)
+      returns (CreateServiceVersionResponse);
+  rpc DeployApplication(DeployApplicationRequeast)
+      returns (DeployApplicationResponse);
+  rpc DeploySource(DeploySourceRequest) returns (DeploySourceResponse);
+}
+
+message CreateServiceRequest { string name = 1; }
+
+message CreateServiceResponse { Service service = 1; }
+
+message Service {
+  string name = 1;
+  int64 id = 2;
+  int64 user_id = 3;
+}
+
+message CreateServiceVersionRequest {
+  int64 service_id = 1;
+  string version = 2;
+  string source = 3;
+}
+
+message CreateServiceVersionResponse { ServiceVersion service_version = 1; }
+
+message ServiceVersion {
+  int64 id = 1;
+  int64 service_id = 2;
+  string version = 3;
+  string source = 4;
+}
+
+message DeployApplicationRequeast {
+  int64 service_version_id = 1;
+  string name = 2;
+}
+
+message DeployApplicationResponse {
+  Application application = 1;
+  string url = 2;
+}
+
+message Application {
+  int64 id = 1;
+  int64 service_version_id = 2;
+  int64 user_id = 3;
+  string name = 4;
+}
+
+message DeploySourceRequest { string source = 1; }
+message DeploySourceResponse { string url = 1; }
