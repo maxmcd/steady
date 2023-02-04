@@ -8,7 +8,7 @@ import (
 	"net/http"
 
 	"github.com/maxmcd/steady/daemon"
-	"github.com/maxmcd/steady/daemon/rpc"
+	"github.com/maxmcd/steady/daemon/daemonrpc"
 )
 
 func (suite *DaemonSuite) TestLitestream() {
@@ -19,7 +19,7 @@ func (suite *DaemonSuite) TestLitestream() {
 	d, _ := suite.NewDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
 
 	client := suite.NewClient(d)
-	app, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+	app, err := client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   "max-db",
 		Script: suite.LoadExampleScript("http"),
 	})
@@ -53,13 +53,13 @@ func (suite *DaemonSuite) TestLitestream() {
 	createRecordRequest()
 	createRecordRequest()
 
-	if _, err := client.DeleteApplication(context.Background(), &rpc.DeleteApplicationRequest{
+	if _, err := client.DeleteApplication(context.Background(), &daemonrpc.DeleteApplicationRequest{
 		Name: app.Name,
 	}); err != nil {
 		t.Fatal(err)
 	}
 
-	app, err = client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+	app, err = client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   "max-db",
 		Script: suite.LoadExampleScript("http"),
 	})

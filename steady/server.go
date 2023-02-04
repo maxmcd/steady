@@ -7,9 +7,9 @@ import (
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxmcd/steady/daemon"
-	daemonrpc "github.com/maxmcd/steady/daemon/rpc"
+	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
-	"github.com/maxmcd/steady/steady/rpc"
+	"github.com/maxmcd/steady/steady/steadyrpc"
 )
 
 type Server struct {
@@ -40,10 +40,10 @@ func NewServer(options ServerOptions, opts ...Option) *Server {
 	return s
 }
 
-var _ rpc.Steady = new(Server)
+var _ steadyrpc.Steady = new(Server)
 
-func (s *Server) CreateService(ctx context.Context, req *rpc.CreateServiceRequest) (
-	_ *rpc.CreateServiceResponse, err error) {
+func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateServiceRequest) (
+	_ *steadyrpc.CreateServiceResponse, err error) {
 	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
 		Name:   req.Name,
 		UserID: 1,
@@ -51,8 +51,8 @@ func (s *Server) CreateService(ctx context.Context, req *rpc.CreateServiceReques
 	if err != nil {
 		return nil, err
 	}
-	return &rpc.CreateServiceResponse{
-		Service: &rpc.Service{
+	return &steadyrpc.CreateServiceResponse{
+		Service: &steadyrpc.Service{
 			Name:   service.Name,
 			Id:     service.ID,
 			UserId: service.UserID,
@@ -120,8 +120,8 @@ func (s *Server) dbTX(ctx context.Context) (db.Querier, error) {
 	return s.db.WithTx(tx), nil
 }
 
-func (s *Server) CreateServiceVersion(ctx context.Context, req *rpc.CreateServiceVersionRequest) (
-	_ *rpc.CreateServiceVersionResponse, err error) {
+func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.CreateServiceVersionRequest) (
+	_ *steadyrpc.CreateServiceVersionResponse, err error) {
 	dbtx, err := s.dbTX(ctx)
 	if err != nil {
 		return nil, err
@@ -143,8 +143,8 @@ func (s *Server) CreateServiceVersion(ctx context.Context, req *rpc.CreateServic
 		return nil, err
 	}
 
-	return &rpc.CreateServiceVersionResponse{
-		ServiceVersion: &rpc.ServiceVersion{
+	return &steadyrpc.CreateServiceVersionResponse{
+		ServiceVersion: &steadyrpc.ServiceVersion{
 			Id:        serviceVersion.ID,
 			ServiceId: serviceVersion.ServiceID,
 			Version:   serviceVersion.Version,
@@ -153,8 +153,8 @@ func (s *Server) CreateServiceVersion(ctx context.Context, req *rpc.CreateServic
 	}, nil
 }
 
-func (s *Server) DeployApplication(ctx context.Context, req *rpc.DeployApplicationRequeast) (
-	_ *rpc.DeployApplicationResponse, err error) {
+func (s *Server) DeployApplication(ctx context.Context, req *steadyrpc.DeployApplicationRequeast) (
+	_ *steadyrpc.DeployApplicationResponse, err error) {
 	serviceVersion, err := s.db.GetServiceVersion(ctx, req.ServiceVersionId)
 	if err != nil {
 		return nil, err
@@ -168,14 +168,14 @@ func (s *Server) DeployApplication(ctx context.Context, req *rpc.DeployApplicati
 	}
 
 	// TODO: deploy application to host, confirm that it works
-	return &rpc.DeployApplicationResponse{
-		Application: &rpc.Application{Name: app.Name},
+	return &steadyrpc.DeployApplicationResponse{
+		Application: &steadyrpc.Application{Name: app.Name},
 		Url:         s.publicLoadBalancerURL,
 	}, nil
 }
 
-func (s *Server) DeploySource(ctx context.Context, req *rpc.DeploySourceRequest) (
-	_ *rpc.DeploySourceResponse, err error) {
+func (s *Server) DeploySource(ctx context.Context, req *steadyrpc.DeploySourceRequest) (
+	_ *steadyrpc.DeploySourceResponse, err error) {
 	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   "faketemporaryname",
 		Script: req.Source,
@@ -185,7 +185,7 @@ func (s *Server) DeploySource(ctx context.Context, req *rpc.DeploySourceRequest)
 	}
 	_ = app
 	// TODO: deploy application to host, confirm that it works
-	return &rpc.DeploySourceResponse{
+	return &steadyrpc.DeploySourceResponse{
 		Url: app.Name,
 	}, nil
 }

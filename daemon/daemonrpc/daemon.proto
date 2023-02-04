@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package daemon.steady;
 
-option go_package = "github.com/maxmcd/steady/daemon/rpc";
+option go_package = "github.com/maxmcd/steady/daemon/daemonrpc";
 
 service Daemon {
   rpc CreateApplication(CreateApplicationRequest) returns (Application);

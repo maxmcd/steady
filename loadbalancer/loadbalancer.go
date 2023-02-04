@@ -12,7 +12,7 @@ import (
 	"time"
 
 	"github.com/maxmcd/steady/daemon"
-	"github.com/maxmcd/steady/daemon/rpc"
+	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/pkg/errors"
@@ -102,7 +102,7 @@ func (lb *LB) Handler(name string, rw http.ResponseWriter, r *http.Request) {
 func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (host string, err error) {
 	for _, host := range hosts {
 		daemonClient := daemon.NewClient(fmt.Sprintf("http://%s", host), lb.client)
-		if _, err = daemonClient.GetApplication(ctx, &rpc.GetApplicationRequest{
+		if _, err = daemonClient.GetApplication(ctx, &daemonrpc.GetApplicationRequest{
 			Name: name,
 		}); err != nil {
 			continue

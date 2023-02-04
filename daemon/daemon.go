@@ -22,7 +22,7 @@ import (
 	awss3 "github.com/aws/aws-sdk-go/service/s3"
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
-	"github.com/maxmcd/steady/daemon/rpc"
+	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/netx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
@@ -339,7 +339,7 @@ func (d *Daemon) Start(ctx context.Context) {
 	d.listenerWait.Add(1)
 	d.eg, ctx = errgroup.WithContext(ctx)
 
-	daemonServer := rpc.NewDaemonServer(server{daemon: d})
+	daemonServer := daemonrpc.NewDaemonServer(server{daemon: d})
 	srv := http.Server{
 		Handler: http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
 			name := steadyutil.ExtractAppName(r)

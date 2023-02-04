@@ -10,7 +10,7 @@ import (
 	"time"
 
 	"github.com/maxmcd/steady/daemon"
-	"github.com/maxmcd/steady/daemon/rpc"
+	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
@@ -44,7 +44,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	timestamp := time.Now().Format(time.RFC3339)
 
 	name := "max-hello"
-	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+	if _, err := client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   name,
 		Script: fmt.Sprintf(exampleServer, timestamp),
 	}); err != nil {
@@ -69,7 +69,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 		t.Fatal(err)
 	}
 
-	app, err := client.GetApplication(context.Background(), &rpc.GetApplicationRequest{
+	app, err := client.GetApplication(context.Background(), &daemonrpc.GetApplicationRequest{
 		Name: name,
 	})
 	if err != nil {
@@ -87,7 +87,7 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 	timestamp := time.Now().Format(time.RFC3339)
 
 	name := "max-hello"
-	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+	if _, err := client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   name,
 		Script: fmt.Sprintf(exampleServer, timestamp),
 	}); err != nil {
@@ -109,7 +109,7 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 
 	makeRequest()
 
-	app, err := client.GetApplication(context.Background(), &rpc.GetApplicationRequest{Name: name})
+	app, err := client.GetApplication(context.Background(), &daemonrpc.GetApplicationRequest{Name: name})
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -124,7 +124,7 @@ func BenchmarkActivity(b *testing.B) {
 
 	client := daemon.NewClient(d.ServerAddr(), nil)
 	name := "max-hello"
-	if _, err := client.CreateApplication(context.Background(), &rpc.CreateApplicationRequest{
+	if _, err := client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   name,
 		Script: fmt.Sprintf(exampleServer, timestamp),
 	}); err != nil {

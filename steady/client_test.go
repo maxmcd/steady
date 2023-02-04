@@ -10,9 +10,9 @@ import (
 	"os"
 	"testing"
 
-	daemonrpc "github.com/maxmcd/steady/daemon/rpc"
+	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/daemontest"
-	"github.com/maxmcd/steady/steady/rpc"
+	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -129,7 +129,7 @@ func (suite *TestSuite) TestServer() {
 		DaemonClient:           suite.NewClient(d),
 	}, OptionWithSqlite(t.TempDir()+"/foo.sqlite"))
 
-	resp, err := server.DeploySource(ctx, &rpc.DeploySourceRequest{
+	resp, err := server.DeploySource(ctx, &steadyrpc.DeploySourceRequest{
 		Source: suite.LoadExampleScript("http"),
 	})
 	if err != nil {

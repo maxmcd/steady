@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package steady.steady;
 
-option go_package = "github.com/maxmcd/steady/steady/rpc";
+option go_package = "github.com/maxmcd/steady/steady/steadyrpc";
 
 service Steady {
 

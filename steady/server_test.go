@@ -7,7 +7,7 @@ import (
 
 	"github.com/maxmcd/steady/internal/daemontest"
 	"github.com/maxmcd/steady/steady"
-	"github.com/maxmcd/steady/steady/rpc"
+	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 )
@@ -18,9 +18,9 @@ func TestServer(t *testing.T) {
 	server := &steady.Server{}
 	steady.OptionWithSqlite(filepath.Join(tmpDir, "db.sqlite"))(server)
 
-	var service *rpc.Service
+	var service *steadyrpc.Service
 	{
-		resp, err := server.CreateService(ctx, &rpc.CreateServiceRequest{
+		resp, err := server.CreateService(ctx, &steadyrpc.CreateServiceRequest{
 			Name: "foo",
 		})
 		if err != nil {
@@ -31,7 +31,7 @@ func TestServer(t *testing.T) {
 	}
 
 	{
-		resp, err := server.CreateServiceVersion(ctx, &rpc.CreateServiceVersionRequest{
+		resp, err := server.CreateServiceVersion(ctx, &steadyrpc.CreateServiceVersionRequest{
 			ServiceId: service.Id,
 			Version:   "v1",
 			Source:    "console.log('hi');",
