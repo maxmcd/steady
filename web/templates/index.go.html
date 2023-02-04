@@ -1,0 +1,15 @@
+{{template "header"}}
+
+<table border="0" class="header">
+  <tbody>
+    <tr>
+      <td>steady.sh</td>
+      <td class="align-right"><a href="login">login / signup</a></td>
+    </tr>
+  </tbody>
+
+  {{ .flashes }}
+  {{ .session.username }}
+
+  {{template "footer"}}
+</table>

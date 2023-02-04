@@ -4,13 +4,21 @@
 
 package db
 
-import ()
+import (
+	"time"
+)
 
 type Application struct {
 	ID               int64
 	ServiceVersionID int64
 	UserID           int64
 	Name             string
+}
+
+type LoginToken struct {
+	UserID    int64
+	Token     string
+	CreatedAt time.Time
 }
 
 type Service struct {

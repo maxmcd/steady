@@ -9,14 +9,18 @@ import (
 )
 
 type Querier interface {
+	CreateLoginToken(ctx context.Context, arg CreateLoginTokenParams) (LoginToken, error)
 	CreateService(ctx context.Context, arg CreateServiceParams) (Service, error)
 	CreateServiceVersion(ctx context.Context, arg CreateServiceVersionParams) (ServiceVersion, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
+	DeleteLoginToken(ctx context.Context, token string) error
+	GetLoginToken(ctx context.Context, token string) (LoginToken, error)
 	GetService(ctx context.Context, arg GetServiceParams) (Service, error)
 	GetServiceVersion(ctx context.Context, id int64) (ServiceVersion, error)
 	GetServiceVersions(ctx context.Context, serviceID int64) ([]ServiceVersion, error)
 	GetUser(ctx context.Context, id int64) (User, error)
 	GetUserApplications(ctx context.Context, userID int64) ([]Application, error)
+	GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error)
 	GetUserServices(ctx context.Context, userID int64) ([]Service, error)
 }
 

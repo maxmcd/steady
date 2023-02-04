@@ -9,6 +9,24 @@ import (
 	"context"
 )
 
+const createLoginToken = `-- name: CreateLoginToken :one
+INSERT INTO login_tokens (user_id, token)
+values (?, ?)
+RETURNING user_id, token, created_at
+`
+
+type CreateLoginTokenParams struct {
+	UserID int64
+	Token  string
+}
+
+func (q *Queries) CreateLoginToken(ctx context.Context, arg CreateLoginTokenParams) (LoginToken, error) {
+	row := q.queryRow(ctx, q.createLoginTokenStmt, createLoginToken, arg.UserID, arg.Token)
+	var i LoginToken
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
+}
+
 const createService = `-- name: CreateService :one
 INSERT INTO services (name, user_id)
 VALUES (?, ?)
@@ -66,6 +84,29 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	row := q.queryRow(ctx, q.createUserStmt, createUser, arg.Email, arg.Username)
 	var i User
 	err := row.Scan(&i.ID, &i.Email, &i.Username)
+	return i, err
+}
+
+const deleteLoginToken = `-- name: DeleteLoginToken :exec
+DELETE FROM login_tokens
+where token = ?
+`
+
+func (q *Queries) DeleteLoginToken(ctx context.Context, token string) error {
+	_, err := q.exec(ctx, q.deleteLoginTokenStmt, deleteLoginToken, token)
+	return err
+}
+
+const getLoginToken = `-- name: GetLoginToken :one
+SELECT user_id, token, created_at
+FROM login_tokens
+WHERE token = ?
+`
+
+func (q *Queries) GetLoginToken(ctx context.Context, token string) (LoginToken, error) {
+	row := q.queryRow(ctx, q.getLoginTokenStmt, getLoginToken, token)
+	var i LoginToken
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
 	return i, err
 }
 
@@ -185,6 +226,25 @@ func (q *Queries) GetUserApplications(ctx context.Context, userID int64) ([]Appl
 		return nil, err
 	}
 	return items, nil
+}
+
+const getUserByEmailOrUsername = `-- name: GetUserByEmailOrUsername :one
+SELECT id, email, username
+FROM users
+WHERE username = ?
+    OR email = ?
+`
+
+type GetUserByEmailOrUsernameParams struct {
+	Username string
+	Email    string
+}
+
+func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error) {
+	row := q.queryRow(ctx, q.getUserByEmailOrUsernameStmt, getUserByEmailOrUsername, arg.Username, arg.Email)
+	var i User
+	err := row.Scan(&i.ID, &i.Email, &i.Username)
+	return i, err
 }
 
 const getUserServices = `-- name: GetUserServices :many

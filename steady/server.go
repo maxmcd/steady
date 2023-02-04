@@ -2,12 +2,12 @@ package steady
 
 import (
 	"context"
+	"database/sql"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxmcd/steady/daemon"
-	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 )
@@ -39,8 +39,6 @@ func NewServer(options ServerOptions, opts ...Option) *Server {
 	}
 	return s
 }
-
-var _ steadyrpc.Steady = new(Server)
 
 func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateServiceRequest) (
 	_ *steadyrpc.CreateServiceResponse, err error) {
@@ -112,80 +110,11 @@ func OptionWithPostgres(connectionString string) Option {
 	}
 }
 
-func (s *Server) dbTX(ctx context.Context) (db.Querier, error) {
+func (s *Server) dbTX(ctx context.Context) (db.Querier, *sql.Tx, error) {
 	tx, err := s.dbClient.BeginTx(ctx, nil)
 	if err != nil {
-		return nil, err
-	}
-	return s.db.WithTx(tx), nil
-}
-
-func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.CreateServiceVersionRequest) (
-	_ *steadyrpc.CreateServiceVersionResponse, err error) {
-	dbtx, err := s.dbTX(ctx)
-	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
 
-	if _, err := dbtx.GetService(ctx, db.GetServiceParams{
-		UserID: 1,
-		ID:     req.ServiceId,
-	}); err != nil {
-		return nil, err
-	}
-
-	serviceVersion, err := dbtx.CreateServiceVersion(ctx, db.CreateServiceVersionParams{
-		ServiceID: req.ServiceId,
-		Version:   req.Version,
-		Source:    req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &steadyrpc.CreateServiceVersionResponse{
-		ServiceVersion: &steadyrpc.ServiceVersion{
-			Id:        serviceVersion.ID,
-			ServiceId: serviceVersion.ServiceID,
-			Version:   serviceVersion.Version,
-			Source:    serviceVersion.Source,
-		},
-	}, nil
-}
-
-func (s *Server) DeployApplication(ctx context.Context, req *steadyrpc.DeployApplicationRequeast) (
-	_ *steadyrpc.DeployApplicationResponse, err error) {
-	serviceVersion, err := s.db.GetServiceVersion(ctx, req.ServiceVersionId)
-	if err != nil {
-		return nil, err
-	}
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   req.Name,
-		Script: serviceVersion.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeployApplicationResponse{
-		Application: &steadyrpc.Application{Name: app.Name},
-		Url:         s.publicLoadBalancerURL,
-	}, nil
-}
-
-func (s *Server) DeploySource(ctx context.Context, req *steadyrpc.DeploySourceRequest) (
-	_ *steadyrpc.DeploySourceResponse, err error) {
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   "faketemporaryname",
-		Script: req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-	_ = app
-	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeploySourceResponse{
-		Url: app.Name,
-	}, nil
+	return s.db.WithTx(tx), tx, nil
 }
