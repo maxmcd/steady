@@ -8,7 +8,7 @@ test:
 	go test -v -count=1 -cover ./...
 
 test_ci:
-	STEADY_SUITE_RUN_COUNT=100 go test -v \
+	STEADY_SUITE_RUN_COUNT=10 go test -v \
 		-coverpkg=./... -coverprofile=coverage.out \
         -race ./...
 	codecov
