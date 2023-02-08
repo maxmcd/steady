@@ -11,6 +11,8 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
       - name: download nix deps
         run: nix-shell --run "echo \"Rock steady\""
+      - name: download go deps
+        run: go mod download
       - name: Confirm there are not untracked changes after generate
         run: |
           make generate
