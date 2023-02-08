@@ -76,14 +76,15 @@ func (suite *TestSuite) TestMigrate() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		suite.Require().Equal(http.StatusOK, resp.StatusCode)
 		var jsonResponse map[string]interface{}
-		suite.Require().NoError(json.NewDecoder(resp.Body).Decode(&jsonResponse))
+		_ = json.NewDecoder(resp.Body).Decode(&jsonResponse)
+
+		suite.Require().Equal(http.StatusOK, resp.StatusCode, jsonResponse)
 
 		// Here's the real test. Ensure that every time we make a request the ID
 		// increments, even through deletes/restarts
 		counter++
-		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)))
+		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)), jsonResponse)
 	}
 	createRecordRequest()
 	d.StopAllApplications()
