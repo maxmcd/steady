@@ -13,7 +13,6 @@ import (
 	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/maxmcd/steady/steady/steadyrpc"
-	"github.com/stretchr/testify/suite"
 )
 
 type TestSuite struct {
@@ -21,7 +20,7 @@ type TestSuite struct {
 }
 
 func TestTestSuite(t *testing.T) {
-	suite.Run(t, new(TestSuite))
+	testsuite.Run(t, new(TestSuite))
 }
 
 func (suite *TestSuite) TestMigrate() {

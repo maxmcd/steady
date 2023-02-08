@@ -9,7 +9,6 @@ import (
 	"github.com/maxmcd/steady/steady"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/suite"
 )
 
 func TestServer(t *testing.T) {
@@ -48,7 +47,7 @@ type ServerSuite struct {
 }
 
 func TestServerSuite(t *testing.T) {
-	suite.Run(t, new(ServerSuite))
+	testsuite.Run(t, new(ServerSuite))
 }
 
 func (suite *ServerSuite) TestCreateApplication() {

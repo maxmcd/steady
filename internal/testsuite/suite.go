@@ -9,7 +9,9 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strconv"
 	"strings"
+	"testing"
 
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/daemon"
@@ -20,6 +22,24 @@ import (
 	"github.com/maxmcd/steady/web"
 	"github.com/stretchr/testify/suite"
 )
+
+func Run(t *testing.T, s suite.TestingSuite) {
+	countString := os.Getenv("STEADY_SUITE_RUN_COUNT")
+	count := 1
+	if countString != "" {
+		var err error
+		count, err = strconv.Atoi(countString)
+		if err != nil {
+			t.Fatal("failed to convert env var to int", err, countString)
+		}
+	}
+	for i := 0; i < count; i++ {
+		suite.Run(t, s)
+		if t.Failed() {
+			return
+		}
+	}
+}
 
 type Suite struct {
 	suite.Suite
@@ -137,7 +157,13 @@ func (suite *Suite) NewWebServer() string {
 			}
 		}),
 	)}
-	go server.Serve(listener)
+	ctx, cancel := context.WithCancel(context.Background())
+	suite.cancels = append(suite.cancels, cancel)
+	go func() { _ = server.Serve(listener) }()
+	go func() {
+		<-ctx.Done()
+		_ = server.Shutdown(context.Background())
+	}()
 	return url
 }
 
