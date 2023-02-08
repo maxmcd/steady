@@ -62,7 +62,7 @@ func (lb *LB) NewHostAssignments(assignments map[string][]slicer.Range) error {
 	return nil
 }
 
-func (lb *LB) Handler(name string, rw http.ResponseWriter, r *http.Request) {
+func (lb *LB) Handler(name string, useLatestHost bool, rw http.ResponseWriter, r *http.Request) {
 	var hosts []string
 	for _, hashRanges := range lb.hashRangesSet {
 		host := hashRanges.GetHost(name)
@@ -73,7 +73,7 @@ func (lb *LB) Handler(name string, rw http.ResponseWriter, r *http.Request) {
 	}
 	host := hosts[0]
 	var err error
-	if len(hosts) > 1 {
+	if !useLatestHost && len(hosts) > 1 {
 		host, err = lb.findLiveHost(r.Context(), hosts, name)
 		if err != nil {
 			http.Error(rw, errors.Wrap(err, "error routing to host").Error(),
@@ -144,7 +144,7 @@ func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err er
 				http.Error(w, "not allowed", http.StatusMethodNotAllowed)
 				return
 			}
-			lb.Handler(name, w, r)
+			lb.Handler(name, false, w, r)
 		}),
 		ReadHeaderTimeout: time.Second * 15,
 	}
@@ -156,7 +156,7 @@ func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err er
 			if name == "" {
 				http.Error(w, "not found", http.StatusNotFound)
 			}
-			lb.Handler(name, w, r)
+			lb.Handler(name, true, w, r)
 		}),
 		ReadHeaderTimeout: time.Second * 15,
 	}
@@ -181,7 +181,7 @@ func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err er
 	})
 	shutdownServerOnCancel(ctx, lb.eg, publicServer)
 	lb.eg.Go(func() (err error) {
-		if err = publicServer.Serve(lb.privateListener); err == http.ErrServerClosed {
+		if err = privateServer.Serve(lb.privateListener); err == http.ErrServerClosed {
 			return nil
 		}
 		return err

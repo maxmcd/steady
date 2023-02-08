@@ -132,12 +132,19 @@ func (s *Server) ValidateToken(ctx context.Context, req *steadyrpc.ValidateToken
 	if err := s.db.DeleteLoginToken(ctx, token.Token); err != nil {
 		return nil, err
 	}
+	userSession, err := s.db.CreateUserSession(ctx, db.CreateUserSessionParams{
+		UserID: token.UserID,
+	})
+	if err != nil {
+		return nil, err
+	}
 	return &steadyrpc.ValidateTokenResponse{
 		User: &steadyrpc.User{
 			Id:       user.ID,
 			Username: user.Username,
 			Email:    user.Email,
 		},
+		UserSessionToken: userSession.Token,
 	}, nil
 }
 

@@ -45,14 +45,17 @@ func addHeader(ctx context.Context, req getNamer) context.Context {
 	// Ok to ignore this err, check function src
 	return ctx
 }
-func (c Client) CreateApplication(ctx context.Context, req *daemonrpc.CreateApplicationRequest) (*daemonrpc.Application, error) {
+func (c Client) CreateApplication(ctx context.Context, req *daemonrpc.CreateApplicationRequest) (
+	*daemonrpc.Application, error) {
 	return c.daemon.CreateApplication(addHeader(ctx, req), req)
 }
 
-func (c Client) DeleteApplication(ctx context.Context, req *daemonrpc.DeleteApplicationRequest) (*daemonrpc.Application, error) {
+func (c Client) DeleteApplication(ctx context.Context, req *daemonrpc.DeleteApplicationRequest) (
+	*daemonrpc.Application, error) {
 	return c.daemon.DeleteApplication(addHeader(ctx, req), req)
 }
 
-func (c Client) GetApplication(ctx context.Context, req *daemonrpc.GetApplicationRequest) (*daemonrpc.Application, error) {
+func (c Client) GetApplication(ctx context.Context, req *daemonrpc.GetApplicationRequest) (
+	*daemonrpc.Application, error) {
 	return c.daemon.GetApplication(addHeader(ctx, req), req)
 }

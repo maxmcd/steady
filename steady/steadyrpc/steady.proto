@@ -31,7 +31,7 @@ message SignupRequest {
 
 message SignupResponse { User user = 1; }
 
-message LogoutRequest { string session_token = 1; }
+message LogoutRequest { string user_session_token = 1; }
 
 message LogoutResponse {}
 
@@ -44,7 +44,7 @@ message User {
 message ValidateTokenRequest { string token = 1; }
 message ValidateTokenResponse {
   User user = 1;
-  string session_token = 2;
+  string user_session_token = 2;
 }
 
 message CreateServiceRequest { string name = 1; }

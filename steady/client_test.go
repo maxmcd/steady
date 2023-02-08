@@ -1,4 +1,4 @@
-package steady
+package steady_test
 
 import (
 	"bytes"
@@ -11,20 +11,20 @@ import (
 	"testing"
 
 	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
-	"github.com/maxmcd/steady/internal/daemontest"
+	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/suite"
 )
 
 type TestSuite struct {
-	daemontest.DaemonSuite
+	testsuite.Suite
 }
 
 func TestTestSuite(t *testing.T) {
 	suite.Run(t, new(TestSuite))
 }
 
-func (suite *TestSuite) TestDeploy() {
+func (suite *TestSuite) TestMigrate() {
 	t := suite.T()
 
 	// Migrate job
@@ -54,7 +54,7 @@ func (suite *TestSuite) TestDeploy() {
 		suite.Equal(http.StatusNotFound, resp.StatusCode)
 	}
 
-	dClient := suite.NewClient(d)
+	dClient := suite.NewDaemonClient(d.ServerAddr())
 	if _, err := dClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
@@ -89,13 +89,13 @@ func (suite *TestSuite) TestDeploy() {
 	d.StopAllApplications()
 
 	d2, _ := suite.NewDaemon()
+	d2Client := suite.NewDaemonClient(d2.ServerAddr())
 
 	// How are we finding what to move?
 	if _, err := dClient.DeleteApplication(ctx, &daemonrpc.DeleteApplicationRequest{Name: appName}); err != nil {
 		t.Fatal(err)
 	}
 
-	d2Client := suite.NewClient(d2)
 	if _, err := d2Client.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
@@ -119,16 +119,9 @@ func (suite *TestSuite) TestServer() {
 
 	ctx := context.Background()
 
-	d, _ := suite.NewDaemon()
-
+	suite.NewDaemon()
 	lb := suite.NewLB()
-
-	server := NewServer(ServerOptions{
-		PrivateLoadBalancerURL: lb.PrivateServerAddr(),
-		PublicLoadBalancerURL:  lb.PublicServerAddr(),
-		DaemonClient:           suite.NewClient(d),
-	}, OptionWithSqlite(t.TempDir()+"/foo.sqlite"))
-
+	server := suite.NewSteadyServer()
 	resp, err := server.DeploySource(ctx, &steadyrpc.DeploySourceRequest{
 		Source: suite.LoadExampleScript("http"),
 	})

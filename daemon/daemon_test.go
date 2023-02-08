@@ -11,7 +11,7 @@ import (
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
-	"github.com/maxmcd/steady/internal/daemontest"
+	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
@@ -29,7 +29,7 @@ export default {
 `
 
 type DaemonSuite struct {
-	daemontest.DaemonSuite
+	testsuite.Suite
 }
 
 func TestDaemonSuite(t *testing.T) {
@@ -40,7 +40,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	t := suite.T()
 	d, _ := suite.NewDaemon()
 
-	client := suite.NewClient(d)
+	client := suite.NewDaemonClient(d.ServerAddr())
 	timestamp := time.Now().Format(time.RFC3339)
 
 	name := "max-hello"
@@ -56,7 +56,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 	requestCount := 5
 	for i := 0; i < requestCount; i++ {
 		eg.Go(func() error {
-			resp, respBody, err := suite.Request(d, name, http.MethodGet, "/hi", "")
+			resp, respBody, err := suite.DaemonRequest(d, name, http.MethodGet, "/hi", "")
 			if err != nil {
 				return err
 			}
@@ -83,7 +83,7 @@ func (suite *DaemonSuite) TestConcurrentRequests() {
 func (suite *DaemonSuite) TestNonOverlappingTests() {
 	t := suite.T()
 	d, _ := suite.NewDaemon()
-	client := suite.NewClient(d)
+	client := suite.NewDaemonClient(d.ServerAddr())
 	timestamp := time.Now().Format(time.RFC3339)
 
 	name := "max-hello"
@@ -95,7 +95,7 @@ func (suite *DaemonSuite) TestNonOverlappingTests() {
 	}
 
 	makeRequest := func() {
-		resp, respBody, err := suite.Request(d, name, http.MethodGet, "/hi", "")
+		resp, respBody, err := suite.DaemonRequest(d, name, http.MethodGet, "/hi", "")
 		if err != nil {
 			t.Fatal(err)
 		}

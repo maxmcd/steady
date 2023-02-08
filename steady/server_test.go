@@ -5,7 +5,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/maxmcd/steady/internal/daemontest"
+	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/maxmcd/steady/steady"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/assert"
@@ -44,7 +44,7 @@ func TestServer(t *testing.T) {
 }
 
 type ServerSuite struct {
-	daemontest.DaemonSuite
+	testsuite.Suite
 }
 
 func TestServerSuite(t *testing.T) {

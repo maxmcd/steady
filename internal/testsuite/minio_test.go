@@ -1,4 +1,4 @@
-package daemontest
+package testsuite
 
 import (
 	"testing"

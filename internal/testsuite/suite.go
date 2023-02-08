@@ -1,21 +1,27 @@
-package daemontest
+package testsuite
 
 import (
 	"bytes"
 	"context"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 
+	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
 	"github.com/maxmcd/steady/slicer"
+	"github.com/maxmcd/steady/steady"
+	"github.com/maxmcd/steady/steady/steadyrpc"
+	"github.com/maxmcd/steady/web"
 	"github.com/stretchr/testify/suite"
 )
 
-type DaemonSuite struct {
+type Suite struct {
 	suite.Suite
 
 	daemons       []*daemon.Daemon
@@ -27,15 +33,9 @@ type DaemonSuite struct {
 	minioServer *MinioServer
 }
 
-var _ suite.SetupAllSuite = new(DaemonSuite)
-var _ suite.BeforeTest = new(DaemonSuite)
-var _ suite.AfterTest = new(DaemonSuite)
-
-func (suite *DaemonSuite) SetupSuite() {}
-
 // NewDaemon creates a daemon with the provided options. If you've called
 // StartMinioServer, that server will be associated with the created Daemon.
-func (suite *DaemonSuite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
+func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
 	if suite.minioServer != nil {
@@ -65,7 +65,83 @@ func (suite *DaemonSuite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daem
 	return d, dir
 }
 
-func (suite *DaemonSuite) NewLB() *loadbalancer.LB {
+var _ suite.SetupAllSuite = new(Suite)
+var _ suite.BeforeTest = new(Suite)
+var _ suite.AfterTest = new(Suite)
+
+func (suite *Suite) SetupSuite() {}
+
+func (suite *Suite) BeforeTest(suiteName, testName string) {
+	suite.assigner = &slicer.Assigner{}
+}
+
+func (suite *Suite) AfterTest(suiteName, testName string) {
+	for _, cancel := range suite.cancels {
+		cancel()
+	}
+	suite.cancels = nil
+	for _, daemon := range suite.daemons {
+		if err := daemon.Wait(); err != nil {
+			suite.T().Error(err)
+		}
+	}
+	suite.daemons = nil
+	for _, lb := range suite.loadBalancers {
+		if err := lb.Wait(); err != nil {
+			suite.T().Error(err)
+		}
+	}
+	suite.loadBalancers = nil
+	if suite.minioServer != nil {
+		suite.minioServer.Stop(suite.T())
+		suite.minioServer = nil
+	}
+}
+
+func (suite *Suite) NewSteadyServer() *steady.Server {
+	t := suite.T()
+	if len(suite.loadBalancers) == 0 {
+		t.Fatal("need at least one load balancer to create a steady server")
+	}
+	return steady.NewServer(steady.ServerOptions{
+		PrivateLoadBalancerURL: suite.loadBalancers[0].PrivateServerAddr(),
+		PublicLoadBalancerURL:  suite.loadBalancers[0].PublicServerAddr(),
+		DaemonClient:           suite.NewDaemonClient(suite.loadBalancers[0].PrivateServerAddr()),
+	}, steady.OptionWithSqlite(t.TempDir()+"/steady.sqlite"))
+}
+
+func (suite *Suite) NewWebServer() string {
+	sqliteDataDir := suite.T().TempDir()
+	steadyHandler := steadyrpc.NewSteadyServer(
+		steady.NewServer(
+			steady.ServerOptions{},
+			steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite"))))
+	listener, err := net.Listen("tcp", ":0")
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	url := fmt.Sprintf("http://%s", listener.Addr().String())
+	webHandler, err := web.NewServer(
+		steadyrpc.NewSteadyProtobufClient(
+			url,
+			http.DefaultClient))
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	server := http.Server{Handler: handlers.LoggingHandler(os.Stdout,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/twirp") {
+				steadyHandler.ServeHTTP(w, r)
+			} else {
+				webHandler.ServeHTTP(w, r)
+			}
+		}),
+	)}
+	go server.Serve(listener)
+	return url
+}
+
+func (suite *Suite) NewLB() *loadbalancer.LB {
 	if len(suite.daemons) == 0 {
 		suite.T().Fatal("You cannot create a load balancer if no daemon servers exis")
 	}
@@ -73,18 +149,20 @@ func (suite *DaemonSuite) NewLB() *loadbalancer.LB {
 	if err := lb.NewHostAssignments(suite.assigner.Assignments()); err != nil {
 		suite.T().Fatal(err)
 	}
-	if err := lb.Start(context.Background(), ":0", ":0"); err != nil {
+	ctx, cancel := context.WithCancel(context.Background())
+	if err := lb.Start(ctx, ":0", ":0"); err != nil {
 		suite.T().Fatal(err)
 	}
+	suite.cancels = append(suite.cancels, cancel)
 	suite.loadBalancers = append(suite.loadBalancers, lb)
 	return lb
 }
 
-func (suite *DaemonSuite) StartMinioServer() {
+func (suite *Suite) StartMinioServer() {
 	suite.minioServer = NewMinioServer(suite.T())
 }
 
-func (suite *DaemonSuite) MinioServerS3Config() daemon.S3Config {
+func (suite *Suite) MinioServerS3Config() daemon.S3Config {
 	if suite.minioServer == nil {
 		suite.T().Fatal("must call StartMinioServer before this method")
 	}
@@ -98,26 +176,7 @@ func (suite *DaemonSuite) MinioServerS3Config() daemon.S3Config {
 	}
 }
 
-func (suite *DaemonSuite) BeforeTest(suiteName, testName string) {
-	suite.assigner = &slicer.Assigner{}
-}
-
-func (suite *DaemonSuite) AfterTest(suiteName, testName string) {
-	for _, cancel := range suite.cancels {
-		cancel()
-	}
-	for _, daemon := range suite.daemons {
-		if err := daemon.Wait(); err != nil {
-			suite.T().Error(err)
-		}
-	}
-	if suite.minioServer != nil {
-		suite.minioServer.Stop(suite.T())
-		suite.minioServer = nil
-	}
-}
-
-func (suite *DaemonSuite) Request(
+func (suite *Suite) DaemonRequest(
 	d *daemon.Daemon, appName string,
 	method string, url string,
 	body string) (_ *http.Response, respBody string, err error) {
@@ -137,15 +196,15 @@ func (suite *DaemonSuite) Request(
 	}
 	return resp, string(b), err
 }
-func (suite *DaemonSuite) DaemonURL(d *daemon.Daemon, paths ...string) string {
+func (suite *Suite) DaemonURL(d *daemon.Daemon, paths ...string) string {
 	return fmt.Sprintf("http://"+d.ServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
 }
 
-func (suite *DaemonSuite) NewClient(d *daemon.Daemon) daemon.Client {
-	return daemon.NewClient(fmt.Sprintf("http://"+d.ServerAddr()), nil)
+func (suite *Suite) NewDaemonClient(addr string) daemon.Client {
+	return daemon.NewClient(fmt.Sprintf("http://%s", addr), nil)
 }
 
-func (suite *DaemonSuite) LoadExampleScript(name string) string {
+func (suite *Suite) LoadExampleScript(name string) string {
 	abs, err := filepath.Abs("../examples/" + name)
 	if err != nil {
 		suite.T().Fatal(err)
