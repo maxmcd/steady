@@ -1,27 +1,94 @@
 {{define "header"}}
 <!DOCTYPE html>
 <html lang="en">
-  <head>
+
+<head>
     <meta charset="UTF-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>Document</title>
     <style>
-      html {
-        font-family: Helvetica, Arial, sans-serif;
-      }
-      table.header {
-        width: 100%;
-        padding: 0px 10%;
-      }
-      .align-right {
-        text-align: right;
-      }
-      .error {
-        color: red;
-        font-style: italic;
-      }
+        html {
+            font-family: Helvetica, Arial, sans-serif;
+        }
+
+        body {
+            margin: 0;
+        }
+
+        .container {
+            padding: 0px 10%;
+        }
+
+        .row {
+            display: flex;
+        }
+
+        .item {}
+
+        .header {
+            padding-top: 20px;
+            padding-bottom: 20px;
+        }
+
+        .align-right {
+            text-align: right;
+        }
+
+        .flex-end {
+            justify-content: flex-end;
+        }
+
+        .space-between {
+            justify-content: space-between;
+        }
+
+        .flash {
+            border: 1px solid black;
+            padding: 5px 10px;
+            max-width: 500px;
+        }
+
+        .error {
+            color: red;
+            font-style: italic;
+        }
+
+        .logo {
+            text-decoration: none;
+            color: black;
+        }
+
+        .logo:hover {
+            text-decoration: underline;
+        }
+
     </style>
-  </head>
-  <body>
-{{end}}
+</head>
+
+<body>
+    <div class="container">
+        <div class="row header space-between">
+            <div>
+                <a href="/" class="logo">steady.sh</a>
+            </div>
+            <div class="align-right">
+                {{ if .LoggedIn }}
+                <a href="/@{{ .session.username }}">profile</a>
+                -
+                <a href="/logout">logout</a>
+                {{ else }}
+                <a href="login">login / signup</a>
+                {{ end }}
+            </div>
+        </div>
+        {{ range .flashes }}
+        <div class="row flex-end">
+            <div class="flash">
+                {{ . }}
+            </div>
+        </div>
+        {{ end }}
+
+
+        {{end}}

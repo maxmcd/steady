@@ -11,6 +11,12 @@ CREATE TABLE login_tokens (
     created_at DATETIME NOT NULL DEFAULT (datetime('now')),
     FOREIGN KEY (user_id) REFERENCES users (id)
 );
+CREATE TABLE user_sessions (
+    user_id INTEGER NOT NULL,
+    token TEXT UNIQUE NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT (datetime('now')),
+    FOREIGN KEY (user_id) REFERENCES users (id)
+);
 CREATE TABLE services (
     id INTEGER PRIMARY KEY,
     name TEXT NOT NULL,

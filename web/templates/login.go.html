@@ -1,18 +1,5 @@
-{{define "input"}}
+{{ template "header" . }}
 
-<input
-  type="text"
-  name="username_or_email"
-  size="20"
-  autocorrect="off"
-  spellcheck="false"
-  autocapitalize="off"
-  autofocus="true"
-/>
-
-{{end}} {{template "header"}}
-
-<a href="/">< home</a>
 
 <br />
 <br />
@@ -23,7 +10,10 @@
     <tbody>
       <tr>
         <td>username or email:</td>
-        <td>{{ template "input" }}</td>
+        <td>
+          <input type="text" name="username_or_email" size="20" autocorrect="off" spellcheck="false"
+            autocapitalize="off" autofocus="true" />
+        </td>
       </tr>
       {{ if .login_error }}
       <tr>
@@ -43,8 +33,14 @@
   <table border="0">
     <tbody>
       <tr>
-        <td>username or email:</td>
-        <td>{{ template "input" }}</td>
+        <td>username:</td>
+        <td> <input type="text" name="username" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        </td>
+      </tr>
+      <tr>
+        <td>email:</td>
+        <td> <input type="text" name="email" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        </td>
       </tr>
       {{ if .signup_error }}
       <tr>
@@ -56,6 +52,9 @@
   <input type="submit" value="signup" />
 </form>
 
-<p><i>You'll recieve an email with a login link.</i></p>
+<p><i>After you sign up or log in, you'll recieve an email with a login link.</i></p>
 
-{{template "footer"}}
+</div>
+
+
+{{ template "footer" . }}

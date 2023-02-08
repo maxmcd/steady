@@ -87,6 +87,24 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
+const createUserSession = `-- name: CreateUserSession :one
+INSERT INTO user_sessions (user_id, token)
+values (?, ?)
+RETURNING user_id, token, created_at
+`
+
+type CreateUserSessionParams struct {
+	UserID int64
+	Token  string
+}
+
+func (q *Queries) CreateUserSession(ctx context.Context, arg CreateUserSessionParams) (UserSession, error) {
+	row := q.queryRow(ctx, q.createUserSessionStmt, createUserSession, arg.UserID, arg.Token)
+	var i UserSession
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
+}
+
 const deleteLoginToken = `-- name: DeleteLoginToken :exec
 DELETE FROM login_tokens
 where token = ?
@@ -94,6 +112,16 @@ where token = ?
 
 func (q *Queries) DeleteLoginToken(ctx context.Context, token string) error {
 	_, err := q.exec(ctx, q.deleteLoginTokenStmt, deleteLoginToken, token)
+	return err
+}
+
+const deleteUserSession = `-- name: DeleteUserSession :exec
+DELETE FROM user_sessions
+where token = ?
+`
+
+func (q *Queries) DeleteUserSession(ctx context.Context, token string) error {
+	_, err := q.exec(ctx, q.deleteUserSessionStmt, deleteUserSession, token)
 	return err
 }
 
@@ -274,4 +302,17 @@ func (q *Queries) GetUserServices(ctx context.Context, userID int64) ([]Service,
 		return nil, err
 	}
 	return items, nil
+}
+
+const getUserSession = `-- name: GetUserSession :one
+SELECT user_id, token, created_at
+FROM user_sessions
+WHERE token = ?
+`
+
+func (q *Queries) GetUserSession(ctx context.Context, token string) (UserSession, error) {
+	row := q.queryRow(ctx, q.getUserSessionStmt, getUserSession, token)
+	var i UserSession
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
 }

@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"fmt"
+	"net/mail"
 
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
@@ -26,9 +27,30 @@ func (s *Server) sendLoginEmail(ctx context.Context, user db.User) (err error) {
 	if err != nil {
 		return err
 	}
+	// Note: This endpoint sends urls that log into the webUI, not the API,
+	// until we have API authentication that is not email based we rely on the
+	// web-ui to serve these requests. There is no way to log into the api
+	// without the web ui for the moment.
+
 	// TODO: Send email to user.Email
 	fmt.Println("LOGIN: /login/token/" + resp.Token)
 	return nil
+}
+
+func (s *Server) getUserSession(ctx context.Context) (_ *db.UserSession, err error) {
+	header, _ := twirp.HTTPRequestHeaders(ctx)
+	token := header.Get("X-Steady-Token")
+	if token == "" {
+		return nil, twirp.NewError(twirp.Unauthenticated, "User session token not found in headers")
+	}
+	userSession, err := s.db.GetUserSession(ctx, token)
+	if err == sql.ErrNoRows {
+		return nil, twirp.NewError(twirp.Unauthenticated, "No active user session matches this token")
+	}
+	if err != nil {
+		return nil, twirp.InternalError(err.Error())
+	}
+	return &userSession, nil
 }
 
 func (s *Server) Login(ctx context.Context, req *steadyrpc.LoginRequest) (_ *steadyrpc.LoginResponse, err error) {
@@ -57,6 +79,10 @@ func (s *Server) Login(ctx context.Context, req *steadyrpc.LoginRequest) (_ *ste
 }
 
 func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *steadyrpc.SignupResponse, err error) {
+	if _, err := mail.ParseAddress(req.Email); err != nil {
+		return nil, twirp.NewError(twirp.InvalidArgument, err.Error())
+	}
+
 	user, err := s.db.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{
 		Username: req.Username,
 		Email:    req.Email,
@@ -113,6 +139,14 @@ func (s *Server) ValidateToken(ctx context.Context, req *steadyrpc.ValidateToken
 			Email:    user.Email,
 		},
 	}, nil
+}
+
+func (s *Server) Logout(ctx context.Context, req *steadyrpc.LogoutRequest) (_ *steadyrpc.LogoutResponse, err error) {
+	userSession, err := s.getUserSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	return &steadyrpc.LogoutResponse{}, s.db.DeleteUserSession(ctx, userSession.Token)
 }
 
 func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.CreateServiceVersionRequest) (

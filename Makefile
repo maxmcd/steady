@@ -14,7 +14,7 @@ test_ci:
 	codecov
 
 generate:
-	go generate ./...
+	go generate -x ./...
 
 lint:
 	golangci-lint run --timeout=3m

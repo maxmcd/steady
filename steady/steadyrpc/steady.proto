@@ -7,6 +7,7 @@ option go_package = "github.com/maxmcd/steady/steady/steadyrpc";
 service Steady {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Signup(SignupRequest) returns (SignupResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
   rpc CreateServiceVersion(CreateServiceVersionRequest)
@@ -30,6 +31,10 @@ message SignupRequest {
 
 message SignupResponse { User user = 1; }
 
+message LogoutRequest { string session_token = 1; }
+
+message LogoutResponse {}
+
 message User {
   int64 id = 1;
   string username = 2;
@@ -37,7 +42,10 @@ message User {
 }
 
 message ValidateTokenRequest { string token = 1; }
-message ValidateTokenResponse { User user = 1; }
+message ValidateTokenResponse {
+  User user = 1;
+  string session_token = 2;
+}
 
 message CreateServiceRequest { string name = 1; }
 

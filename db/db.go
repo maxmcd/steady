@@ -36,8 +36,14 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.createUserStmt, err = db.PrepareContext(ctx, createUser); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateUser: %w", err)
 	}
+	if q.createUserSessionStmt, err = db.PrepareContext(ctx, createUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateUserSession: %w", err)
+	}
 	if q.deleteLoginTokenStmt, err = db.PrepareContext(ctx, deleteLoginToken); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteLoginToken: %w", err)
+	}
+	if q.deleteUserSessionStmt, err = db.PrepareContext(ctx, deleteUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query DeleteUserSession: %w", err)
 	}
 	if q.getLoginTokenStmt, err = db.PrepareContext(ctx, getLoginToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetLoginToken: %w", err)
@@ -62,6 +68,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getUserServicesStmt, err = db.PrepareContext(ctx, getUserServices); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserServices: %w", err)
+	}
+	if q.getUserSessionStmt, err = db.PrepareContext(ctx, getUserSession); err != nil {
+		return nil, fmt.Errorf("error preparing query GetUserSession: %w", err)
 	}
 	return &q, nil
 }
@@ -88,9 +97,19 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing createUserStmt: %w", cerr)
 		}
 	}
+	if q.createUserSessionStmt != nil {
+		if cerr := q.createUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createUserSessionStmt: %w", cerr)
+		}
+	}
 	if q.deleteLoginTokenStmt != nil {
 		if cerr := q.deleteLoginTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing deleteLoginTokenStmt: %w", cerr)
+		}
+	}
+	if q.deleteUserSessionStmt != nil {
+		if cerr := q.deleteUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing deleteUserSessionStmt: %w", cerr)
 		}
 	}
 	if q.getLoginTokenStmt != nil {
@@ -131,6 +150,11 @@ func (q *Queries) Close() error {
 	if q.getUserServicesStmt != nil {
 		if cerr := q.getUserServicesStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserServicesStmt: %w", cerr)
+		}
+	}
+	if q.getUserSessionStmt != nil {
+		if cerr := q.getUserSessionStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getUserSessionStmt: %w", cerr)
 		}
 	}
 	return err
@@ -176,7 +200,9 @@ type Queries struct {
 	createServiceStmt            *sql.Stmt
 	createServiceVersionStmt     *sql.Stmt
 	createUserStmt               *sql.Stmt
+	createUserSessionStmt        *sql.Stmt
 	deleteLoginTokenStmt         *sql.Stmt
+	deleteUserSessionStmt        *sql.Stmt
 	getLoginTokenStmt            *sql.Stmt
 	getServiceStmt               *sql.Stmt
 	getServiceVersionStmt        *sql.Stmt
@@ -185,6 +211,7 @@ type Queries struct {
 	getUserApplicationsStmt      *sql.Stmt
 	getUserByEmailOrUsernameStmt *sql.Stmt
 	getUserServicesStmt          *sql.Stmt
+	getUserSessionStmt           *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -195,7 +222,9 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createServiceStmt:            q.createServiceStmt,
 		createServiceVersionStmt:     q.createServiceVersionStmt,
 		createUserStmt:               q.createUserStmt,
+		createUserSessionStmt:        q.createUserSessionStmt,
 		deleteLoginTokenStmt:         q.deleteLoginTokenStmt,
+		deleteUserSessionStmt:        q.deleteUserSessionStmt,
 		getLoginTokenStmt:            q.getLoginTokenStmt,
 		getServiceStmt:               q.getServiceStmt,
 		getServiceVersionStmt:        q.getServiceVersionStmt,
@@ -204,5 +233,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserApplicationsStmt:      q.getUserApplicationsStmt,
 		getUserByEmailOrUsernameStmt: q.getUserByEmailOrUsernameStmt,
 		getUserServicesStmt:          q.getUserServicesStmt,
+		getUserSessionStmt:           q.getUserSessionStmt,
 	}
 }

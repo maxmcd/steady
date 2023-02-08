@@ -39,3 +39,9 @@ type User struct {
 	Email    string
 	Username string
 }
+
+type UserSession struct {
+	UserID    int64
+	Token     string
+	CreatedAt time.Time
+}
