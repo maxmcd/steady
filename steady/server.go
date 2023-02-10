@@ -2,6 +2,7 @@ package steady
 
 import (
 	"context"
+	"net/http"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -9,6 +10,7 @@ import (
 	"github.com/maxmcd/steady/daemon"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/steady/steadyrpc"
+	"github.com/twitchtv/twirp"
 )
 
 type Server struct {
@@ -29,7 +31,7 @@ type ServerOptions struct {
 	DaemonClient           daemon.Client
 }
 
-func NewServer(options ServerOptions, opts ...Option) *Server {
+func NewServer(options ServerOptions, opts ...Option) http.Handler {
 	s := &Server{
 		daemonClient:            options.DaemonClient,
 		publicLoadBalancerURL:   options.PublicLoadBalancerURL,
@@ -38,7 +40,13 @@ func NewServer(options ServerOptions, opts ...Option) *Server {
 	for _, opt := range opts {
 		opt(s)
 	}
-	return s
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Header.Get("X-Steady-Token"); token != "" {
+			ctx, _ := twirp.WithHTTPRequestHeaders(r.Context(), http.Header{"X-Steady-Token": {token}})
+			r = r.WithContext(ctx)
+		}
+		steadyrpc.NewSteadyServer(s).ServeHTTP(w, r)
+	})
 }
 
 func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateServiceRequest) (

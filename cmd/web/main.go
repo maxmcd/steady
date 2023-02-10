@@ -12,10 +12,10 @@ import (
 )
 
 func main() {
-	steadyHandler := steadyrpc.NewSteadyServer(
+	steadyHandler :=
 		steady.NewServer(
 			steady.ServerOptions{},
-			steady.OptionWithSqlite("./steady.sqlite")))
+			steady.OptionWithSqlite("./steady.sqlite"))
 
 	webHandler, err := web.NewServer(steadyrpc.NewSteadyProtobufClient("http://localhost:8080", http.DefaultClient))
 	if err != nil {

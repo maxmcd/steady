@@ -118,7 +118,7 @@ func (suite *Suite) AfterTest(suiteName, testName string) {
 	}
 }
 
-func (suite *Suite) NewSteadyServer() *steady.Server {
+func (suite *Suite) NewSteadyServer() http.Handler {
 	t := suite.T()
 	if len(suite.loadBalancers) == 0 {
 		t.Fatal("need at least one load balancer to create a steady server")
@@ -137,14 +137,13 @@ type EmailSink struct {
 func (suite *Suite) NewWebServer() (*EmailSink, string) {
 	es := &EmailSink{}
 	sqliteDataDir := suite.T().TempDir()
-	steadyHandler := steadyrpc.NewSteadyServer(
-		steady.NewServer(
-			steady.ServerOptions{},
-			steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite")),
-			steady.OptionWithEmailSink(func(email string) {
-				es.Emails = append(es.Emails, email)
-			}),
-		))
+	steadyHandler := steady.NewServer(
+		steady.ServerOptions{},
+		steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite")),
+		steady.OptionWithEmailSink(func(email string) {
+			es.Emails = append(es.Emails, email)
+		}),
+	)
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		suite.T().Fatal(err)

@@ -1,7 +1,6 @@
 package web_test
 
 import (
-	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -30,8 +29,10 @@ func (suite *Suite) BeforeTest(_, _ string) {
 	}
 }
 
-func (suite *Suite) findInDoc(doc *goquery.Document, selector string) {
-	suite.True(1 == doc.Find(selector).Length(), "selector %q not found in doc", selector)
+func (suite *Suite) findInDoc(doc *goquery.Document, selector string) (text string) {
+	found := doc.Find(selector)
+	suite.True(1 == found.Length(), "selector %q not found in doc", selector)
+	return found.Text()
 }
 
 func (suite *Suite) webRequest(req *http.Request, err error) (resp *http.Response, doc *goquery.Document) {
@@ -100,10 +101,10 @@ func (suite *Suite) TestWeb() {
 		suite.Contains(doc.Find(".flash").Text(), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.Emails[0], nil))
-
-		fmt.Println(doc.Html())
-		u, _ := url.Parse(addr)
-		fmt.Println(suite.httpClient.Jar.Cookies(u))
+		suite.Equal(http.StatusOK, resp.StatusCode)
+		suite.Equal("profile",
+			suite.findInDoc(doc, ".header a[href$='/@steady']"))
+		suite.findInDoc(doc, ".header a[href$='/logout']")
 	})
 
 }

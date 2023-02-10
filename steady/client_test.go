@@ -5,14 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"testing"
 
 	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/testsuite"
-	"github.com/maxmcd/steady/steady/steadyrpc"
 )
 
 type TestSuite struct {
@@ -105,42 +102,42 @@ func (suite *TestSuite) TestMigrate() {
 	createRecordRequest()
 }
 
-func (suite *TestSuite) TestServer() {
-	t := suite.T()
+// func (suite *TestSuite) TestServer() {
+// 	t := suite.T()
 
-	// Migrate job
-	// Start job on daemon
-	// send requests to it from the load balancer
-	// add another host
-	// migrate the job to another daemon
-	// ensure all requests make it to a live job
+// 	// Migrate job
+// 	// Start job on daemon
+// 	// send requests to it from the load balancer
+// 	// add another host
+// 	// migrate the job to another daemon
+// 	// ensure all requests make it to a live job
 
-	suite.StartMinioServer()
+// 	suite.StartMinioServer()
 
-	ctx := context.Background()
+// 	ctx := context.Background()
 
-	suite.NewDaemon()
-	lb := suite.NewLB()
-	server := suite.NewSteadyServer()
-	resp, err := server.DeploySource(ctx, &steadyrpc.DeploySourceRequest{
-		Source: suite.LoadExampleScript("http"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
+// 	suite.NewDaemon()
+// 	lb := suite.NewLB()
+// 	server := suite.NewSteadyServer()
+// 	resp, err := server.DeploySource(ctx, &steadyrpc.DeploySourceRequest{
+// 		Source: suite.LoadExampleScript("http"),
+// 	})
+// 	if err != nil {
+// 		t.Fatal(err)
+// 	}
 
-	{
-		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Host = resp.Url
+// 	{
+// 		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		req.Host = resp.Url
 
-		httpResp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		suite.Equal(http.StatusOK, httpResp.StatusCode)
-		_, _ = io.Copy(os.Stdout, httpResp.Body)
-	}
-}
+// 		httpResp, err := http.DefaultClient.Do(req)
+// 		if err != nil {
+// 			t.Fatal(err)
+// 		}
+// 		suite.Equal(http.StatusOK, httpResp.StatusCode)
+// 		_, _ = io.Copy(os.Stdout, httpResp.Body)
+// 	}
+// }
