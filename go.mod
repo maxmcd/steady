@@ -3,10 +3,10 @@ module github.com/maxmcd/steady
 go 1.19
 
 require (
+	github.com/PuerkitoBio/goquery v1.8.0
 	github.com/aws/aws-sdk-go v1.44.71
 	github.com/benbjohnson/litestream v0.4.0-beta.2.0.20230118014729-8dbdf2b91cbf
 	github.com/gorilla/handlers v1.5.1
-	github.com/gorilla/sessions v1.2.1
 	github.com/jmoiron/sqlx v1.3.5
 	github.com/julienschmidt/httprouter v1.3.0
 	github.com/lib/pq v1.10.7
@@ -19,6 +19,7 @@ require (
 )
 
 require (
+	github.com/andybalholm/cascadia v1.3.1 // indirect
 	github.com/beorn7/perks v1.0.1 // indirect
 	github.com/cespare/xxhash/v2 v2.1.2 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
@@ -26,7 +27,6 @@ require (
 	github.com/fsnotify/fsnotify v1.5.4 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/google/go-cmp v0.5.9 // indirect
-	github.com/gorilla/securecookie v1.1.1 // indirect
 	github.com/jmespath/go-jmespath v0.4.0 // indirect
 	github.com/kr/pretty v0.3.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.1 // indirect

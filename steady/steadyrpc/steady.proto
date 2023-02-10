@@ -8,6 +8,7 @@ service Steady {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc Signup(SignupRequest) returns (SignupResponse);
   rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
   rpc CreateServiceVersion(CreateServiceVersionRequest)
@@ -40,6 +41,9 @@ message User {
   string username = 2;
   string email = 3;
 }
+
+message GetUserRequest {}
+message GetUserResponse { User user = 1; }
 
 message ValidateTokenRequest { string token = 1; }
 message ValidateTokenResponse {

@@ -129,7 +129,6 @@ func (suite *TestSuite) TestServer() {
 		t.Fatal(err)
 	}
 
-	fmt.Println(resp.Url)
 	{
 		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
 		if err != nil {

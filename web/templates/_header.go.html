@@ -74,11 +74,11 @@
             </div>
             <div class="align-right">
                 {{ if .LoggedIn }}
-                <a href="/@{{ .session.username }}">profile</a>
+                <a href="/@{{ .user.Username }}">profile</a>
                 -
                 <a href="/logout">logout</a>
                 {{ else }}
-                <a href="login">login / signup</a>
+                <a href="/login">login / signup</a>
                 {{ end }}
             </div>
         </div>

@@ -13,6 +13,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
@@ -128,6 +129,21 @@ func (suite *Suite) NewSteadyServer() *steady.Server {
 		PublicLoadBalancerURL:  suite.loadBalancers[0].PublicServerAddr(),
 		DaemonClient:           suite.NewDaemonClient(suite.loadBalancers[0].PrivateServerAddr()),
 	}, steady.OptionWithSqlite(t.TempDir()+"/steady.sqlite"))
+}
+
+func (suite *Suite) WebRequest(req *http.Request, err error) (resp *http.Response, doc *goquery.Document) {
+	t := suite.T()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resp, err = http.DefaultClient.Do(req); err != nil {
+		t.Fatal(err)
+	}
+	defer resp.Body.Close()
+	if doc, err = goquery.NewDocumentFromReader(resp.Body); err != nil {
+		t.Fatal(err)
+	}
+	return resp, doc
 }
 
 func (suite *Suite) NewWebServer() string {

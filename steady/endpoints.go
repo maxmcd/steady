@@ -119,6 +119,24 @@ func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *s
 	}, nil
 }
 
+func (s *Server) GetUser(ctx context.Context, req *steadyrpc.GetUserRequest) (_ *steadyrpc.GetUserResponse, err error) {
+	userSession, err := s.getUserSession(ctx)
+	if err != nil {
+		return nil, err
+	}
+	user, err := s.db.GetUser(ctx, userSession.UserID)
+	if err != nil {
+		return nil, err
+	}
+	return &steadyrpc.GetUserResponse{
+		User: &steadyrpc.User{
+			Id:       user.ID,
+			Username: user.Username,
+			Email:    user.Email,
+		},
+	}, nil
+}
+
 func (s *Server) ValidateToken(ctx context.Context, req *steadyrpc.ValidateTokenRequest) (
 	_ *steadyrpc.ValidateTokenResponse, err error) {
 	token, err := s.db.GetLoginToken(ctx, req.Token)

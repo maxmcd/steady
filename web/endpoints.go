@@ -9,7 +9,7 @@ import (
 	"github.com/maxmcd/steady/web/mux"
 )
 
-func (s *Server) jsEditorAssetEndpoionts(c *mux.Context) error {
+func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")
 	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
 	f, err := monacoSource.Open(
@@ -24,9 +24,9 @@ func (s *Server) jsEditorAssetEndpoionts(c *mux.Context) error {
 
 }
 func (s *Server) logoutEndpoint(c *mux.Context) error {
-	c.Session.Values = map[interface{}]interface{}{}
-	c.Session.AddFlash("You have been successfully logged out")
-	c.SaveSession()
+	c.DeleteToken()
+	c.AddFlash("You have been successfully logged out")
+	c.SaveFlash()
 	c.Redirect("/")
 	return nil
 }
@@ -38,11 +38,7 @@ func (s *Server) tokenLoginEndpoint(c *mux.Context) error {
 	if err != nil {
 		return err
 	}
-	c.Session.Values["user_id"] = resp.User.Id
-	c.Session.Values["email"] = resp.User.Email
-	c.Session.Values["username"] = resp.User.Username
-	c.SaveSession()
-
+	c.SetToken(resp.UserSessionToken)
 	c.Redirect("/")
 	return nil
 
@@ -52,10 +48,11 @@ func (s *Server) loginEndpoint(c *mux.Context) error {
 	val := c.Request.FormValue("username_or_email")
 	err := s.login(c.Request.Context(), val)
 	if err != nil {
-		return s.renderTemplateError(c, "login.go.html", V{"login_error": err.Error()}, err)
+		c.Data["login_error"] = tidyErrorMessage(err)
+		return s.renderTemplateError(c, "login.go.html", err)
 	}
-	c.Session.AddFlash("An email with a login link is on its way to your inbox.")
-	c.SaveSession()
+	c.AddFlash("An email with a login link is on its way to your inbox.")
+	c.SaveFlash()
 	c.Redirect("/")
 	return nil
 }
@@ -66,10 +63,11 @@ func (s *Server) signupEndpoint(c *mux.Context) error {
 		c.Request.FormValue("email"),
 	)
 	if err != nil {
-		return s.renderTemplateError(c, "login.go.html", V{"signup_error": err.Error()}, err)
+		c.Data["signup_error"] = tidyErrorMessage(err)
+		return s.renderTemplateError(c, "login.go.html", err)
 	}
-	c.Session.AddFlash("An email with a login link is on its way to your inbox.")
-	c.SaveSession()
+	c.AddFlash("An email with a login link is on its way to your inbox.")
+	c.SaveFlash()
 	c.Redirect("/")
 	return nil
 }

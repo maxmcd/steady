@@ -3,20 +3,17 @@ package mux
 import (
 	"net/http"
 
-	"github.com/gorilla/sessions"
 	"github.com/julienschmidt/httprouter"
 	"github.com/twitchtv/twirp"
 )
 
 type Router struct {
 	router *httprouter.Router
-	store  sessions.Store
 }
 
-func NewRouter(store sessions.Store) *Router {
+func NewRouter() *Router {
 	return &Router{
 		router: httprouter.New(),
-		store:  store,
 	}
 }
 
@@ -28,11 +25,13 @@ func (r *Router) handlerWrapper(handler func(c *Context) error) func(
 	http.ResponseWriter, *http.Request, httprouter.Params) {
 	return func(w http.ResponseWriter, req *http.Request, p httprouter.Params) {
 		c := &Context{
+			// TODO: wrap writer so that we can automatically save flashes
 			Writer:  w,
 			Request: req,
 			Params:  p,
+			Token:   getToken(w, req),
+			Data:    map[string]interface{}{},
 		}
-		c.Session, _ = r.store.Get(req, "session")
 		err := handler(c)
 		if err != nil {
 			code, msg := http.StatusInternalServerError, err.Error()
@@ -56,16 +55,31 @@ func (r *Router) POST(path string, handler func(c *Context) error) {
 type Context struct {
 	Writer  http.ResponseWriter
 	Request *http.Request
-	Session *sessions.Session
 	Params  httprouter.Params
+	flashes []string
+	Token   string
+	Data    map[string]interface{}
 }
 
 func (c *Context) Redirect(path string) {
 	http.Redirect(c.Writer, c.Request, path, http.StatusFound)
 }
-func (c *Context) SaveSession() {
-	if err := c.Session.Save(c.Request, c.Writer); err != nil {
-		// I believe this will just error in incorrect types
-		panic(err)
-	}
+
+func (c *Context) AddFlash(msg string) {
+	c.flashes = append(c.flashes, msg)
+}
+func (c *Context) SaveFlash() {
+	setFlash(c.Writer, c.flashes)
+}
+
+func (c *Context) GetFlashes() []string {
+	return getFlash(c.Writer, c.Request)
+}
+
+func (c *Context) SetToken(token string) {
+	setToken(c.Writer, token)
+}
+
+func (c *Context) DeleteToken() {
+	deleteToken(c.Writer, c.Request)
 }

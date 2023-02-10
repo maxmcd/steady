@@ -3,11 +3,10 @@ package web
 import (
 	"context"
 	"embed"
-	"fmt"
 	"html/template"
 	"net/http"
+	"strings"
 
-	"github.com/gorilla/sessions"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web/mux"
 	"github.com/pkg/errors"
@@ -37,19 +36,18 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	s := &Server{
 		t:            t,
 		steadyClient: steadyClient,
-		router: mux.NewRouter(
-			// TODO: must be secure to avoid spoofing
-			sessions.NewCookieStore([]byte("TODO")),
-		),
+		router:       mux.NewRouter(),
 	}
-	s.router.GET("/", func(c *mux.Context) error { return s.renderTemplate(c, "index.go.html", nil) })
-	s.router.GET("/js/editor/*path", s.jsEditorAssetEndpoionts)
+	s.router.GET("/", func(c *mux.Context) error {
+		return s.renderTemplate(c, "index.go.html")
+	})
+	s.router.GET("/js/editor/*path", s.jsEditorAssetEndpoints)
 	s.router.GET("/login", func(c *mux.Context) error {
 		if s.loggedIn(c) {
 			c.Redirect("/")
 			return nil
 		}
-		return s.renderTemplate(c, "login.go.html", nil)
+		return s.renderTemplate(c, "login.go.html")
 	})
 	s.router.GET("/logout", s.logoutEndpoint)
 	s.router.GET("/login/token/:token", s.tokenLoginEndpoint)
@@ -64,33 +62,58 @@ type V map[string]interface{}
 type pageData map[string]interface{}
 
 func (pd pageData) LoggedIn() bool {
-	if session, found := pd["session"]; found {
-		_, found = session.(map[interface{}]interface{})["user_id"]
-		return found
+	if user, found := pd["user"]; found {
+		_, match := user.(*steadyrpc.User)
+		return match
 	}
 	return false
 }
 
-func (s *Server) renderTemplateError(c *mux.Context, name string, data map[string]interface{}, err error) error {
+func tidyErrorMessage(err error) string {
+	if er, match := err.(twirp.Error); match {
+		return er.Msg()
+	}
+	return err.Error()
+}
+
+func (s *Server) renderTemplateError(c *mux.Context, name string, err error) error {
 	if er, match := err.(twirp.Error); match {
 		c.Writer.WriteHeader(twirp.ServerHTTPStatusFromErrorCode(er.Code()))
 	}
-	return s.renderTemplate(c, name, data)
+	return s.renderTemplate(c, name)
+}
+
+func (s *Server) getUser(c *mux.Context) (*steadyrpc.User, error) {
+	if !s.loggedIn(c) {
+		return nil, twirp.NewError(twirp.Unauthenticated, "unauthenticated")
+	}
+	if user, found := c.Data["user"]; found {
+		return user.(*steadyrpc.User), nil
+	}
+	ctx, err := twirp.WithHTTPRequestHeaders(c.Request.Context(), http.Header{
+		"X-Steady-Token": []string{c.Token},
+	})
+	if err != nil {
+		return nil, err
+	}
+	resp, err := s.steadyClient.GetUser(ctx, nil)
+	if err != nil {
+		return nil, err
+	}
+	c.Data["user"] = resp.User
+	return resp.User, nil
 }
 
 func (s *Server) loggedIn(c *mux.Context) bool {
-	_, found := c.Session.Values["user_id"]
-	return found
+	return c.Token != ""
 }
 
-func (s *Server) renderTemplate(c *mux.Context, name string, data map[string]interface{}) error {
-	if data == nil {
-		data = map[string]interface{}{}
+func (s *Server) renderTemplate(c *mux.Context, name string) error {
+	if s.loggedIn(c) {
+		_, _ = s.getUser(c)
 	}
-	data["flashes"] = c.Session.Flashes()
-	data["session"] = c.Session.Values
-	fmt.Println(data)
-	c.SaveSession()
+	data := c.Data
+	data["flashes"] = c.GetFlashes()
 	return s.t.Lookup(name).Execute(c.Writer, pageData(data))
 }
 
@@ -102,6 +125,11 @@ func (s *Server) login(ctx context.Context, usernameOrEmail string) error {
 		Username: usernameOrEmail,
 		Email:    usernameOrEmail,
 	})
+	if err != nil {
+		if strings.Contains(err.Error(), "not_found") {
+			return errors.New("A user with this username or email could not be found")
+		}
+	}
 	return err
 }
 
