@@ -13,7 +13,6 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/PuerkitoBio/goquery"
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
@@ -131,27 +130,21 @@ func (suite *Suite) NewSteadyServer() *steady.Server {
 	}, steady.OptionWithSqlite(t.TempDir()+"/steady.sqlite"))
 }
 
-func (suite *Suite) WebRequest(req *http.Request, err error) (resp *http.Response, doc *goquery.Document) {
-	t := suite.T()
-	if err != nil {
-		t.Fatal(err)
-	}
-	if resp, err = http.DefaultClient.Do(req); err != nil {
-		t.Fatal(err)
-	}
-	defer resp.Body.Close()
-	if doc, err = goquery.NewDocumentFromReader(resp.Body); err != nil {
-		t.Fatal(err)
-	}
-	return resp, doc
+type EmailSink struct {
+	Emails []string
 }
 
-func (suite *Suite) NewWebServer() string {
+func (suite *Suite) NewWebServer() (*EmailSink, string) {
+	es := &EmailSink{}
 	sqliteDataDir := suite.T().TempDir()
 	steadyHandler := steadyrpc.NewSteadyServer(
 		steady.NewServer(
 			steady.ServerOptions{},
-			steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite"))))
+			steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite")),
+			steady.OptionWithEmailSink(func(email string) {
+				es.Emails = append(es.Emails, email)
+			}),
+		))
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		suite.T().Fatal(err)
@@ -180,7 +173,7 @@ func (suite *Suite) NewWebServer() string {
 		<-ctx.Done()
 		_ = server.Shutdown(context.Background())
 	}()
-	return url
+	return es, url
 }
 
 func (suite *Suite) NewLB() *loadbalancer.LB {

@@ -8,11 +8,11 @@ import (
 )
 
 func setToken(w http.ResponseWriter, token string) {
-	c := &http.Cookie{Name: "token", Value: token}
+	c := &http.Cookie{Name: "token", Value: token, Path: "/"}
 	http.SetCookie(w, c)
 }
 func setFlash(w http.ResponseWriter, msgs []string) {
-	c := &http.Cookie{Name: "flash", Value: encodeFlash(msgs)}
+	c := &http.Cookie{Name: "flash", Value: encodeFlash(msgs), Path: "/"}
 	http.SetCookie(w, c)
 }
 

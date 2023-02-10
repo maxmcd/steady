@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"net/mail"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/internal/steadyutil"
@@ -32,13 +33,20 @@ func (s *Server) sendLoginEmail(ctx context.Context, user db.User) (err error) {
 	// web-ui to serve these requests. There is no way to log into the api
 	// without the web ui for the moment.
 
+	link := "/login/token/" + resp.Token
 	// TODO: Send email to user.Email
-	fmt.Println("LOGIN: /login/token/" + resp.Token)
+	if s.emailSink != nil {
+		s.emailSink(link)
+	}
+	fmt.Println("LOGIN: " + link)
 	return nil
 }
 
 func (s *Server) getUserSession(ctx context.Context) (_ *db.UserSession, err error) {
-	header, _ := twirp.HTTPRequestHeaders(ctx)
+	header, found := twirp.HTTPRequestHeaders(ctx)
+	if !found {
+		panic("oh")
+	}
 	token := header.Get("X-Steady-Token")
 	if token == "" {
 		return nil, twirp.NewError(twirp.Unauthenticated, "User session token not found in headers")
@@ -80,7 +88,7 @@ func (s *Server) Login(ctx context.Context, req *steadyrpc.LoginRequest) (_ *ste
 
 func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *steadyrpc.SignupResponse, err error) {
 	if _, err := mail.ParseAddress(req.Email); err != nil {
-		return nil, twirp.NewError(twirp.InvalidArgument, err.Error())
+		return nil, twirp.NewError(twirp.InvalidArgument, "email address is invalid")
 	}
 
 	user, err := s.db.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{
@@ -120,6 +128,8 @@ func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *s
 }
 
 func (s *Server) GetUser(ctx context.Context, req *steadyrpc.GetUserRequest) (_ *steadyrpc.GetUserResponse, err error) {
+	spew.Dump(ctx)
+	fmt.Println(twirp.HTTPRequestHeaders(ctx))
 	userSession, err := s.getUserSession(ctx)
 	if err != nil {
 		return nil, err
@@ -150,8 +160,14 @@ func (s *Server) ValidateToken(ctx context.Context, req *steadyrpc.ValidateToken
 	if err := s.db.DeleteLoginToken(ctx, token.Token); err != nil {
 		return nil, err
 	}
+	sessionToken := steadyutil.RandomString(64)
+	if sessionToken == "" {
+		return nil, twirp.InternalError("error generating random token")
+	}
+
 	userSession, err := s.db.CreateUserSession(ctx, db.CreateUserSessionParams{
 		UserID: token.UserID,
+		Token:  sessionToken,
 	})
 	if err != nil {
 		return nil, err

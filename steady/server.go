@@ -2,7 +2,6 @@ package steady
 
 import (
 	"context"
-	"database/sql"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -20,6 +19,8 @@ type Server struct {
 
 	privateLoadBalancerHost string
 	publicLoadBalancerURL   string
+
+	emailSink func(email string)
 }
 
 type ServerOptions struct {
@@ -59,6 +60,12 @@ func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateService
 }
 
 type Option func(*Server)
+
+func OptionWithEmailSink(e func(email string)) Option {
+	return func(s *Server) {
+		s.emailSink = e
+	}
+}
 
 func OptionWithSqlite(path string) Option {
 	return func(s *Server) {
@@ -108,13 +115,4 @@ func OptionWithPostgres(connectionString string) Option {
 		}
 		s.dbClient = dbClient
 	}
-}
-
-func (s *Server) dbTX(ctx context.Context) (db.Querier, *sql.Tx, error) {
-	tx, err := s.dbClient.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	return s.db.WithTx(tx), tx, nil
 }

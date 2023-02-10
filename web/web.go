@@ -3,6 +3,7 @@ package web
 import (
 	"context"
 	"embed"
+	"fmt"
 	"html/template"
 	"net/http"
 	"strings"
@@ -96,6 +97,7 @@ func (s *Server) getUser(c *mux.Context) (*steadyrpc.User, error) {
 	if err != nil {
 		return nil, err
 	}
+	fmt.Println(twirp.HTTPRequestHeaders(ctx))
 	resp, err := s.steadyClient.GetUser(ctx, nil)
 	if err != nil {
 		return nil, err
@@ -110,7 +112,9 @@ func (s *Server) loggedIn(c *mux.Context) bool {
 
 func (s *Server) renderTemplate(c *mux.Context, name string) error {
 	if s.loggedIn(c) {
-		_, _ = s.getUser(c)
+		if _, err := s.getUser(c); err != nil {
+			return err
+		}
 	}
 	data := c.Data
 	data["flashes"] = c.GetFlashes()
