@@ -2,10 +2,7 @@ package main
 
 import (
 	"net/http"
-	"os"
-	"strings"
 
-	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/steady"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web"
@@ -23,16 +20,6 @@ func main() {
 	}
 
 	panic(
-		http.ListenAndServe(":8080",
-			handlers.LoggingHandler(os.Stdout,
-				http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-					if strings.HasPrefix(r.URL.Path, "/twirp") {
-						steadyHandler.ServeHTTP(w, r)
-					} else {
-						webHandler.ServeHTTP(w, r)
-					}
-				}),
-			),
-		),
+		http.ListenAndServe(":8080", web.WebAndSteadyServer(steadyHandler, webHandler)),
 	)
 }

@@ -26,7 +26,7 @@ func getFlash(w http.ResponseWriter, r *http.Request) []string {
 		return nil
 	}
 	// Delete cookie
-	dc := &http.Cookie{Name: "flash", MaxAge: -1, Expires: time.Unix(1, 0)}
+	dc := &http.Cookie{Name: "flash", MaxAge: -1, Expires: time.Unix(1, 0), Path: "/"}
 	http.SetCookie(w, dc)
 	return value
 }
@@ -41,7 +41,7 @@ func getToken(w http.ResponseWriter, r *http.Request) string {
 }
 
 func deleteToken(w http.ResponseWriter, r *http.Request) {
-	dc := &http.Cookie{Name: "flash", MaxAge: -1, Expires: time.Unix(1, 0)}
+	dc := &http.Cookie{Name: "token", MaxAge: -1, Expires: time.Unix(1, 0), Path: "/"}
 	http.SetCookie(w, dc)
 }
 

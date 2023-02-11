@@ -7,7 +7,32 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
+
+const createApplication = `-- name: CreateApplication :one
+INSERT into applications (name, user_id, service_version_id)
+values (?, ?, ?)
+RETURNING id, service_version_id, user_id, name
+`
+
+type CreateApplicationParams struct {
+	Name             sql.NullString
+	UserID           sql.NullInt64
+	ServiceVersionID sql.NullInt64
+}
+
+func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
+	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.UserID, arg.ServiceVersionID)
+	var i Application
+	err := row.Scan(
+		&i.ID,
+		&i.ServiceVersionID,
+		&i.UserID,
+		&i.Name,
+	)
+	return i, err
+}
 
 const createLoginToken = `-- name: CreateLoginToken :one
 INSERT INTO login_tokens (user_id, token)
@@ -228,7 +253,7 @@ FROM applications
 WHERE user_id = ?
 `
 
-func (q *Queries) GetUserApplications(ctx context.Context, userID int64) ([]Application, error) {
+func (q *Queries) GetUserApplications(ctx context.Context, userID sql.NullInt64) ([]Application, error) {
 	rows, err := q.query(ctx, q.getUserApplicationsStmt, getUserApplications, userID)
 	if err != nil {
 		return nil, err

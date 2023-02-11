@@ -3,11 +3,12 @@ package web
 import (
 	"context"
 	"embed"
-	"fmt"
 	"html/template"
 	"net/http"
+	"os"
 	"strings"
 
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web/mux"
 	"github.com/pkg/errors"
@@ -58,6 +59,18 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	return s.router, nil
 }
 
+func WebAndSteadyServer(steadyHandler, webHandler http.Handler) http.Handler {
+	return steadyutil.Logger(os.Stdout,
+		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if strings.HasPrefix(r.URL.Path, "/twirp") {
+				steadyHandler.ServeHTTP(w, r)
+			} else {
+				webHandler.ServeHTTP(w, r)
+			}
+		}),
+	)
+}
+
 type V map[string]interface{}
 
 type pageData map[string]interface{}
@@ -97,7 +110,6 @@ func (s *Server) getUser(c *mux.Context) (*steadyrpc.User, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println(twirp.HTTPRequestHeaders(ctx))
 	resp, err := s.steadyClient.GetUser(ctx, nil)
 	if err != nil {
 		return nil, err

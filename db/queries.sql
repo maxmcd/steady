@@ -67,3 +67,7 @@ WHERE id = ?;
 SELECT *
 FROM applications
 WHERE user_id = ?;
+-- name: CreateApplication :one
+INSERT into applications (name, user_id, service_version_id)
+values (?, ?, ?)
+RETURNING *;

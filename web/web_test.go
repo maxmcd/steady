@@ -1,6 +1,7 @@
 package web_test
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/cookiejar"
 	"net/url"
@@ -31,7 +32,7 @@ func (suite *Suite) BeforeTest(_, _ string) {
 
 func (suite *Suite) findInDoc(doc *goquery.Document, selector string) (text string) {
 	found := doc.Find(selector)
-	suite.True(1 == found.Length(), "selector %q not found in doc", selector)
+	suite.Require().True(1 == found.Length(), "selector %q not found in doc", selector)
 	return found.Text()
 }
 
@@ -73,9 +74,7 @@ func (suite *Suite) TestWeb() {
 		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr, nil))
 		suite.Equal(http.StatusOK, resp.StatusCode)
 
-		sel := doc.Find("a[href$='/login']")
-		suite.Equal(1, sel.Length())
-		suite.Equal("login / signup", sel.Text())
+		suite.Equal("login / signup", suite.findInDoc(doc, "a[href$='/login']"))
 	})
 
 	suite.Run("can sign up", func() {
@@ -88,23 +87,38 @@ func (suite *Suite) TestWeb() {
 		signupForm := url.Values{"username": {"steady"}, "email": {"steady"}}
 		resp, doc = suite.postForm(addr+"/signup", signupForm)
 		suite.Equal(http.StatusBadRequest, resp.StatusCode)
-		suite.Contains(doc.Find("form[action$='/signup'] .error").Text(), "email address is invalid")
+		suite.Contains(suite.findInDoc(doc, "form[action$='/signup'] .error"), "email address is invalid")
 
 		signupForm = url.Values{"username": {""}, "email": {""}}
 		resp, doc = suite.postForm(addr+"/signup", signupForm)
 		suite.Equal(http.StatusBadRequest, resp.StatusCode)
-		suite.Contains(doc.Find("form[action$='/signup'] .error").Text(), "blank")
+		suite.Contains(suite.findInDoc(doc, "form[action$='/signup'] .error"), "blank")
 
 		signupForm = url.Values{"username": {"steady"}, "email": {"steady@steady"}}
 		resp, doc = suite.postForm(addr+"/signup", signupForm)
 		suite.Equal(http.StatusOK, resp.StatusCode)
-		suite.Contains(doc.Find(".flash").Text(), "login link is on its way to your inbox")
+		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.Emails[0], nil))
+		fmt.Println(resp.Cookies())
 		suite.Equal(http.StatusOK, resp.StatusCode)
 		suite.Equal("profile",
 			suite.findInDoc(doc, ".header a[href$='/@steady']"))
 		suite.findInDoc(doc, ".header a[href$='/logout']")
+	})
+
+	suite.Run("signed in user redirects from login page", func() {
+		// Cookie store is still signed in from previous test
+		resp, _ := suite.webRequest(http.NewRequest(http.MethodGet, addr+"/login", nil))
+		suite.Equal(resp.Request.URL.Path, "/")
+	})
+
+	suite.Run("can log out", func() {
+		// Cookie store is still signed in from previous test
+		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr+"/logout", nil))
+		suite.Equal(resp.Request.URL.Path, "/")
+		suite.Contains(suite.findInDoc(doc, ".flash"), "logged out")
+		suite.Equal("login / signup", suite.findInDoc(doc, "a[href$='/login']"))
 	})
 
 }

@@ -6,9 +6,11 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
 type Querier interface {
+	CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error)
 	//
 	CreateLoginToken(ctx context.Context, arg CreateLoginTokenParams) (LoginToken, error)
 	//
@@ -26,7 +28,7 @@ type Querier interface {
 	GetServiceVersions(ctx context.Context, serviceID int64) ([]ServiceVersion, error)
 	GetUser(ctx context.Context, id int64) (User, error)
 	//
-	GetUserApplications(ctx context.Context, userID int64) ([]Application, error)
+	GetUserApplications(ctx context.Context, userID sql.NullInt64) ([]Application, error)
 	GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error)
 	GetUserServices(ctx context.Context, userID int64) ([]Service, error)
 	GetUserSession(ctx context.Context, token string) (UserSession, error)

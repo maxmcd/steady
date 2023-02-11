@@ -24,6 +24,9 @@ func New(db DBTX) *Queries {
 func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	q := Queries{db: db}
 	var err error
+	if q.createApplicationStmt, err = db.PrepareContext(ctx, createApplication); err != nil {
+		return nil, fmt.Errorf("error preparing query CreateApplication: %w", err)
+	}
 	if q.createLoginTokenStmt, err = db.PrepareContext(ctx, createLoginToken); err != nil {
 		return nil, fmt.Errorf("error preparing query CreateLoginToken: %w", err)
 	}
@@ -77,6 +80,11 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 
 func (q *Queries) Close() error {
 	var err error
+	if q.createApplicationStmt != nil {
+		if cerr := q.createApplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing createApplicationStmt: %w", cerr)
+		}
+	}
 	if q.createLoginTokenStmt != nil {
 		if cerr := q.createLoginTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing createLoginTokenStmt: %w", cerr)
@@ -196,6 +204,7 @@ func (q *Queries) queryRow(ctx context.Context, stmt *sql.Stmt, query string, ar
 type Queries struct {
 	db                           DBTX
 	tx                           *sql.Tx
+	createApplicationStmt        *sql.Stmt
 	createLoginTokenStmt         *sql.Stmt
 	createServiceStmt            *sql.Stmt
 	createServiceVersionStmt     *sql.Stmt
@@ -218,6 +227,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 	return &Queries{
 		db:                           tx,
 		tx:                           tx,
+		createApplicationStmt:        q.createApplicationStmt,
 		createLoginTokenStmt:         q.createLoginTokenStmt,
 		createServiceStmt:            q.createServiceStmt,
 		createServiceVersionStmt:     q.createServiceVersionStmt,

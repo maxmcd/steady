@@ -5,14 +5,15 @@
 package db
 
 import (
+	"database/sql"
 	"time"
 )
 
 type Application struct {
 	ID               int64
-	ServiceVersionID int64
-	UserID           int64
-	Name             string
+	ServiceVersionID sql.NullInt64
+	UserID           sql.NullInt64
+	Name             sql.NullString
 }
 
 type LoginToken struct {

@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"io"
 	"mime"
 	"path/filepath"
@@ -39,7 +38,6 @@ func (s *Server) tokenLoginEndpoint(c *mux.Context) error {
 	if err != nil {
 		return err
 	}
-	fmt.Println(resp.UserSessionToken)
 	c.SetToken(resp.UserSessionToken)
 	c.Redirect("/")
 	return nil

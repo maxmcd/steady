@@ -10,10 +10,8 @@ import (
 	"os"
 	"path/filepath"
 	"strconv"
-	"strings"
 	"testing"
 
-	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
 	"github.com/maxmcd/steady/slicer"
@@ -156,15 +154,7 @@ func (suite *Suite) NewWebServer() (*EmailSink, string) {
 	if err != nil {
 		suite.T().Fatal(err)
 	}
-	server := http.Server{Handler: handlers.LoggingHandler(os.Stdout,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/twirp") {
-				steadyHandler.ServeHTTP(w, r)
-			} else {
-				webHandler.ServeHTTP(w, r)
-			}
-		}),
-	)}
+	server := http.Server{Handler: web.WebAndSteadyServer(steadyHandler, webHandler)}
 	ctx, cancel := context.WithCancel(context.Background())
 	suite.cancels = append(suite.cancels, cancel)
 	go func() { _ = server.Serve(listener) }()

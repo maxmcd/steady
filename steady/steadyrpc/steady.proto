@@ -13,9 +13,7 @@ service Steady {
   rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
   rpc CreateServiceVersion(CreateServiceVersionRequest)
       returns (CreateServiceVersionResponse);
-  rpc DeployApplication(DeployApplicationRequeast)
-      returns (DeployApplicationResponse);
-  rpc DeploySource(DeploySourceRequest) returns (DeploySourceResponse);
+  rpc RunApplication(RunApplicationRequest) returns (RunApplicationResponse);
 }
 
 message LoginRequest {
@@ -76,12 +74,13 @@ message ServiceVersion {
   string source = 4;
 }
 
-message DeployApplicationRequeast {
-  int64 service_version_id = 1;
-  string name = 2;
+message RunApplicationRequest {
+  optional int64 service_version_id = 1;
+  optional string name = 2;
+  optional string source = 3;
 }
 
-message DeployApplicationResponse {
+message RunApplicationResponse {
   Application application = 1;
   string url = 2;
 }
@@ -92,6 +91,3 @@ message Application {
   int64 user_id = 3;
   string name = 4;
 }
-
-message DeploySourceRequest { string source = 1; }
-message DeploySourceResponse { string url = 1; }

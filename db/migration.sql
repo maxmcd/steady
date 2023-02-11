@@ -34,8 +34,8 @@ CREATE TABLE service_versions (
 CREATE UNIQUE INDEX service_versions_service_id_version ON service_versions(service_id, version);
 CREATE TABLE applications (
     id INTEGER PRIMARY KEY,
-    service_version_id INTEGER NOT NULL,
-    user_id INTEGER NOT NULL,
-    name TEXT NOT NULL,
+    service_version_id INTEGER,
+    user_id INTEGER,
+    name TEXT,
     FOREIGN KEY (service_version_id) REFERENCES service_version (id)
 );

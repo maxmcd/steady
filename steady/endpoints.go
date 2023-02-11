@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"net/mail"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/internal/steadyutil"
@@ -128,8 +127,6 @@ func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *s
 }
 
 func (s *Server) GetUser(ctx context.Context, req *steadyrpc.GetUserRequest) (_ *steadyrpc.GetUserResponse, err error) {
-	spew.Dump(ctx)
-	fmt.Println(twirp.HTTPRequestHeaders(ctx))
 	userSession, err := s.getUserSession(ctx)
 	if err != nil {
 		return nil, err
@@ -218,39 +215,31 @@ func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.Create
 	}, nil
 }
 
-func (s *Server) DeployApplication(ctx context.Context, req *steadyrpc.DeployApplicationRequeast) (
-	_ *steadyrpc.DeployApplicationResponse, err error) {
-	serviceVersion, err := s.db.GetServiceVersion(ctx, req.ServiceVersionId)
-	if err != nil {
-		return nil, err
-	}
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   req.Name,
-		Script: serviceVersion.Source,
+func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicationRequest) (
+	_ *steadyrpc.RunApplicationResponse, err error) {
+	app, err := s.db.CreateApplication(ctx, db.CreateApplicationParams{
+		Name:             sql.NullString{},
+		UserID:           sql.NullInt64{},
+		ServiceVersionID: sql.NullInt64{},
 	})
 	if err != nil {
 		return nil, err
 	}
+	name := fmt.Sprint(app.ID)
+	if app.Name.Valid {
+		name = app.Name.String
+	}
+
+	if _, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
+		Name:   name,
+		Script: *req.Source,
+	}); err != nil {
+		return nil, err
+	}
 
 	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeployApplicationResponse{
-		Application: &steadyrpc.Application{Name: app.Name},
+	return &steadyrpc.RunApplicationResponse{
+		Application: &steadyrpc.Application{Name: name},
 		Url:         s.publicLoadBalancerURL,
-	}, nil
-}
-
-func (s *Server) DeploySource(ctx context.Context, req *steadyrpc.DeploySourceRequest) (
-	_ *steadyrpc.DeploySourceResponse, err error) {
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   "faketemporaryname",
-		Script: req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-	_ = app
-	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeploySourceResponse{
-		Url: app.Name,
 	}, nil
 }
