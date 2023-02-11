@@ -1,6 +1,6 @@
 package web
 
-//go:generate bun install
+//go:generate bash -c "bun install || bun install"
 
 //go:generate ./generate_ts_proto.sh
 
