@@ -1,6 +1,7 @@
 package web
 
 import (
+	"fmt"
 	"io"
 	"mime"
 	"path/filepath"
@@ -9,6 +10,24 @@ import (
 	"github.com/maxmcd/steady/web/mux"
 	"github.com/twitchtv/twirp"
 )
+
+func (s *Server) assetsEndpoints(c *mux.Context) error {
+	path := c.Params.ByName("path")
+	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
+	fmt.Println(filepath.Join(
+		"dist/",
+		c.Params.ByName("path")))
+	f, err := distFiles.Open(
+		filepath.Join(
+			"dist/",
+			c.Params.ByName("path")))
+	if err != nil {
+		return twirp.NotFoundError("not found")
+	}
+
+	_, _ = io.Copy(c.Writer, f)
+	return nil
+}
 
 func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")

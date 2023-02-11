@@ -18,6 +18,9 @@ import (
 //go:embed templates/*
 var templates embed.FS
 
+//go:embed dist/*
+var distFiles embed.FS
+
 //go:embed node_modules/monaco-editor/min/vs/*
 var monacoSource embed.FS
 
@@ -33,6 +36,10 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 		return nil, errors.Wrap(err, "error running ParseFS")
 	}
 
+	if t, err = t.ParseFS(distFiles, "dist/_assets.go.html"); err != nil {
+		return nil, errors.Wrap(err, "error running ParseFS 2")
+	}
+
 	s := &Server{
 		t:            t,
 		steadyClient: steadyClient,
@@ -42,6 +49,7 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 		return s.renderTemplate(c, "index.go.html")
 	})
 	s.router.GET("/js/editor/*path", s.jsEditorAssetEndpoints)
+	s.router.GET("/assets/*path", s.assetsEndpoints)
 	s.router.GET("/login", func(c *mux.Context) error {
 		if s.loggedIn(c) {
 			c.Redirect("/")
