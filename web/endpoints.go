@@ -7,7 +7,19 @@ import (
 
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web/mux"
+	"github.com/twitchtv/twirp"
 )
+
+func (s *Server) pubAssetEndpoints(c *mux.Context) error {
+	path := c.Params.ByName("path")
+	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
+	f, err := pubFiles.Open(filepath.Join("pub", path))
+	if err != nil {
+		return twirp.NotFoundError("not found")
+	}
+	_, _ = io.Copy(c.Writer, f)
+	return nil
+}
 
 func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")
@@ -17,11 +29,11 @@ func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
 			"node_modules/monaco-editor/min/",
 			c.Params.ByName("path")))
 	if err != nil {
-		return err
+		return twirp.NotFoundError("not found")
 	}
+
 	_, _ = io.Copy(c.Writer, f)
 	return nil
-
 }
 func (s *Server) logoutEndpoint(c *mux.Context) error {
 	c.DeleteToken()

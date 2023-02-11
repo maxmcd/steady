@@ -16,3 +16,5 @@ schema:
         - .git
         - .realize
         - vendor
+        - ../../web/node_modules
+        - ../../examples

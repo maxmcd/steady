@@ -17,7 +17,13 @@
         });
     });
 </script>
+<script type="module" src="pub/asset.js"></script>
+<script type="module">
+    import { NodeHttpRPC } from "./pub/asset.js";
 
 
+    console.log(NodeHttpRPC);
+
+</script>
 
 {{ template "footer" . }}

@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"math"
 	"net/http"
 	"strings"
 	"time"
@@ -20,12 +21,12 @@ func Logger(out io.Writer, h http.Handler) http.Handler {
 		if i := strings.LastIndex(addr, ":"); i != -1 {
 			addr = addr[:i]
 		}
-		logger.Printf("%s - - [%s] %q %d %d %q %s",
+		logger.Printf("%s - - [%s] %q %d %s %q %s",
 			addr,
 			time.Now().Format("02/Jan/2006:15:04:05 -0700"),
 			fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
 			o.status,
-			o.written,
+			prettyByteSize(o.written),
 			r.Referer(),
 			time.Since(start))
 	})
@@ -34,7 +35,7 @@ func Logger(out io.Writer, h http.Handler) http.Handler {
 type responseObserver struct {
 	http.ResponseWriter
 	status      int
-	written     int64
+	written     int
 	wroteHeader bool
 }
 
@@ -43,7 +44,7 @@ func (o *responseObserver) Write(p []byte) (n int, err error) {
 		o.WriteHeader(http.StatusOK)
 	}
 	n, err = o.ResponseWriter.Write(p)
-	o.written += int64(n)
+	o.written += n
 	return
 }
 
@@ -54,4 +55,15 @@ func (o *responseObserver) WriteHeader(code int) {
 	}
 	o.wroteHeader = true
 	o.status = code
+}
+
+func prettyByteSize(b int) string {
+	bf := float64(b)
+	for _, unit := range []string{"", "Ki", "Mi", "Gi", "Ti", "Pi", "Ei", "Zi"} {
+		if math.Abs(bf) < 1024.0 {
+			return fmt.Sprintf("%3.1f%sB", bf, unit)
+		}
+		bf /= 1024.0
+	}
+	return fmt.Sprintf("%.1fYiB", bf)
 }
