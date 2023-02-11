@@ -66,8 +66,6 @@ func (suite *Suite) postForm(url string, body url.Values) (_ *http.Response, doc
 }
 
 func (suite *Suite) TestWeb() {
-	// t := suite.T()
-
 	es, addr := suite.NewWebServer()
 
 	suite.Run("index page includes login link", func() {
@@ -120,5 +118,4 @@ func (suite *Suite) TestWeb() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "logged out")
 		suite.Equal("login / signup", suite.findInDoc(doc, "a[href$='/login']"))
 	})
-
 }
