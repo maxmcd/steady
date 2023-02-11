@@ -10,17 +10,6 @@ import (
 	"github.com/twitchtv/twirp"
 )
 
-func (s *Server) pubAssetEndpoints(c *mux.Context) error {
-	path := c.Params.ByName("path")
-	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
-	f, err := pubFiles.Open(filepath.Join("pub", path))
-	if err != nil {
-		return twirp.NotFoundError("not found")
-	}
-	_, _ = io.Copy(c.Writer, f)
-	return nil
-}
-
 func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")
 	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
