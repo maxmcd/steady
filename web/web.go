@@ -8,6 +8,7 @@ import (
 	"os"
 	"strings"
 
+	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web/mux"
@@ -42,6 +43,8 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 		steadyClient: steadyClient,
 		router:       mux.NewRouter(),
 	}
+	s.router.ErrorHandler = s.errorHandler()
+
 	s.router.GET("/", func(c *mux.Context) error {
 		return s.renderTemplate(c, "index.go.html")
 	})
@@ -64,8 +67,8 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	return s.router, nil
 }
 
-func WebAndSteadyServer(steadyHandler, webHandler http.Handler) http.Handler {
-	return steadyutil.Logger(os.Stdout,
+func WebAndSteadyHandler(steadyHandler, webHandler http.Handler) http.Handler {
+	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(steadyutil.Logger(os.Stdout,
 		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if strings.HasPrefix(r.URL.Path, "/twirp") {
 				steadyHandler.ServeHTTP(w, r)
@@ -73,7 +76,7 @@ func WebAndSteadyServer(steadyHandler, webHandler http.Handler) http.Handler {
 				webHandler.ServeHTTP(w, r)
 			}
 		}),
-	)
+	))
 }
 
 type V map[string]interface{}
@@ -88,17 +91,32 @@ func (pd pageData) LoggedIn() bool {
 	return false
 }
 
-func tidyErrorMessage(err error) string {
-	if er, match := err.(twirp.Error); match {
-		return er.Msg()
+func (s *Server) errorHandler() func(c *mux.Context, err error) {
+	var cb func(c *mux.Context, err error)
+	cb = func(c *mux.Context, err error) {
+		if err == nil {
+			return
+		}
+		if er, match := err.(TemplateError); match {
+			c.Data[er.errorName] = er.Error()
+			if err = s.renderTemplateCode(c, er.template, twirp.ServerHTTPStatusFromErrorCode(er.errorCode)); err != nil {
+				// If we error anew, just send the error back around to this handler
+				cb(c, err)
+			}
+			return
+		}
+		code, msg := http.StatusInternalServerError, err.Error()
+		if er, match := err.(twirp.Error); match {
+			code = twirp.ServerHTTPStatusFromErrorCode(er.Code())
+			msg = er.Msg()
+		}
+		http.Error(c.Writer, msg, code)
 	}
-	return err.Error()
+	return cb
 }
 
-func (s *Server) renderTemplateError(c *mux.Context, name string, err error) error {
-	if er, match := err.(twirp.Error); match {
-		c.Writer.WriteHeader(twirp.ServerHTTPStatusFromErrorCode(er.Code()))
-	}
+func (s *Server) renderTemplateCode(c *mux.Context, name string, code int) error {
+	c.Writer.WriteHeader(code)
 	return s.renderTemplate(c, name)
 }
 
@@ -117,6 +135,8 @@ func (s *Server) getUser(c *mux.Context) (*steadyrpc.User, error) {
 	}
 	resp, err := s.steadyClient.GetUser(ctx, nil)
 	if err != nil {
+		c.DeleteToken()
+		// If token doesn't work, remove the token
 		return nil, err
 	}
 	c.Data["user"] = resp.User

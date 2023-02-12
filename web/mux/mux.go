@@ -9,7 +9,8 @@ import (
 )
 
 type Router struct {
-	router *httprouter.Router
+	router       *httprouter.Router
+	ErrorHandler func(c *Context, err error)
 }
 
 func NewRouter() *Router {
@@ -34,13 +35,17 @@ func (r *Router) handlerWrapper(handler func(c *Context) error) func(
 			Data:    map[string]interface{}{},
 		}
 		err := handler(c)
-		if err != nil {
-			code, msg := http.StatusInternalServerError, err.Error()
-			if er, match := err.(twirp.Error); match {
-				code = twirp.ServerHTTPStatusFromErrorCode(er.Code())
-				msg = er.Msg()
+		if r.ErrorHandler != nil {
+			r.ErrorHandler(c, err)
+		} else {
+			if err != nil {
+				code, msg := http.StatusInternalServerError, err.Error()
+				if er, match := err.(twirp.Error); match {
+					code = twirp.ServerHTTPStatusFromErrorCode(er.Code())
+					msg = er.Msg()
+				}
+				http.Error(w, msg, code)
 			}
-			http.Error(w, msg, code)
 		}
 	}
 }

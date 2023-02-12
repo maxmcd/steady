@@ -217,27 +217,22 @@ func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.Create
 
 func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicationRequest) (
 	_ *steadyrpc.RunApplicationResponse, err error) {
+	if req.Name == "" {
+		req.Name = steadyutil.RandomString(8)
+	}
 	app, err := s.db.CreateApplication(ctx, db.CreateApplicationParams{
-		Name:             sql.NullString{},
+		Name:             req.Name,
 		UserID:           sql.NullInt64{},
 		ServiceVersionID: sql.NullInt64{},
 	})
 	if err != nil {
 		return nil, err
 	}
-	name := fmt.Sprint(app.ID)
-	if app.Name.Valid {
-		name = app.Name.String
-		app, err = s.db.UpdateApplicationName(ctx, db.UpdateApplicationNameParams{
-			Name: sql.NullString{Valid: true, String: name},
-		})
-		if err != nil {
-			return nil, err
-		}
+	if s.daemonClient == nil {
+		return nil, twirp.InternalError("no daemon client available")
 	}
-
 	if _, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   app.Name.String,
+		Name:   app.Name,
 		Script: *req.Source,
 	}); err != nil {
 		return nil, err
@@ -245,24 +240,31 @@ func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicati
 
 	// TODO: deploy application to host, confirm that it works
 	return &steadyrpc.RunApplicationResponse{
-		Application: &steadyrpc.Application{Name: name},
-		Url:         s.publicLoadBalancerURL,
+		Application: &steadyrpc.Application{Name: app.Name},
+		Url:         s.appURL(app.Name),
 	}, nil
+}
+
+func (s *Server) appURL(name string) string {
+	copy := *s.parsedPublicLB
+	copy.Host = name + "." + copy.Host
+	return copy.String()
 }
 
 func (s *Server) GetApplication(ctx context.Context, req *steadyrpc.GetApplicationRequest) (
 	_ *steadyrpc.GetApplicationResponse, err error) {
-	resp, err := s.db.GetApplication(ctx, sql.NullString{Valid: true, String: req.Name})
+	resp, err := s.db.GetApplication(ctx, req.Name)
 	if err != nil {
 		return nil, err
 	}
 
 	return &steadyrpc.GetApplicationResponse{
 		Application: &steadyrpc.Application{
-			Name:             resp.Name.String,
+			Name:             resp.Name,
 			ServiceVersionId: resp.ServiceVersionID.Int64,
 			UserId:           resp.UserID.Int64,
 			Id:               resp.ID,
 		},
+		Url: s.appURL(resp.Name),
 	}, nil
 }

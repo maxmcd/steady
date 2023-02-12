@@ -53,9 +53,7 @@ func (s *Server) loginEndpoint(c *mux.Context) error {
 	val := c.Request.FormValue("username_or_email")
 	err := s.login(c.Request.Context(), val)
 	if err != nil {
-		return NewTemplateError("login.go.html", "login_error", twirp.InvalidArgument, err.Error())
-		c.Data["login_error"] = tidyErrorMessage(err)
-		return s.renderTemplateError(c, "login.go.html", err)
+		return NewTemplateError(err, "login.go.html", "login_error", twirp.InvalidArgument)
 	}
 	c.AddFlash("An email with a login link is on its way to your inbox.")
 	c.SaveFlash()
@@ -69,8 +67,7 @@ func (s *Server) signupEndpoint(c *mux.Context) error {
 		c.Request.FormValue("email"),
 	)
 	if err != nil {
-		c.Data["signup_error"] = tidyErrorMessage(err)
-		return s.renderTemplateError(c, "login.go.html", err)
+		return NewTemplateError(err, "login.go.html", "signup_error", twirp.InvalidArgument)
 	}
 	c.AddFlash("An email with a login link is on its way to your inbox.")
 	c.SaveFlash()
@@ -81,13 +78,17 @@ func (s *Server) signupEndpoint(c *mux.Context) error {
 func (s *Server) runApplication(c *mux.Context) error {
 	source := c.Request.FormValue("index.ts")
 	if source == "" {
-		return twirp.NewError(twirp.InvalidArgument, "Application source cannot be empty")
+		return NewTemplateError(
+			fmt.Errorf("Application source cannot be empty"), "index.go.html",
+			"application_error", twirp.InvalidArgument)
 	}
 	resp, err := s.steadyClient.RunApplication(c.Request.Context(), &steadyrpc.RunApplicationRequest{
 		Source: &source,
 	})
 	if err != nil {
-		return err
+		return NewTemplateError(
+			err, "index.go.html",
+			"application_error", twirp.InvalidArgument)
 	}
 
 	c.Redirect("/application", resp.Application.Name)
@@ -103,25 +104,29 @@ func (s *Server) showApplication(c *mux.Context) error {
 	}
 
 	c.Data["app"] = resp.Application
+	c.Data["app_url"] = resp.Url
 	return s.renderTemplate(c, "application.go.html")
 }
 
 type TemplateError struct {
+	err       error
 	errorCode twirp.ErrorCode
-	msg       string
 	template  string
 	errorName string
 }
 
-func NewTemplateError(template string, name string, code twirp.ErrorCode, msg string) TemplateError {
+func NewTemplateError(err error, template string, name string, code twirp.ErrorCode) TemplateError {
 	return TemplateError{
 		errorCode: code,
-		msg:       msg,
+		err:       err,
 		template:  template,
 		errorName: name,
 	}
 }
 
 func (t TemplateError) Error() string {
-	return t.msg
+	if er, match := t.err.(twirp.Error); match {
+		return er.Msg()
+	}
+	return t.err.Error()
 }

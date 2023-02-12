@@ -15,10 +15,13 @@ client.baseURL = "http://localhost:8080";
     language: "typescript",
   });
 
-  // editor.getModel()?.onDidChangeContent((event) => {
-  //   console.log(event);
-  // });
-  const hat = await Login({ email: "hi", username: "hi" });
-
-  console.log(hat);
+  let runApplicationForm = document.forms["run-application" as any];
+  if (runApplicationForm) {
+    runApplicationForm.onsubmit = function () {
+      let element = runApplicationForm.elements[
+        "index.ts" as any
+      ] as HTMLInputElement;
+      element.value = editor.getValue();
+    };
+  }
 })();

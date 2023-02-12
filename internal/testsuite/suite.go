@@ -132,11 +132,11 @@ type EmailSink struct {
 	Emails []string
 }
 
-func (suite *Suite) NewWebServer() (*EmailSink, string) {
+func (suite *Suite) NewWebServer(opts steady.ServerOptions) (*EmailSink, string) {
 	es := &EmailSink{}
 	sqliteDataDir := suite.T().TempDir()
 	steadyHandler := steady.NewServer(
-		steady.ServerOptions{},
+		opts,
 		steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite")),
 		steady.OptionWithEmailSink(func(email string) {
 			es.Emails = append(es.Emails, email)
@@ -154,7 +154,7 @@ func (suite *Suite) NewWebServer() (*EmailSink, string) {
 	if err != nil {
 		suite.T().Fatal(err)
 	}
-	server := http.Server{Handler: web.WebAndSteadyServer(steadyHandler, webHandler)}
+	server := http.Server{Handler: web.WebAndSteadyHandler(steadyHandler, webHandler)}
 	ctx, cancel := context.WithCancel(context.Background())
 	suite.cancels = append(suite.cancels, cancel)
 	go func() { _ = server.Serve(listener) }()
@@ -174,7 +174,7 @@ func (suite *Suite) NewLB() *loadbalancer.LB {
 		suite.T().Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := lb.Start(ctx, ":0", ":0"); err != nil {
+	if err := lb.Start(ctx, "localhost:0", "localhost:0"); err != nil {
 		suite.T().Fatal(err)
 	}
 	suite.cancels = append(suite.cancels, cancel)
@@ -224,7 +224,7 @@ func (suite *Suite) DaemonURL(d *daemon.Daemon, paths ...string) string {
 	return fmt.Sprintf("http://"+d.ServerAddr()) + filepath.Join(append([]string{"/"}, paths...)...)
 }
 
-func (suite *Suite) NewDaemonClient(addr string) daemon.Client {
+func (suite *Suite) NewDaemonClient(addr string) *daemon.Client {
 	return daemon.NewClient(fmt.Sprintf("http://%s", addr), nil)
 }
 

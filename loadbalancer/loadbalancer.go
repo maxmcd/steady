@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
 
@@ -196,7 +197,11 @@ func (lb *LB) PublicServerAddr() string {
 	if lb.eg == nil {
 		panic(fmt.Errorf("server has not started"))
 	}
-	return lb.publicListener.Addr().String()
+	return strings.Replace(
+		// For local dev, give a hostname so we can use subdomains
+		lb.publicListener.Addr().String(),
+		"127.0.0.1", "localhost", 1,
+	)
 }
 
 // PrivateServerAddr returns the address of the running server. Will panic if

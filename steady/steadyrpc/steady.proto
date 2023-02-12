@@ -76,8 +76,8 @@ message ServiceVersion {
 }
 
 message RunApplicationRequest {
-  optional int64 service_version_id = 1;
-  optional string name = 2;
+  string name = 1;
+  optional int64 service_version_id = 2;
   optional string source = 3;
 }
 
@@ -95,4 +95,7 @@ message Application {
 
 message GetApplicationRequest { string name = 1; }
 
-message GetApplicationResponse { Application application = 1; }
+message GetApplicationResponse {
+  Application application = 1;
+  string url = 2;
+}

@@ -13,7 +13,7 @@ type Application struct {
 	ID               int64
 	ServiceVersionID sql.NullInt64
 	UserID           sql.NullInt64
-	Name             sql.NullString
+	Name             string
 }
 
 type LoginToken struct {

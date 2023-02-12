@@ -20,6 +20,6 @@ func main() {
 	}
 
 	panic(
-		http.ListenAndServe(":8080", web.WebAndSteadyServer(steadyHandler, webHandler)),
+		http.ListenAndServe(":8080", web.WebAndSteadyHandler(steadyHandler, webHandler)),
 	)
 }

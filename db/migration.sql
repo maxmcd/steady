@@ -36,6 +36,6 @@ CREATE TABLE applications (
     id INTEGER PRIMARY KEY,
     service_version_id INTEGER,
     user_id INTEGER,
-    name TEXT,
+    name TEXT UNIQUE NOT NULL,
     FOREIGN KEY (service_version_id) REFERENCES service_version (id)
 );

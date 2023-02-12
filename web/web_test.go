@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/maxmcd/steady/internal/testsuite"
+	"github.com/maxmcd/steady/steady"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -21,6 +22,8 @@ type Suite struct {
 func TestSuite(t *testing.T) { suite.Run(t, new(Suite)) }
 
 func (suite *Suite) BeforeTest(_, _ string) {
+	suite.Suite.BeforeTest("", "")
+
 	jar, err := cookiejar.New(&cookiejar.Options{})
 	if err != nil {
 		suite.T().Fatal(err)
@@ -65,8 +68,8 @@ func (suite *Suite) postForm(url string, body url.Values) (_ *http.Response, doc
 	return suite.webRequest(req, nil)
 }
 
-func (suite *Suite) TestWeb() {
-	es, addr := suite.NewWebServer()
+func (suite *Suite) TestUserSignup() {
+	es, addr := suite.NewWebServer(steady.ServerOptions{})
 
 	suite.Run("index page includes login link", func() {
 		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr, nil))
@@ -118,4 +121,21 @@ func (suite *Suite) TestWeb() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "logged out")
 		suite.Equal("login / signup", suite.findInDoc(doc, "a[href$='/login']"))
 	})
+}
+
+func (suite *Suite) TestRunApplication() {
+	suite.StartMinioServer()
+	_, _ = suite.NewDaemon()
+	lb := suite.NewLB()
+
+	_, addr := suite.NewWebServer(steady.ServerOptions{
+		DaemonClient:           suite.NewDaemonClient(lb.PrivateServerAddr()),
+		PublicLoadBalancerURL:  "http://" + lb.PublicServerAddr(),
+		PrivateLoadBalancerURL: "http://" + lb.PrivateServerAddr(),
+	})
+
+	signupForm := url.Values{"index.ts": {suite.LoadExampleScript("http")}}
+	resp, doc := suite.postForm(addr+"/application", signupForm)
+	suite.Equal(http.StatusOK, resp.StatusCode)
+	_ = doc
 }

@@ -18,7 +18,7 @@ func ExtractAppName(r *http.Request) string {
 
 var XAppName = "X-App-Name"
 
-var chars = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+var chars = "abcdefghijklmnopqrstuvwxyz0123456789"
 
 // RandomString will return a random string of letters and numbers of the
 // specified length. An empty string is returned if there is an error reading

@@ -3,6 +3,7 @@ package steady
 import (
 	"context"
 	"net/http"
+	"net/url"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -17,10 +18,11 @@ type Server struct {
 	db       *db.Queries
 	dbClient *sqlx.DB
 
-	daemonClient daemon.Client
+	daemonClient *daemon.Client
 
-	privateLoadBalancerHost string
-	publicLoadBalancerURL   string
+	privateLoadBalancerURL string
+	publicLoadBalancerURL  string
+	parsedPublicLB         *url.URL
 
 	emailSink func(email string)
 }
@@ -28,15 +30,21 @@ type Server struct {
 type ServerOptions struct {
 	PrivateLoadBalancerURL string
 	PublicLoadBalancerURL  string
-	DaemonClient           daemon.Client
+	DaemonClient           *daemon.Client
 }
 
 func NewServer(options ServerOptions, opts ...Option) http.Handler {
 	s := &Server{
-		daemonClient:            options.DaemonClient,
-		publicLoadBalancerURL:   options.PublicLoadBalancerURL,
-		privateLoadBalancerHost: options.PrivateLoadBalancerURL,
+		daemonClient:           options.DaemonClient,
+		publicLoadBalancerURL:  options.PublicLoadBalancerURL,
+		privateLoadBalancerURL: options.PrivateLoadBalancerURL,
 	}
+	var err error
+	s.parsedPublicLB, err = url.Parse(s.publicLoadBalancerURL)
+	if err != nil {
+		panic(err)
+	}
+
 	for _, opt := range opts {
 		opt(s)
 	}
