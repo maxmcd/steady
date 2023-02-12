@@ -1,3 +1,14 @@
+# 2023-02-12
+
+Run application
+
+- Submit form with index.ts contents
+- Generates random app name
+- Apps are anonymous, or they are owned by a user, can be associated with source, or not
+- Globally unique names
+- Running an application will run the app and take you to a page with metadata
+-
+
 # 2023-02-10
 
 - Zig web server

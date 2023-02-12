@@ -58,6 +58,9 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	s.router.POST("/login", s.loginEndpoint)
 	s.router.POST("/signup", s.signupEndpoint)
 
+	s.router.POST("/application", s.runApplication)
+	s.router.GET("/application/:name", s.showApplication)
+
 	return s.router, nil
 }
 

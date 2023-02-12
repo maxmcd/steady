@@ -53,6 +53,7 @@ func (s *Server) loginEndpoint(c *mux.Context) error {
 	val := c.Request.FormValue("username_or_email")
 	err := s.login(c.Request.Context(), val)
 	if err != nil {
+		return NewTemplateError("login.go.html", "login_error", twirp.InvalidArgument, err.Error())
 		c.Data["login_error"] = tidyErrorMessage(err)
 		return s.renderTemplateError(c, "login.go.html", err)
 	}
@@ -75,4 +76,52 @@ func (s *Server) signupEndpoint(c *mux.Context) error {
 	c.SaveFlash()
 	c.Redirect("/")
 	return nil
+}
+
+func (s *Server) runApplication(c *mux.Context) error {
+	source := c.Request.FormValue("index.ts")
+	if source == "" {
+		return twirp.NewError(twirp.InvalidArgument, "Application source cannot be empty")
+	}
+	resp, err := s.steadyClient.RunApplication(c.Request.Context(), &steadyrpc.RunApplicationRequest{
+		Source: &source,
+	})
+	if err != nil {
+		return err
+	}
+
+	c.Redirect("/application", resp.Application.Name)
+	return nil
+}
+
+func (s *Server) showApplication(c *mux.Context) error {
+	appName := c.Params.ByName("name")
+
+	resp, err := s.steadyClient.GetApplication(c.Request.Context(), &steadyrpc.GetApplicationRequest{Name: appName})
+	if err != nil {
+		return err
+	}
+
+	c.Data["app"] = resp.Application
+	return s.renderTemplate(c, "application.go.html")
+}
+
+type TemplateError struct {
+	errorCode twirp.ErrorCode
+	msg       string
+	template  string
+	errorName string
+}
+
+func NewTemplateError(template string, name string, code twirp.ErrorCode, msg string) TemplateError {
+	return TemplateError{
+		errorCode: code,
+		msg:       msg,
+		template:  template,
+		errorName: name,
+	}
+}
+
+func (t TemplateError) Error() string {
+	return t.msg
 }

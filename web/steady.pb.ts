@@ -109,6 +109,14 @@ export interface Application {
   name: string;
 }
 
+export interface GetApplicationRequest {
+  name: string;
+}
+
+export interface GetApplicationResponse {
+  application: Application;
+}
+
 //========================================//
 //         Steady Protobuf Client         //
 //========================================//
@@ -207,6 +215,18 @@ export async function RunApplication(
     config
   );
   return RunApplicationResponse.decode(response);
+}
+
+export async function GetApplication(
+  getApplicationRequest: GetApplicationRequest,
+  config?: ClientConfiguration
+): Promise<GetApplicationResponse> {
+  const response = await PBrequest(
+    "/steady.steady.Steady/GetApplication",
+    GetApplicationRequest.encode(getApplicationRequest),
+    config
+  );
+  return GetApplicationResponse.decode(response);
 }
 
 //========================================//
@@ -309,6 +329,18 @@ export async function RunApplicationJSON(
   return RunApplicationResponseJSON.decode(response);
 }
 
+export async function GetApplicationJSON(
+  getApplicationRequest: GetApplicationRequest,
+  config?: ClientConfiguration
+): Promise<GetApplicationResponse> {
+  const response = await JSONrequest(
+    "/steady.steady.Steady/GetApplication",
+    GetApplicationRequestJSON.encode(getApplicationRequest),
+    config
+  );
+  return GetApplicationResponseJSON.decode(response);
+}
+
 //========================================//
 //                 Steady                 //
 //========================================//
@@ -346,6 +378,10 @@ export interface Steady<Context = unknown> {
     runApplicationRequest: RunApplicationRequest,
     context: Context
   ) => Promise<RunApplicationResponse> | RunApplicationResponse;
+  GetApplication: (
+    getApplicationRequest: GetApplicationRequest,
+    context: Context
+  ) => Promise<GetApplicationResponse> | GetApplicationResponse;
 }
 
 export function createSteady<Context>(service: Steady<Context>) {
@@ -422,6 +458,18 @@ export function createSteady<Context>(service: Steady<Context>) {
         output: {
           protobuf: RunApplicationResponse,
           json: RunApplicationResponseJSON,
+        },
+      },
+      GetApplication: {
+        name: "GetApplication",
+        handler: service.GetApplication,
+        input: {
+          protobuf: GetApplicationRequest,
+          json: GetApplicationRequestJSON,
+        },
+        output: {
+          protobuf: GetApplicationResponse,
+          json: GetApplicationResponseJSON,
         },
       },
     },
@@ -1844,6 +1892,140 @@ export const Application = {
   },
 };
 
+export const GetApplicationRequest = {
+  /**
+   * Serializes GetApplicationRequest to protobuf.
+   */
+  encode: function (msg: Partial<GetApplicationRequest>): Uint8Array {
+    return GetApplicationRequest._writeMessage(
+      msg,
+      new BinaryWriter()
+    ).getResultBuffer();
+  },
+
+  /**
+   * Deserializes GetApplicationRequest from protobuf.
+   */
+  decode: function (bytes: ByteSource): GetApplicationRequest {
+    return GetApplicationRequest._readMessage(
+      GetApplicationRequest.initialize(),
+      new BinaryReader(bytes)
+    );
+  },
+
+  /**
+   * Initializes GetApplicationRequest with all fields set to their default value.
+   */
+  initialize: function (): GetApplicationRequest {
+    return {
+      name: "",
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<GetApplicationRequest>,
+    writer: BinaryWriter
+  ): BinaryWriter {
+    if (msg.name) {
+      writer.writeString(1, msg.name);
+    }
+    return writer;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: GetApplicationRequest,
+    reader: BinaryReader
+  ): GetApplicationRequest {
+    while (reader.nextField()) {
+      const field = reader.getFieldNumber();
+      switch (field) {
+        case 1: {
+          msg.name = reader.readString();
+          break;
+        }
+        default: {
+          reader.skipField();
+          break;
+        }
+      }
+    }
+    return msg;
+  },
+};
+
+export const GetApplicationResponse = {
+  /**
+   * Serializes GetApplicationResponse to protobuf.
+   */
+  encode: function (msg: Partial<GetApplicationResponse>): Uint8Array {
+    return GetApplicationResponse._writeMessage(
+      msg,
+      new BinaryWriter()
+    ).getResultBuffer();
+  },
+
+  /**
+   * Deserializes GetApplicationResponse from protobuf.
+   */
+  decode: function (bytes: ByteSource): GetApplicationResponse {
+    return GetApplicationResponse._readMessage(
+      GetApplicationResponse.initialize(),
+      new BinaryReader(bytes)
+    );
+  },
+
+  /**
+   * Initializes GetApplicationResponse with all fields set to their default value.
+   */
+  initialize: function (): GetApplicationResponse {
+    return {
+      application: Application.initialize(),
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<GetApplicationResponse>,
+    writer: BinaryWriter
+  ): BinaryWriter {
+    if (msg.application) {
+      writer.writeMessage(1, msg.application, Application._writeMessage);
+    }
+    return writer;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: GetApplicationResponse,
+    reader: BinaryReader
+  ): GetApplicationResponse {
+    while (reader.nextField()) {
+      const field = reader.getFieldNumber();
+      switch (field) {
+        case 1: {
+          reader.readMessage(msg.application, Application._readMessage);
+          break;
+        }
+        default: {
+          reader.skipField();
+          break;
+        }
+      }
+    }
+    return msg;
+  },
+};
+
 //========================================//
 //          JSON Encode / Decode          //
 //========================================//
@@ -3054,6 +3236,121 @@ export const ApplicationJSON = {
     const _name_ = json["name"];
     if (_name_) {
       msg.name = _name_;
+    }
+    return msg;
+  },
+};
+
+export const GetApplicationRequestJSON = {
+  /**
+   * Serializes GetApplicationRequest to JSON.
+   */
+  encode: function (msg: Partial<GetApplicationRequest>): string {
+    return JSON.stringify(GetApplicationRequestJSON._writeMessage(msg));
+  },
+
+  /**
+   * Deserializes GetApplicationRequest from JSON.
+   */
+  decode: function (json: string): GetApplicationRequest {
+    return GetApplicationRequestJSON._readMessage(
+      GetApplicationRequestJSON.initialize(),
+      JSON.parse(json)
+    );
+  },
+
+  /**
+   * Initializes GetApplicationRequest with all fields set to their default value.
+   */
+  initialize: function (): GetApplicationRequest {
+    return {
+      name: "",
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<GetApplicationRequest>
+  ): Record<string, unknown> {
+    const json: Record<string, unknown> = {};
+    if (msg.name) {
+      json["name"] = msg.name;
+    }
+    return json;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: GetApplicationRequest,
+    json: any
+  ): GetApplicationRequest {
+    const _name_ = json["name"];
+    if (_name_) {
+      msg.name = _name_;
+    }
+    return msg;
+  },
+};
+
+export const GetApplicationResponseJSON = {
+  /**
+   * Serializes GetApplicationResponse to JSON.
+   */
+  encode: function (msg: Partial<GetApplicationResponse>): string {
+    return JSON.stringify(GetApplicationResponseJSON._writeMessage(msg));
+  },
+
+  /**
+   * Deserializes GetApplicationResponse from JSON.
+   */
+  decode: function (json: string): GetApplicationResponse {
+    return GetApplicationResponseJSON._readMessage(
+      GetApplicationResponseJSON.initialize(),
+      JSON.parse(json)
+    );
+  },
+
+  /**
+   * Initializes GetApplicationResponse with all fields set to their default value.
+   */
+  initialize: function (): GetApplicationResponse {
+    return {
+      application: ApplicationJSON.initialize(),
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<GetApplicationResponse>
+  ): Record<string, unknown> {
+    const json: Record<string, unknown> = {};
+    if (msg.application) {
+      const _application_ = ApplicationJSON._writeMessage(msg.application);
+      if (Object.keys(_application_).length > 0) {
+        json["application"] = _application_;
+      }
+    }
+    return json;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: GetApplicationResponse,
+    json: any
+  ): GetApplicationResponse {
+    const _application_ = json["application"];
+    if (_application_) {
+      const m = Application.initialize();
+      ApplicationJSON._readMessage(m, _application_);
+      msg.application = m;
     }
     return msg;
   },

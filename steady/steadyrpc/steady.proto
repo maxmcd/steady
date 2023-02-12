@@ -14,6 +14,7 @@ service Steady {
   rpc CreateServiceVersion(CreateServiceVersionRequest)
       returns (CreateServiceVersionResponse);
   rpc RunApplication(RunApplicationRequest) returns (RunApplicationResponse);
+  rpc GetApplication(GetApplicationRequest) returns (GetApplicationResponse);
 }
 
 message LoginRequest {
@@ -91,3 +92,7 @@ message Application {
   int64 user_id = 3;
   string name = 4;
 }
+
+message GetApplicationRequest { string name = 1; }
+
+message GetApplicationResponse { Application application = 1; }

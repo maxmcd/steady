@@ -228,10 +228,16 @@ func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicati
 	name := fmt.Sprint(app.ID)
 	if app.Name.Valid {
 		name = app.Name.String
+		app, err = s.db.UpdateApplicationName(ctx, db.UpdateApplicationNameParams{
+			Name: sql.NullString{Valid: true, String: name},
+		})
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	if _, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   name,
+		Name:   app.Name.String,
 		Script: *req.Source,
 	}); err != nil {
 		return nil, err
@@ -241,5 +247,22 @@ func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicati
 	return &steadyrpc.RunApplicationResponse{
 		Application: &steadyrpc.Application{Name: name},
 		Url:         s.publicLoadBalancerURL,
+	}, nil
+}
+
+func (s *Server) GetApplication(ctx context.Context, req *steadyrpc.GetApplicationRequest) (
+	_ *steadyrpc.GetApplicationResponse, err error) {
+	resp, err := s.db.GetApplication(ctx, sql.NullString{Valid: true, String: req.Name})
+	if err != nil {
+		return nil, err
+	}
+
+	return &steadyrpc.GetApplicationResponse{
+		Application: &steadyrpc.Application{
+			Name:             resp.Name.String,
+			ServiceVersionId: resp.ServiceVersionID.Int64,
+			UserId:           resp.UserID.Int64,
+			Id:               resp.ID,
+		},
 	}, nil
 }

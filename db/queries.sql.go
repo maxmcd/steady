@@ -150,6 +150,24 @@ func (q *Queries) DeleteUserSession(ctx context.Context, token string) error {
 	return err
 }
 
+const getApplication = `-- name: GetApplication :one
+SELECT id, service_version_id, user_id, name
+FROM applications
+WHERE name = ?
+`
+
+func (q *Queries) GetApplication(ctx context.Context, name sql.NullString) (Application, error) {
+	row := q.queryRow(ctx, q.getApplicationStmt, getApplication, name)
+	var i Application
+	err := row.Scan(
+		&i.ID,
+		&i.ServiceVersionID,
+		&i.UserID,
+		&i.Name,
+	)
+	return i, err
+}
+
 const getLoginToken = `-- name: GetLoginToken :one
 SELECT user_id, token, created_at
 FROM login_tokens
@@ -339,5 +357,29 @@ func (q *Queries) GetUserSession(ctx context.Context, token string) (UserSession
 	row := q.queryRow(ctx, q.getUserSessionStmt, getUserSession, token)
 	var i UserSession
 	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
+}
+
+const updateApplicationName = `-- name: UpdateApplicationName :one
+UPDATE applications
+SET name = ?
+WHERE id = ?
+returning id, service_version_id, user_id, name
+`
+
+type UpdateApplicationNameParams struct {
+	Name sql.NullString
+	ID   int64
+}
+
+func (q *Queries) UpdateApplicationName(ctx context.Context, arg UpdateApplicationNameParams) (Application, error) {
+	row := q.queryRow(ctx, q.updateApplicationNameStmt, updateApplicationName, arg.Name, arg.ID)
+	var i Application
+	err := row.Scan(
+		&i.ID,
+		&i.ServiceVersionID,
+		&i.UserID,
+		&i.Name,
+	)
 	return i, err
 }

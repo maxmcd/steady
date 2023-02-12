@@ -48,6 +48,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.deleteUserSessionStmt, err = db.PrepareContext(ctx, deleteUserSession); err != nil {
 		return nil, fmt.Errorf("error preparing query DeleteUserSession: %w", err)
 	}
+	if q.getApplicationStmt, err = db.PrepareContext(ctx, getApplication); err != nil {
+		return nil, fmt.Errorf("error preparing query GetApplication: %w", err)
+	}
 	if q.getLoginTokenStmt, err = db.PrepareContext(ctx, getLoginToken); err != nil {
 		return nil, fmt.Errorf("error preparing query GetLoginToken: %w", err)
 	}
@@ -74,6 +77,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	}
 	if q.getUserSessionStmt, err = db.PrepareContext(ctx, getUserSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserSession: %w", err)
+	}
+	if q.updateApplicationNameStmt, err = db.PrepareContext(ctx, updateApplicationName); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateApplicationName: %w", err)
 	}
 	return &q, nil
 }
@@ -120,6 +126,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing deleteUserSessionStmt: %w", cerr)
 		}
 	}
+	if q.getApplicationStmt != nil {
+		if cerr := q.getApplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing getApplicationStmt: %w", cerr)
+		}
+	}
 	if q.getLoginTokenStmt != nil {
 		if cerr := q.getLoginTokenStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getLoginTokenStmt: %w", cerr)
@@ -163,6 +174,11 @@ func (q *Queries) Close() error {
 	if q.getUserSessionStmt != nil {
 		if cerr := q.getUserSessionStmt.Close(); cerr != nil {
 			err = fmt.Errorf("error closing getUserSessionStmt: %w", cerr)
+		}
+	}
+	if q.updateApplicationNameStmt != nil {
+		if cerr := q.updateApplicationNameStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateApplicationNameStmt: %w", cerr)
 		}
 	}
 	return err
@@ -212,6 +228,7 @@ type Queries struct {
 	createUserSessionStmt        *sql.Stmt
 	deleteLoginTokenStmt         *sql.Stmt
 	deleteUserSessionStmt        *sql.Stmt
+	getApplicationStmt           *sql.Stmt
 	getLoginTokenStmt            *sql.Stmt
 	getServiceStmt               *sql.Stmt
 	getServiceVersionStmt        *sql.Stmt
@@ -221,6 +238,7 @@ type Queries struct {
 	getUserByEmailOrUsernameStmt *sql.Stmt
 	getUserServicesStmt          *sql.Stmt
 	getUserSessionStmt           *sql.Stmt
+	updateApplicationNameStmt    *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -235,6 +253,7 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		createUserSessionStmt:        q.createUserSessionStmt,
 		deleteLoginTokenStmt:         q.deleteLoginTokenStmt,
 		deleteUserSessionStmt:        q.deleteUserSessionStmt,
+		getApplicationStmt:           q.getApplicationStmt,
 		getLoginTokenStmt:            q.getLoginTokenStmt,
 		getServiceStmt:               q.getServiceStmt,
 		getServiceVersionStmt:        q.getServiceVersionStmt,
@@ -244,5 +263,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserByEmailOrUsernameStmt: q.getUserByEmailOrUsernameStmt,
 		getUserServicesStmt:          q.getUserServicesStmt,
 		getUserSessionStmt:           q.getUserSessionStmt,
+		updateApplicationNameStmt:    q.updateApplicationNameStmt,
 	}
 }

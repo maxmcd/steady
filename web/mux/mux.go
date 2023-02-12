@@ -2,6 +2,7 @@ package mux
 
 import (
 	"net/http"
+	"path"
 
 	"github.com/julienschmidt/httprouter"
 	"github.com/twitchtv/twirp"
@@ -61,8 +62,8 @@ type Context struct {
 	Data    map[string]interface{}
 }
 
-func (c *Context) Redirect(path string) {
-	http.Redirect(c.Writer, c.Request, path, http.StatusFound)
+func (c *Context) Redirect(paths ...string) {
+	http.Redirect(c.Writer, c.Request, path.Join(paths...), http.StatusFound)
 }
 
 func (c *Context) AddFlash(msg string) {
