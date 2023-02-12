@@ -21,9 +21,6 @@ var templates embed.FS
 //go:embed dist/*
 var distFiles embed.FS
 
-//go:embed node_modules/monaco-editor/min/vs/*
-var monacoSource embed.FS
-
 type Server struct {
 	t            *template.Template
 	router       *mux.Router
@@ -48,7 +45,6 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	s.router.GET("/", func(c *mux.Context) error {
 		return s.renderTemplate(c, "index.go.html")
 	})
-	s.router.GET("/js/editor/*path", s.jsEditorAssetEndpoints)
 	s.router.GET("/assets/*path", s.assetsEndpoints)
 	s.router.GET("/login", func(c *mux.Context) error {
 		if s.loggedIn(c) {

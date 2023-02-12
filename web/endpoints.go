@@ -29,20 +29,6 @@ func (s *Server) assetsEndpoints(c *mux.Context) error {
 	return nil
 }
 
-func (s *Server) jsEditorAssetEndpoints(c *mux.Context) error {
-	path := c.Params.ByName("path")
-	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
-	f, err := monacoSource.Open(
-		filepath.Join(
-			"node_modules/monaco-editor/min/",
-			c.Params.ByName("path")))
-	if err != nil {
-		return twirp.NotFoundError("not found")
-	}
-
-	_, _ = io.Copy(c.Writer, f)
-	return nil
-}
 func (s *Server) logoutEndpoint(c *mux.Context) error {
 	c.DeleteToken()
 	c.AddFlash("You have been successfully logged out")

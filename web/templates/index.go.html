@@ -1,29 +1,7 @@
 {{ template "header" . }}
 
 
+<div id="container"></div>
 
-
-<div id="container" style="width: 800px; height: 600px; border: 1px solid grey"></div>
-
-<!-- OR ANY OTHER AMD LOADER HERE INSTEAD OF loader.js -->
-<script src="/js/editor/vs/loader.js"></script>
-<script>
-    require.config({ paths: { vs: 'js/editor/vs' } });
-
-    require(['vs/editor/editor.main'], function () {
-        var editor = monaco.editor.create(document.getElementById('container'), {
-            value: ['function x() {', '\tconsole.log("Hello world!");', '}'].join('\n'),
-            language: 'typescript'
-        });
-    });
-</script>
-<script type="module" src="pub/asset.js"></script>
-<script type="module">
-    import { NodeHttpRPC } from "./pub/asset.js";
-
-
-    console.log(NodeHttpRPC);
-
-</script>
 
 {{ template "footer" . }}
