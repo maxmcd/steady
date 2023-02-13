@@ -5,7 +5,6 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/maxmcd/steady/steady"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/stretchr/testify/assert"
@@ -40,16 +39,4 @@ func TestServer(t *testing.T) {
 		}
 		assert.Equal(t, service.Id, resp.ServiceVersion.ServiceId)
 	}
-}
-
-type ServerSuite struct {
-	testsuite.Suite
-}
-
-func TestServerSuite(t *testing.T) {
-	testsuite.Run(t, new(ServerSuite))
-}
-
-func (suite *ServerSuite) TestCreateApplication() {
-
 }

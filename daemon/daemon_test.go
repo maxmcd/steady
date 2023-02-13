@@ -13,6 +13,7 @@ import (
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/suite"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -32,7 +33,7 @@ type DaemonSuite struct {
 }
 
 func TestDaemonSuite(t *testing.T) {
-	testsuite.Run(t, new(DaemonSuite))
+	suite.Run(t, new(DaemonSuite))
 }
 
 func (suite *DaemonSuite) TestConcurrentRequests() {

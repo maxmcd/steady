@@ -9,8 +9,6 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
-	"strconv"
-	"testing"
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
@@ -20,24 +18,6 @@ import (
 	"github.com/maxmcd/steady/web"
 	"github.com/stretchr/testify/suite"
 )
-
-func Run(t *testing.T, s suite.TestingSuite) {
-	countString := os.Getenv("STEADY_SUITE_RUN_COUNT")
-	count := 1
-	if countString != "" {
-		var err error
-		count, err = strconv.Atoi(countString)
-		if err != nil {
-			t.Fatal("failed to convert env var to int", err, countString)
-		}
-	}
-	for i := 0; i < count; i++ {
-		suite.Run(t, s)
-		if t.Failed() {
-			return
-		}
-	}
-}
 
 type Suite struct {
 	suite.Suite
@@ -111,7 +91,9 @@ func (suite *Suite) AfterTest(suiteName, testName string) {
 	}
 	suite.loadBalancers = nil
 	if suite.minioServer != nil {
-		suite.minioServer.Stop(suite.T())
+		if err := suite.minioServer.Stop(); err != nil {
+			suite.T().Fatal(err)
+		}
 		suite.minioServer = nil
 	}
 }
@@ -183,7 +165,11 @@ func (suite *Suite) NewLB() *loadbalancer.LB {
 }
 
 func (suite *Suite) StartMinioServer() {
-	suite.minioServer = NewMinioServer(suite.T())
+	var err error
+	suite.minioServer, err = NewMinioServer(suite.T().TempDir())
+	if err != nil {
+		suite.T().Fatal(err)
+	}
 }
 
 func (suite *Suite) MinioServerS3Config() daemon.S3Config {

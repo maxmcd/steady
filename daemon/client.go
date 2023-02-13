@@ -16,7 +16,7 @@ type Client struct {
 	daemon daemonrpc.Daemon
 }
 
-func NewClient(server string, httpClient *http.Client) *Client {
+func NewClient(serverURL string, httpClient *http.Client) *Client {
 	if httpClient == nil {
 		httpClient = &http.Client{
 			Transport: &http.Transport{
@@ -26,7 +26,7 @@ func NewClient(server string, httpClient *http.Client) *Client {
 			},
 		}
 	}
-	return &Client{daemon: daemonrpc.NewDaemonProtobufClient(server, httpClient, twirp.WithClientHooks(&twirp.ClientHooks{
+	return &Client{daemon: daemonrpc.NewDaemonProtobufClient(serverURL, httpClient, twirp.WithClientHooks(&twirp.ClientHooks{
 		RequestPrepared: func(ctx context.Context, r *http.Request) (_ context.Context, err error) {
 			r.Host = "steady"
 			return ctx, nil

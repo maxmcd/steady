@@ -6,7 +6,6 @@ import (
 	"io"
 	"os/exec"
 	"strings"
-	"testing"
 	"time"
 
 	"github.com/aws/aws-sdk-go/aws"
@@ -27,14 +26,12 @@ type MinioServer struct {
 	eg     *errgroup.Group
 }
 
-func NewMinioServer(t *testing.T) *MinioServer {
+func NewMinioServer(dir string) (*MinioServer, error) {
 	start := time.Now()
-
-	dir := t.TempDir()
 
 	port, err := netx.GetFreePort()
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	ctx, cancel := context.WithCancel(context.Background())
 	eg, ctx := errgroup.WithContext(ctx)
@@ -44,7 +41,7 @@ func NewMinioServer(t *testing.T) *MinioServer {
 	cmd.Stdout = io.Discard
 
 	if err := cmd.Start(); err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	eg.Go(cmd.Wait)
 
@@ -57,7 +54,10 @@ func NewMinioServer(t *testing.T) *MinioServer {
 		cancel:     cancel,
 	}
 
-	s3Client := server.s3Client(t)
+	s3Client, err := server.S3Client()
+	if err != nil {
+		return nil, err
+	}
 
 	for i := 0; i < 10; i++ {
 		fmt.Println("minio startup", time.Since(start))
@@ -76,31 +76,35 @@ func NewMinioServer(t *testing.T) *MinioServer {
 		cancel()
 	}
 	if err != nil {
-		t.Fatal(err)
+		return nil, err
 	}
 	fmt.Println("minio startup", time.Since(start))
-	return &server
+	return &server, nil
 }
 
-func (server *MinioServer) s3Client(t *testing.T) *s3.S3 {
-	s3Config := &aws.Config{
+func (server *MinioServer) S3Config() *aws.Config {
+	return &aws.Config{
 		Credentials:      credentials.NewStaticCredentials(server.Username, server.Password, ""),
 		Endpoint:         aws.String("http://" + server.Address),
 		Region:           aws.String("us-west-2"),
 		DisableSSL:       aws.Bool(false),
 		S3ForcePathStyle: aws.Bool(true),
 	}
-	newSession, err := session.NewSession(s3Config)
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	return s3.New(newSession)
 }
 
-func (server *MinioServer) Stop(t *testing.T) {
+func (server *MinioServer) S3Client() (*s3.S3, error) {
+	newSession, err := session.NewSession(server.S3Config())
+	if err != nil {
+		return nil, err
+	}
+
+	return s3.New(newSession), nil
+}
+
+func (server *MinioServer) Stop() error {
 	server.cancel()
 	if err := server.eg.Wait(); err != nil && !strings.Contains(err.Error(), "killed") {
-		t.Error(err)
+		return err
 	}
+	return nil
 }
