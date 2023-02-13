@@ -1,3 +1,3 @@
 package web
 
-//go:generate bash build_javascript.sh
+//go:generate bash ./app/scripts/build_javascript.sh

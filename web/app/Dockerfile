@@ -16,7 +16,8 @@ COPY package.json ./package.json
 RUN --mount=type=cache,target=/root/.bun/install/cache \
     bun install
 COPY . .
+RUN npx twirpscript
+
 RUN  --mount=type=cache,target=/opt/.parcel-cache \
     npx parcel build --public-url=/assets ./templates/_assets.go.html
 
-RUN npx twirpscript

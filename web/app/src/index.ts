@@ -1,5 +1,5 @@
 import { client } from "twirpscript";
-import { Login } from "../steady.pb";
+import { Login } from "./steady.pb";
 
 import * as monaco from "monaco-editor";
 

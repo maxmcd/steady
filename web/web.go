@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/gorilla/handlers"
+	"github.com/maxmcd/steady/internal/mux"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/steady/steadyrpc"
-	"github.com/maxmcd/steady/web/mux"
 	"github.com/pkg/errors"
 	"github.com/twitchtv/twirp"
 )
@@ -19,7 +19,7 @@ import (
 //go:embed templates/*
 var templates embed.FS
 
-//go:embed dist/*
+//go:embed app/dist/*
 var distFiles embed.FS
 
 type Server struct {
@@ -34,7 +34,7 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 		return nil, errors.Wrap(err, "error running ParseFS")
 	}
 
-	if t, err = t.ParseFS(distFiles, "dist/_assets.go.html"); err != nil {
+	if t, err = t.ParseFS(distFiles, "app/dist/_assets.go.html"); err != nil {
 		return nil, errors.Wrap(err, "error running ParseFS 2")
 	}
 

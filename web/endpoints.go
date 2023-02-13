@@ -6,22 +6,16 @@ import (
 	"mime"
 	"path/filepath"
 
+	"github.com/maxmcd/steady/internal/mux"
 	"github.com/maxmcd/steady/steady/steadyrpc"
-	"github.com/maxmcd/steady/web/mux"
 	"github.com/twitchtv/twirp"
 )
 
 func (s *Server) assetsEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")
 	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
-	fmt.Println(filepath.Join(
-		"dist/",
-		c.Params.ByName("path")))
 	f, err := distFiles.Open(
-		filepath.Join(
-			"dist/",
-
-			c.Params.ByName("path")))
+		filepath.Join("app/dist/", c.Params.ByName("path")))
 	if err != nil {
 		return twirp.NotFoundError("not found")
 	}
