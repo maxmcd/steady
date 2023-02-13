@@ -115,6 +115,7 @@ export interface GetApplicationRequest {
 
 export interface GetApplicationResponse {
   application: Application;
+  url: string;
 }
 
 //========================================//
@@ -1986,6 +1987,7 @@ export const GetApplicationResponse = {
   initialize: function (): GetApplicationResponse {
     return {
       application: Application.initialize(),
+      url: "",
     };
   },
 
@@ -1998,6 +2000,9 @@ export const GetApplicationResponse = {
   ): BinaryWriter {
     if (msg.application) {
       writer.writeMessage(1, msg.application, Application._writeMessage);
+    }
+    if (msg.url) {
+      writer.writeString(2, msg.url);
     }
     return writer;
   },
@@ -2014,6 +2019,10 @@ export const GetApplicationResponse = {
       switch (field) {
         case 1: {
           reader.readMessage(msg.application, Application._readMessage);
+          break;
+        }
+        case 2: {
+          msg.url = reader.readString();
           break;
         }
         default: {
@@ -3320,6 +3329,7 @@ export const GetApplicationResponseJSON = {
   initialize: function (): GetApplicationResponse {
     return {
       application: ApplicationJSON.initialize(),
+      url: "",
     };
   },
 
@@ -3336,6 +3346,9 @@ export const GetApplicationResponseJSON = {
         json["application"] = _application_;
       }
     }
+    if (msg.url) {
+      json["url"] = msg.url;
+    }
     return json;
   },
 
@@ -3351,6 +3364,10 @@ export const GetApplicationResponseJSON = {
       const m = Application.initialize();
       ApplicationJSON._readMessage(m, _application_);
       msg.application = m;
+    }
+    const _url_ = json["url"];
+    if (_url_) {
+      msg.url = _url_;
     }
     return msg;
   },

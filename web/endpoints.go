@@ -20,6 +20,7 @@ func (s *Server) assetsEndpoints(c *mux.Context) error {
 	f, err := distFiles.Open(
 		filepath.Join(
 			"dist/",
+
 			c.Params.ByName("path")))
 	if err != nil {
 		return twirp.NotFoundError("not found")
