@@ -12,7 +12,7 @@ rm steady.proto
 id=$(docker create steady-web)
 rm -rf ./dist
 docker cp $id:/opt/dist ./
-docker cp $id:/opt/steady.pb.ts .
+docker cp $id:/opt/steady.pb.ts ./src
 docker rm -v $id
 
 
