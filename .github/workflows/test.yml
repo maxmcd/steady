@@ -14,6 +14,8 @@ jobs:
       - name: download go deps
         run: go mod download
       - name: Confirm there are not untracked changes after generate
+        env:
+          DOCKER_BUILDKIT: "1"
         run: |
           make generate
           git status
