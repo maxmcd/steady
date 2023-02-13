@@ -11,7 +11,7 @@ import (
 )
 
 // Logs incoming requests, including response status.
-func Logger(out io.Writer, h http.Handler) http.Handler {
+func Logger(name string, out io.Writer, h http.Handler) http.Handler {
 	logger := log.New(out, "", 0)
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		o := &responseObserver{ResponseWriter: w}
@@ -21,9 +21,11 @@ func Logger(out io.Writer, h http.Handler) http.Handler {
 		if i := strings.LastIndex(addr, ":"); i != -1 {
 			addr = addr[:i]
 		}
-		logger.Printf("%s - - [%s] %q %d %s %q %s",
+		logger.Printf("%s [%s] %s %s %q %d %s %q %s",
+			time.Now().UTC().Format(time.RFC3339),
+			name,
 			addr,
-			time.Now().Format("02/Jan/2006:15:04:05 -0700"),
+			r.Host,
 			fmt.Sprintf("%s %s %s", r.Method, r.URL, r.Proto),
 			o.status,
 			prettyByteSize(o.written),

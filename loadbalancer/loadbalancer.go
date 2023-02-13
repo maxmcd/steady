@@ -8,6 +8,7 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -139,14 +140,16 @@ func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err er
 	}
 
 	publicServer := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			name := steadyutil.ExtractAppName(r)
-			if name == "steady" {
-				http.Error(w, "not allowed", http.StatusMethodNotAllowed)
-				return
-			}
-			lb.Handler(name, false, w, r)
-		}),
+		Handler: steadyutil.Logger("lb", os.Stdout,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				name := steadyutil.ExtractAppName(r)
+				if name == "steady" {
+					http.Error(w, "not allowed", http.StatusMethodNotAllowed)
+					return
+				}
+				lb.Handler(name, false, w, r)
+			}),
+		),
 		ReadHeaderTimeout: time.Second * 15,
 	}
 

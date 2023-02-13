@@ -68,15 +68,17 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 }
 
 func WebAndSteadyHandler(steadyHandler, webHandler http.Handler) http.Handler {
-	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(steadyutil.Logger(os.Stdout,
-		http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/twirp") {
-				steadyHandler.ServeHTTP(w, r)
-			} else {
-				webHandler.ServeHTTP(w, r)
-			}
-		}),
-	))
+	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(
+		steadyutil.Logger("wb", os.Stdout,
+			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				if strings.HasPrefix(r.URL.Path, "/twirp") {
+					steadyHandler.ServeHTTP(w, r)
+				} else {
+					webHandler.ServeHTTP(w, r)
+				}
+			}),
+		),
+	)
 }
 
 type V map[string]interface{}
