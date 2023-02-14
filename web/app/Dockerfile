@@ -19,5 +19,5 @@ COPY . .
 RUN npx twirpscript
 
 RUN  --mount=type=cache,target=/opt/.parcel-cache \
-    npx parcel build --public-url=/assets ./templates/_assets.go.html
+    npx parcel build --public-url=/assets ./_assets.go.html
 

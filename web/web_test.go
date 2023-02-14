@@ -137,5 +137,16 @@ func (suite *Suite) TestRunApplication() {
 	signupForm := url.Values{"index.ts": {suite.LoadExampleScript("http")}}
 	resp, doc := suite.postForm(addr+"/application", signupForm)
 	suite.Equal(http.StatusOK, resp.StatusCode)
-	_ = doc
+	appURL := doc.Find("a.app-url").Text()
+	fmt.Println(appURL)
+
+	{
+		u, _ := url.Parse(appURL)
+		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
+		req.Host = u.Host
+		suite.Require().NoError(err)
+		resp, err := http.DefaultClient.Do(req)
+		suite.Require().NoError(err)
+		suite.Require().Equal(http.StatusOK, resp.StatusCode)
+	}
 }
