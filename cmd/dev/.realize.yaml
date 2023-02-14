@@ -9,12 +9,12 @@ schema:
       run:
         status: true
     watcher:
-      extensions: ["go", "html"]
+      extensions: ["go", "html", "js", "css"]
       paths:
         - ../../
       ignored_paths:
         - .git
         - .realize
         - vendor
-        - ../../web/node_modules
+        - ../../web/app/node_modules
         - ../../examples

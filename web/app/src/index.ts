@@ -2,22 +2,22 @@ import { client } from "twirpscript";
 import { Login } from "./steady.pb";
 
 import * as monaco from "monaco-editor";
-console.log("hi");
+console.log("iasdfi");
 self.MonacoEnvironment = {
   getWorkerUrl: function (moduleId, label) {
     if (label === "json") {
-      return "./assets/json.worker.js";
+      return "./assets/language/json/json.worker.js";
     }
     if (label === "css" || label === "scss" || label === "less") {
-      return "./assets/css.worker.js";
+      return "./assets/language/css/css.worker.js";
     }
     if (label === "html" || label === "handlebars" || label === "razor") {
-      return "./assets/html.worker.js";
+      return "./assets/language/html/html.worker.js";
     }
     if (label === "typescript" || label === "javascript") {
-      return "./assets/ts.worker.js";
+      return "./assets/language/typescript/ts.worker.js";
     }
-    return "./assets/editor.worker.js";
+    return "./assets/editor/editor.worker.js";
   },
 };
 
