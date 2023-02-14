@@ -25,7 +25,7 @@ func main() {
 	}
 
 	for _, dir := range []string{"minio", "daemon-1", "daemon-2"} {
-		os.Mkdir(filepath.Join(tmpDir, dir), 0700)
+		_ = os.Mkdir(filepath.Join(tmpDir, dir), 0700)
 	}
 
 	minioServer, err := testsuite.NewMinioServer(filepath.Join(tmpDir, "minio"))

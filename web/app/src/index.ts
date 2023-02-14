@@ -2,6 +2,24 @@ import { client } from "twirpscript";
 import { Login } from "./steady.pb";
 
 import * as monaco from "monaco-editor";
+console.log("hi");
+self.MonacoEnvironment = {
+  getWorkerUrl: function (moduleId, label) {
+    if (label === "json") {
+      return "./assets/json.worker.js";
+    }
+    if (label === "css" || label === "scss" || label === "less") {
+      return "./assets/css.worker.js";
+    }
+    if (label === "html" || label === "handlebars" || label === "razor") {
+      return "./assets/html.worker.js";
+    }
+    if (label === "typescript" || label === "javascript") {
+      return "./assets/ts.worker.js";
+    }
+    return "./assets/editor.worker.js";
+  },
+};
 
 client.baseURL = "http://localhost:8080";
 

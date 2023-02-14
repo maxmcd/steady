@@ -1,3 +1,16 @@
+# 2023-02-14
+
+Things to do:
+
+- Logs and streaming logs to frontend
+- Multiple files in editor
+- Editing application code and updating (w/ validation)
+- Migration of new machine, draining applications
+- GC of temporary applications
+- Sqlite in daemon
+- Design bun daemon
+- Crons
+
 # 2023-02-12
 
 Run application
