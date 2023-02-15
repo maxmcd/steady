@@ -138,7 +138,7 @@ func (suite *Suite) NewWebServer() (*EmailSink, string) {
 		suite.T().Fatal(err)
 	}
 	ctx, cancel := context.WithCancel(context.Background())
-	if err := server.Start(ctx, ":0"); err != nil {
+	if err := server.Start(ctx, "localhost:0"); err != nil {
 		suite.T().Fatal(err)
 	}
 	suite.cancels = append(suite.cancels, cancel)

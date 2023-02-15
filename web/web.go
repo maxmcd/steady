@@ -11,6 +11,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/internal/mux"
 	"github.com/maxmcd/steady/internal/steadyutil"
@@ -49,7 +50,8 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-	s.steadyClient = steadyrpc.NewSteadyProtobufClient("http://"+s.listener.Addr().String(), nil)
+
+	s.steadyClient = steadyrpc.NewSteadyProtobufClient("http://"+s.listener.Addr().String(), http.DefaultClient)
 
 	s.eg, ctx = errgroup.WithContext(ctx)
 	srv := http.Server{
@@ -218,6 +220,7 @@ func (s *Server) login(ctx context.Context, usernameOrEmail string) error {
 }
 
 func (s *Server) signup(ctx context.Context, username, email string) error {
+	spew.Dump(s.steadyClient)
 	_, err := s.steadyClient.Signup(ctx, &steadyrpc.SignupRequest{
 		Username: username,
 		Email:    email,
