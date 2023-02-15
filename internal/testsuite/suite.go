@@ -117,6 +117,13 @@ type EmailSink struct {
 	Emails []string
 }
 
+func (es *EmailSink) LatestEmail() string {
+	if len(es.Emails) == 0 {
+		return ""
+	}
+	return es.Emails[len(es.Emails)-1]
+}
+
 func (suite *Suite) NewWebServer(opts steady.ServerOptions) (*EmailSink, string) {
 	es := &EmailSink{}
 	sqliteDataDir := suite.T().TempDir()

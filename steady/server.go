@@ -57,24 +57,6 @@ func NewServer(options ServerOptions, opts ...Option) http.Handler {
 	})
 }
 
-func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateServiceRequest) (
-	_ *steadyrpc.CreateServiceResponse, err error) {
-	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
-		Name:   req.Name,
-		UserID: 1,
-	})
-	if err != nil {
-		return nil, err
-	}
-	return &steadyrpc.CreateServiceResponse{
-		Service: &steadyrpc.Service{
-			Name:   service.Name,
-			Id:     service.ID,
-			UserId: service.UserID,
-		},
-	}, nil
-}
-
 type Option func(*Server)
 
 func OptionWithEmailSink(e func(email string)) Option {

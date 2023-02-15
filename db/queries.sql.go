@@ -11,26 +11,20 @@ import (
 )
 
 const createApplication = `-- name: CreateApplication :one
-INSERT into applications (name, user_id, service_version_id)
-values (?, ?, ?)
-RETURNING id, service_version_id, user_id, name
+INSERT into applications (name, user_id)
+values (?, ?)
+RETURNING id, user_id, name
 `
 
 type CreateApplicationParams struct {
-	Name             string
-	UserID           sql.NullInt64
-	ServiceVersionID sql.NullInt64
+	Name   string
+	UserID sql.NullInt64
 }
 
 func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
-	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.UserID, arg.ServiceVersionID)
+	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.UserID)
 	var i Application
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceVersionID,
-		&i.UserID,
-		&i.Name,
-	)
+	err := row.Scan(&i.ID, &i.UserID, &i.Name)
 	return i, err
 }
 
@@ -49,48 +43,6 @@ func (q *Queries) CreateLoginToken(ctx context.Context, arg CreateLoginTokenPara
 	row := q.queryRow(ctx, q.createLoginTokenStmt, createLoginToken, arg.UserID, arg.Token)
 	var i LoginToken
 	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
-	return i, err
-}
-
-const createService = `-- name: CreateService :one
-INSERT INTO services (name, user_id)
-VALUES (?, ?)
-RETURNING id, name, user_id
-`
-
-type CreateServiceParams struct {
-	Name   string
-	UserID int64
-}
-
-func (q *Queries) CreateService(ctx context.Context, arg CreateServiceParams) (Service, error) {
-	row := q.queryRow(ctx, q.createServiceStmt, createService, arg.Name, arg.UserID)
-	var i Service
-	err := row.Scan(&i.ID, &i.Name, &i.UserID)
-	return i, err
-}
-
-const createServiceVersion = `-- name: CreateServiceVersion :one
-INSERT INTO service_versions (service_id, version, source)
-VALUES (?, ?, ?)
-RETURNING id, service_id, version, source
-`
-
-type CreateServiceVersionParams struct {
-	ServiceID int64
-	Version   string
-	Source    string
-}
-
-func (q *Queries) CreateServiceVersion(ctx context.Context, arg CreateServiceVersionParams) (ServiceVersion, error) {
-	row := q.queryRow(ctx, q.createServiceVersionStmt, createServiceVersion, arg.ServiceID, arg.Version, arg.Source)
-	var i ServiceVersion
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceID,
-		&i.Version,
-		&i.Source,
-	)
 	return i, err
 }
 
@@ -151,7 +103,7 @@ func (q *Queries) DeleteUserSession(ctx context.Context, token string) error {
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, service_version_id, user_id, name
+SELECT id, user_id, name
 FROM applications
 WHERE name = ?
 `
@@ -159,12 +111,7 @@ WHERE name = ?
 func (q *Queries) GetApplication(ctx context.Context, name string) (Application, error) {
 	row := q.queryRow(ctx, q.getApplicationStmt, getApplication, name)
 	var i Application
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceVersionID,
-		&i.UserID,
-		&i.Name,
-	)
+	err := row.Scan(&i.ID, &i.UserID, &i.Name)
 	return i, err
 }
 
@@ -181,77 +128,6 @@ func (q *Queries) GetLoginToken(ctx context.Context, token string) (LoginToken, 
 	return i, err
 }
 
-const getService = `-- name: GetService :one
-SELECT id, name, user_id
-FROM services
-WHERE user_id = ?
-    and id = ?
-`
-
-type GetServiceParams struct {
-	UserID int64
-	ID     int64
-}
-
-func (q *Queries) GetService(ctx context.Context, arg GetServiceParams) (Service, error) {
-	row := q.queryRow(ctx, q.getServiceStmt, getService, arg.UserID, arg.ID)
-	var i Service
-	err := row.Scan(&i.ID, &i.Name, &i.UserID)
-	return i, err
-}
-
-const getServiceVersion = `-- name: GetServiceVersion :one
-SELECT id, service_id, version, source
-FROM service_versions
-WHERE id = ?
-`
-
-func (q *Queries) GetServiceVersion(ctx context.Context, id int64) (ServiceVersion, error) {
-	row := q.queryRow(ctx, q.getServiceVersionStmt, getServiceVersion, id)
-	var i ServiceVersion
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceID,
-		&i.Version,
-		&i.Source,
-	)
-	return i, err
-}
-
-const getServiceVersions = `-- name: GetServiceVersions :many
-SELECT id, service_id, version, source
-FROM service_versions
-WHERE service_id = ?
-`
-
-func (q *Queries) GetServiceVersions(ctx context.Context, serviceID int64) ([]ServiceVersion, error) {
-	rows, err := q.query(ctx, q.getServiceVersionsStmt, getServiceVersions, serviceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ServiceVersion
-	for rows.Next() {
-		var i ServiceVersion
-		if err := rows.Scan(
-			&i.ID,
-			&i.ServiceID,
-			&i.Version,
-			&i.Source,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const getUser = `-- name: GetUser :one
 SELECT id, email, username
 FROM users
@@ -266,7 +142,7 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 }
 
 const getUserApplications = `-- name: GetUserApplications :many
-SELECT id, service_version_id, user_id, name
+SELECT id, user_id, name
 FROM applications
 WHERE user_id = ?
 `
@@ -280,12 +156,7 @@ func (q *Queries) GetUserApplications(ctx context.Context, userID sql.NullInt64)
 	var items []Application
 	for rows.Next() {
 		var i Application
-		if err := rows.Scan(
-			&i.ID,
-			&i.ServiceVersionID,
-			&i.UserID,
-			&i.Name,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.UserID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -316,35 +187,6 @@ func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEma
 	var i User
 	err := row.Scan(&i.ID, &i.Email, &i.Username)
 	return i, err
-}
-
-const getUserServices = `-- name: GetUserServices :many
-SELECT id, name, user_id
-FROM services
-WHERE user_id = ?
-`
-
-func (q *Queries) GetUserServices(ctx context.Context, userID int64) ([]Service, error) {
-	rows, err := q.query(ctx, q.getUserServicesStmt, getUserServices, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Service
-	for rows.Next() {
-		var i Service
-		if err := rows.Scan(&i.ID, &i.Name, &i.UserID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
 }
 
 const getUserSession = `-- name: GetUserSession :one

@@ -10,29 +10,15 @@ import (
 )
 
 type Application struct {
-	ID               int64
-	ServiceVersionID sql.NullInt64
-	UserID           sql.NullInt64
-	Name             string
+	ID     int64
+	UserID sql.NullInt64
+	Name   string
 }
 
 type LoginToken struct {
 	UserID    int64
 	Token     string
 	CreatedAt time.Time
-}
-
-type Service struct {
-	ID     int64
-	Name   string
-	UserID int64
-}
-
-type ServiceVersion struct {
-	ID        int64
-	ServiceID int64
-	Version   string
-	Source    string
 }
 
 type User struct {

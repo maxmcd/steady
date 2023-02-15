@@ -95,6 +95,9 @@ func (server *MinioServer) CycleBucket() error {
 		Bucket: aws.String(server.BucketName),
 	}, func(loo *s3.ListObjectsOutput, b bool) bool {
 		objects := []*s3.ObjectIdentifier{}
+		if len(loo.Contents) == 0 {
+			return false
+		}
 		for _, obj := range loo.Contents {
 			objects = append(objects, &s3.ObjectIdentifier{
 				Key: obj.Key,
@@ -114,7 +117,7 @@ func (server *MinioServer) CycleBucket() error {
 		return fmt.Errorf("error listing objects: %w", err)
 	}
 	if innerErr != nil {
-		return fmt.Errorf("error deleting objects: %w", err)
+		return fmt.Errorf("error deleting objects: %w", innerErr)
 	}
 
 	if _, err := s3Client.DeleteBucket(&s3.DeleteBucketInput{

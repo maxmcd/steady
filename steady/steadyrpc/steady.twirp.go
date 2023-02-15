@@ -42,10 +42,6 @@ type Steady interface {
 
 	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
 
-	CreateService(context.Context, *CreateServiceRequest) (*CreateServiceResponse, error)
-
-	CreateServiceVersion(context.Context, *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error)
-
 	RunApplication(context.Context, *RunApplicationRequest) (*RunApplicationResponse, error)
 
 	GetApplication(context.Context, *GetApplicationRequest) (*GetApplicationResponse, error)
@@ -57,7 +53,7 @@ type Steady interface {
 
 type steadyProtobufClient struct {
 	client      HTTPClient
-	urls        [9]string
+	urls        [7]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -85,14 +81,12 @@ func NewSteadyProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "steady.steady", "Steady")
-	urls := [9]string{
+	urls := [7]string{
 		serviceURL + "Login",
 		serviceURL + "Signup",
 		serviceURL + "Logout",
 		serviceURL + "GetUser",
 		serviceURL + "ValidateToken",
-		serviceURL + "CreateService",
-		serviceURL + "CreateServiceVersion",
 		serviceURL + "RunApplication",
 		serviceURL + "GetApplication",
 	}
@@ -335,98 +329,6 @@ func (c *steadyProtobufClient) callValidateToken(ctx context.Context, in *Valida
 	return out, nil
 }
 
-func (c *steadyProtobufClient) CreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
-	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	caller := c.callCreateService
-	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
-			resp, err := c.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
-					}
-					return c.callCreateService(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-	return caller(ctx, in)
-}
-
-func (c *steadyProtobufClient) callCreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	out := new(CreateServiceResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
-	if err != nil {
-		twerr, ok := err.(twirp.Error)
-		if !ok {
-			twerr = twirp.InternalErrorWith(err)
-		}
-		callClientError(ctx, c.opts.Hooks, twerr)
-		return nil, err
-	}
-
-	callClientResponseReceived(ctx, c.opts.Hooks)
-
-	return out, nil
-}
-
-func (c *steadyProtobufClient) CreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
-	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	caller := c.callCreateServiceVersion
-	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-			resp, err := c.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
-					}
-					return c.callCreateServiceVersion(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-	return caller(ctx, in)
-}
-
-func (c *steadyProtobufClient) callCreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	out := new(CreateServiceVersionResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
-	if err != nil {
-		twerr, ok := err.(twirp.Error)
-		if !ok {
-			twerr = twirp.InternalErrorWith(err)
-		}
-		callClientError(ctx, c.opts.Hooks, twerr)
-		return nil, err
-	}
-
-	callClientResponseReceived(ctx, c.opts.Hooks)
-
-	return out, nil
-}
-
 func (c *steadyProtobufClient) RunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
@@ -458,7 +360,7 @@ func (c *steadyProtobufClient) RunApplication(ctx context.Context, in *RunApplic
 
 func (c *steadyProtobufClient) callRunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
 	out := new(RunApplicationResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[7], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -504,7 +406,7 @@ func (c *steadyProtobufClient) GetApplication(ctx context.Context, in *GetApplic
 
 func (c *steadyProtobufClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
 	out := new(GetApplicationResponse)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[8], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -525,7 +427,7 @@ func (c *steadyProtobufClient) callGetApplication(ctx context.Context, in *GetAp
 
 type steadyJSONClient struct {
 	client      HTTPClient
-	urls        [9]string
+	urls        [7]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -553,14 +455,12 @@ func NewSteadyJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "steady.steady", "Steady")
-	urls := [9]string{
+	urls := [7]string{
 		serviceURL + "Login",
 		serviceURL + "Signup",
 		serviceURL + "Logout",
 		serviceURL + "GetUser",
 		serviceURL + "ValidateToken",
-		serviceURL + "CreateService",
-		serviceURL + "CreateServiceVersion",
 		serviceURL + "RunApplication",
 		serviceURL + "GetApplication",
 	}
@@ -803,98 +703,6 @@ func (c *steadyJSONClient) callValidateToken(ctx context.Context, in *ValidateTo
 	return out, nil
 }
 
-func (c *steadyJSONClient) CreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
-	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	caller := c.callCreateService
-	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
-			resp, err := c.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
-					}
-					return c.callCreateService(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-	return caller(ctx, in)
-}
-
-func (c *steadyJSONClient) callCreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	out := new(CreateServiceResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
-	if err != nil {
-		twerr, ok := err.(twirp.Error)
-		if !ok {
-			twerr = twirp.InternalErrorWith(err)
-		}
-		callClientError(ctx, c.opts.Hooks, twerr)
-		return nil, err
-	}
-
-	callClientResponseReceived(ctx, c.opts.Hooks)
-
-	return out, nil
-}
-
-func (c *steadyJSONClient) CreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
-	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	caller := c.callCreateServiceVersion
-	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-			resp, err := c.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
-					}
-					return c.callCreateServiceVersion(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-	return caller(ctx, in)
-}
-
-func (c *steadyJSONClient) callCreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	out := new(CreateServiceVersionResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
-	if err != nil {
-		twerr, ok := err.(twirp.Error)
-		if !ok {
-			twerr = twirp.InternalErrorWith(err)
-		}
-		callClientError(ctx, c.opts.Hooks, twerr)
-		return nil, err
-	}
-
-	callClientResponseReceived(ctx, c.opts.Hooks)
-
-	return out, nil
-}
-
 func (c *steadyJSONClient) RunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
@@ -926,7 +734,7 @@ func (c *steadyJSONClient) RunApplication(ctx context.Context, in *RunApplicatio
 
 func (c *steadyJSONClient) callRunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
 	out := new(RunApplicationResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[7], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -972,7 +780,7 @@ func (c *steadyJSONClient) GetApplication(ctx context.Context, in *GetApplicatio
 
 func (c *steadyJSONClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
 	out := new(GetApplicationResponse)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[8], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -1098,12 +906,6 @@ func (s *steadyServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 		return
 	case "ValidateToken":
 		s.serveValidateToken(ctx, resp, req)
-		return
-	case "CreateService":
-		s.serveCreateService(ctx, resp, req)
-		return
-	case "CreateServiceVersion":
-		s.serveCreateServiceVersion(ctx, resp, req)
 		return
 	case "RunApplication":
 		s.serveRunApplication(ctx, resp, req)
@@ -1995,366 +1797,6 @@ func (s *steadyServer) serveValidateTokenProtobuf(ctx context.Context, resp http
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *ValidateTokenResponse and nil error while calling ValidateToken. nil responses are not supported"))
-		return
-	}
-
-	ctx = callResponsePrepared(ctx, s.hooks)
-
-	respBytes, err := proto.Marshal(respContent)
-	if err != nil {
-		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
-		return
-	}
-
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
-	resp.Header().Set("Content-Type", "application/protobuf")
-	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
-	resp.WriteHeader(http.StatusOK)
-	if n, err := resp.Write(respBytes); err != nil {
-		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
-		twerr := twirp.NewError(twirp.Unknown, msg)
-		ctx = callError(ctx, s.hooks, twerr)
-	}
-	callResponseSent(ctx, s.hooks)
-}
-
-func (s *steadyServer) serveCreateService(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	header := req.Header.Get("Content-Type")
-	i := strings.Index(header, ";")
-	if i == -1 {
-		i = len(header)
-	}
-	switch strings.TrimSpace(strings.ToLower(header[:i])) {
-	case "application/json":
-		s.serveCreateServiceJSON(ctx, resp, req)
-	case "application/protobuf":
-		s.serveCreateServiceProtobuf(ctx, resp, req)
-	default:
-		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
-		twerr := badRouteError(msg, req.Method, req.URL.Path)
-		s.writeError(ctx, resp, twerr)
-	}
-}
-
-func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	ctx, err = callRequestRouted(ctx, s.hooks)
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-
-	d := json.NewDecoder(req.Body)
-	rawReqBody := json.RawMessage{}
-	if err := d.Decode(&rawReqBody); err != nil {
-		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
-		return
-	}
-	reqContent := new(CreateServiceRequest)
-	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
-	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
-		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
-		return
-	}
-
-	handler := s.Steady.CreateService
-	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
-			resp, err := s.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
-					}
-					return s.Steady.CreateService(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-
-	// Call service method
-	var respContent *CreateServiceResponse
-	func() {
-		defer ensurePanicResponses(ctx, resp, s.hooks)
-		respContent, err = handler(ctx, reqContent)
-	}()
-
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceResponse and nil error while calling CreateService. nil responses are not supported"))
-		return
-	}
-
-	ctx = callResponsePrepared(ctx, s.hooks)
-
-	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
-	respBytes, err := marshaler.Marshal(respContent)
-	if err != nil {
-		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
-		return
-	}
-
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
-	resp.Header().Set("Content-Type", "application/json")
-	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
-	resp.WriteHeader(http.StatusOK)
-
-	if n, err := resp.Write(respBytes); err != nil {
-		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
-		twerr := twirp.NewError(twirp.Unknown, msg)
-		ctx = callError(ctx, s.hooks, twerr)
-	}
-	callResponseSent(ctx, s.hooks)
-}
-
-func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	ctx, err = callRequestRouted(ctx, s.hooks)
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-
-	buf, err := io.ReadAll(req.Body)
-	if err != nil {
-		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
-		return
-	}
-	reqContent := new(CreateServiceRequest)
-	if err = proto.Unmarshal(buf, reqContent); err != nil {
-		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
-		return
-	}
-
-	handler := s.Steady.CreateService
-	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
-			resp, err := s.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
-					}
-					return s.Steady.CreateService(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-
-	// Call service method
-	var respContent *CreateServiceResponse
-	func() {
-		defer ensurePanicResponses(ctx, resp, s.hooks)
-		respContent, err = handler(ctx, reqContent)
-	}()
-
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceResponse and nil error while calling CreateService. nil responses are not supported"))
-		return
-	}
-
-	ctx = callResponsePrepared(ctx, s.hooks)
-
-	respBytes, err := proto.Marshal(respContent)
-	if err != nil {
-		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
-		return
-	}
-
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
-	resp.Header().Set("Content-Type", "application/protobuf")
-	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
-	resp.WriteHeader(http.StatusOK)
-	if n, err := resp.Write(respBytes); err != nil {
-		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
-		twerr := twirp.NewError(twirp.Unknown, msg)
-		ctx = callError(ctx, s.hooks, twerr)
-	}
-	callResponseSent(ctx, s.hooks)
-}
-
-func (s *steadyServer) serveCreateServiceVersion(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	header := req.Header.Get("Content-Type")
-	i := strings.Index(header, ";")
-	if i == -1 {
-		i = len(header)
-	}
-	switch strings.TrimSpace(strings.ToLower(header[:i])) {
-	case "application/json":
-		s.serveCreateServiceVersionJSON(ctx, resp, req)
-	case "application/protobuf":
-		s.serveCreateServiceVersionProtobuf(ctx, resp, req)
-	default:
-		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
-		twerr := badRouteError(msg, req.Method, req.URL.Path)
-		s.writeError(ctx, resp, twerr)
-	}
-}
-
-func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	ctx, err = callRequestRouted(ctx, s.hooks)
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-
-	d := json.NewDecoder(req.Body)
-	rawReqBody := json.RawMessage{}
-	if err := d.Decode(&rawReqBody); err != nil {
-		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
-		return
-	}
-	reqContent := new(CreateServiceVersionRequest)
-	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
-	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
-		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
-		return
-	}
-
-	handler := s.Steady.CreateServiceVersion
-	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-			resp, err := s.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
-					}
-					return s.Steady.CreateServiceVersion(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-
-	// Call service method
-	var respContent *CreateServiceVersionResponse
-	func() {
-		defer ensurePanicResponses(ctx, resp, s.hooks)
-		respContent, err = handler(ctx, reqContent)
-	}()
-
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceVersionResponse and nil error while calling CreateServiceVersion. nil responses are not supported"))
-		return
-	}
-
-	ctx = callResponsePrepared(ctx, s.hooks)
-
-	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
-	respBytes, err := marshaler.Marshal(respContent)
-	if err != nil {
-		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
-		return
-	}
-
-	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
-	resp.Header().Set("Content-Type", "application/json")
-	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
-	resp.WriteHeader(http.StatusOK)
-
-	if n, err := resp.Write(respBytes); err != nil {
-		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
-		twerr := twirp.NewError(twirp.Unknown, msg)
-		ctx = callError(ctx, s.hooks, twerr)
-	}
-	callResponseSent(ctx, s.hooks)
-}
-
-func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
-	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	ctx, err = callRequestRouted(ctx, s.hooks)
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-
-	buf, err := io.ReadAll(req.Body)
-	if err != nil {
-		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
-		return
-	}
-	reqContent := new(CreateServiceVersionRequest)
-	if err = proto.Unmarshal(buf, reqContent); err != nil {
-		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
-		return
-	}
-
-	handler := s.Steady.CreateServiceVersion
-	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-			resp, err := s.interceptor(
-				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
-					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
-					}
-					return s.Steady.CreateServiceVersion(ctx, typedReq)
-				},
-			)(ctx, req)
-			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
-				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
-				}
-				return typedResp, err
-			}
-			return nil, err
-		}
-	}
-
-	// Call service method
-	var respContent *CreateServiceVersionResponse
-	func() {
-		defer ensurePanicResponses(ctx, resp, s.hooks)
-		respContent, err = handler(ctx, reqContent)
-	}()
-
-	if err != nil {
-		s.writeError(ctx, resp, err)
-		return
-	}
-	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceVersionResponse and nil error while calling CreateServiceVersion. nil responses are not supported"))
 		return
 	}
 
@@ -3319,52 +2761,42 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 739 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x56, 0x5d, 0x4f, 0x13, 0x4d,
-	0x14, 0x7e, 0x77, 0x5b, 0xda, 0x97, 0x03, 0x5d, 0x9a, 0xa1, 0x45, 0xb2, 0x80, 0x31, 0xa3, 0x46,
-	0x05, 0x52, 0x14, 0x6f, 0xd4, 0x68, 0x22, 0x35, 0x42, 0x9b, 0x78, 0xb5, 0x55, 0x2e, 0x48, 0x4c,
-	0xb3, 0x74, 0x47, 0xd8, 0x48, 0x77, 0xcb, 0x7e, 0x10, 0xfc, 0x07, 0x24, 0xfe, 0x06, 0xff, 0xab,
-	0xd9, 0xf9, 0x68, 0x77, 0x66, 0x67, 0x91, 0x9a, 0x78, 0xd5, 0x3d, 0x33, 0xe7, 0xe3, 0x79, 0x9e,
-	0x99, 0x39, 0xa7, 0xb0, 0x1c, 0x27, 0xc4, 0xf5, 0x7e, 0x74, 0x26, 0x51, 0x98, 0x84, 0xa8, 0xc1,
-	0x2d, 0xf6, 0x83, 0xdf, 0xc3, 0xf2, 0xa7, 0xf0, 0xcc, 0x0f, 0x1c, 0x72, 0x99, 0x92, 0x38, 0x41,
-	0x36, 0xfc, 0x9f, 0xc6, 0x24, 0x0a, 0xdc, 0x31, 0x59, 0x37, 0x1e, 0x18, 0x4f, 0x17, 0x9d, 0xa9,
-	0x8d, 0x5a, 0xb0, 0x40, 0xc6, 0xae, 0x7f, 0xb1, 0x6e, 0xd2, 0x0d, 0x66, 0xe0, 0x57, 0xd0, 0xe0,
-	0x19, 0xe2, 0x49, 0x18, 0xc4, 0x04, 0x3d, 0x81, 0x6a, 0x16, 0x42, 0xc3, 0x97, 0xf6, 0x57, 0x3b,
-	0x52, 0xc1, 0xce, 0x97, 0x98, 0x44, 0x0e, 0x75, 0xc0, 0x07, 0xd0, 0x18, 0xf8, 0x67, 0x41, 0x3a,
-	0xf9, 0xfb, 0xe2, 0xaf, 0xc1, 0x12, 0x29, 0xe6, 0xad, 0xfe, 0x8e, 0xe2, 0x0e, 0xd3, 0x44, 0x54,
-	0xdf, 0x05, 0x94, 0x6d, 0x0c, 0x63, 0x12, 0xc7, 0x7e, 0x18, 0x0c, 0x93, 0xf0, 0x3b, 0x09, 0x38,
-	0x8e, 0x66, 0xb6, 0x33, 0x60, 0x1b, 0x9f, 0xb3, 0x75, 0xdc, 0x04, 0x4b, 0x84, 0xb3, 0xca, 0xb8,
-	0x07, 0xd5, 0x2c, 0x3d, 0xb2, 0xc0, 0xf4, 0x3d, 0x1a, 0x57, 0x71, 0x4c, 0xdf, 0x93, 0x58, 0x99,
-	0x65, 0xac, 0x2a, 0x79, 0x56, 0x4d, 0xb0, 0x8e, 0x48, 0x42, 0xb1, 0x32, 0x6c, 0xf8, 0x0d, 0xac,
-	0x4c, 0x57, 0xe6, 0x25, 0xba, 0x0b, 0xad, 0x63, 0xf7, 0xc2, 0xf7, 0xdc, 0x84, 0x50, 0xe8, 0x82,
-	0x6f, 0x0b, 0x16, 0xf2, 0x14, 0x99, 0x81, 0x03, 0x68, 0x2b, 0xde, 0x73, 0xd6, 0x2b, 0xd1, 0xd1,
-	0x2c, 0xd1, 0x71, 0x1b, 0x5a, 0x1f, 0x22, 0xe2, 0x26, 0x64, 0x40, 0xa2, 0x2b, 0x7f, 0x44, 0x04,
-	0x3a, 0x04, 0xd5, 0xdc, 0x3d, 0xa0, 0xdf, 0xb8, 0x0f, 0x6d, 0xc5, 0x97, 0x63, 0x7b, 0x0e, 0xf5,
-	0x98, 0x2d, 0x71, 0x78, 0x6b, 0x0a, 0x3c, 0x11, 0x20, 0xdc, 0xf0, 0x21, 0xd4, 0xf9, 0x9a, 0xae,
-	0x12, 0x3f, 0x43, 0x73, 0x7a, 0x86, 0xf7, 0xa0, 0x4e, 0x39, 0xf9, 0x1e, 0x3d, 0xa9, 0x8a, 0x53,
-	0xcb, 0xcc, 0xbe, 0x87, 0x03, 0xd8, 0x90, 0x20, 0x1d, 0x93, 0x28, 0xe3, 0x26, 0x58, 0x6c, 0x01,
-	0xf0, 0x8a, 0xc3, 0xe9, 0x9d, 0x58, 0xe4, 0x2b, 0x7d, 0x0f, 0xad, 0x43, 0xfd, 0x8a, 0x05, 0x70,
-	0x7d, 0x84, 0x89, 0xd6, 0xa0, 0x16, 0x87, 0x69, 0x34, 0x22, 0xfc, 0x66, 0x70, 0x0b, 0x7f, 0x83,
-	0x4d, 0x7d, 0x3d, 0xae, 0xc4, 0x21, 0xac, 0x88, 0x82, 0x22, 0x33, 0x53, 0x64, 0x4b, 0xaf, 0x88,
-	0x88, 0xb7, 0x62, 0xc9, 0xc6, 0x97, 0x60, 0xc9, 0x1e, 0x85, 0x6b, 0x2d, 0x53, 0x33, 0x6f, 0xa1,
-	0x56, 0x29, 0xa3, 0x56, 0x95, 0xa8, 0xfd, 0x32, 0xa0, 0xed, 0xa4, 0xc1, 0xc1, 0x64, 0x72, 0xe1,
-	0x8f, 0xdc, 0x24, 0xa7, 0xa2, 0xee, 0x84, 0x5e, 0x00, 0x52, 0x88, 0x4e, 0x61, 0xf4, 0xfe, 0x73,
-	0x9a, 0x32, 0x9d, 0xbe, 0x77, 0x63, 0x18, 0x68, 0x43, 0xd6, 0xb4, 0x67, 0x88, 0xd2, 0x37, 0x86,
-	0xd1, 0x6d, 0xc3, 0xea, 0xb0, 0x98, 0xb0, 0xbb, 0x08, 0xf5, 0x21, 0xc7, 0x77, 0x0e, 0x6b, 0x2a,
-	0x3c, 0x2e, 0xfa, 0x5b, 0x58, 0x72, 0x67, 0xcb, 0x5c, 0x70, 0x5b, 0x11, 0x3c, 0x1f, 0x98, 0x77,
-	0x47, 0x4d, 0xa8, 0xa4, 0x91, 0xe8, 0x6b, 0xd9, 0x27, 0xbe, 0x86, 0xa5, 0x9c, 0x77, 0x41, 0xf9,
-	0xdd, 0x72, 0xea, 0x45, 0xe2, 0xa5, 0x57, 0x77, 0xaa, 0x6a, 0x35, 0xf7, 0xc2, 0x76, 0xa0, 0x7d,
-	0x44, 0x92, 0xbb, 0x1d, 0x41, 0x26, 0x88, 0xea, 0xfc, 0x6f, 0x04, 0xd9, 0xff, 0x59, 0x83, 0xda,
-	0x80, 0x46, 0xa1, 0x2e, 0x2c, 0xd0, 0x71, 0x83, 0x36, 0x94, 0x74, 0xf9, 0x31, 0x66, 0x6f, 0xea,
-	0x37, 0x39, 0xbc, 0x8f, 0x50, 0x63, 0x53, 0x03, 0xa9, 0x7e, 0xd2, 0x3c, 0xb2, 0xb7, 0x4a, 0x76,
-	0x67, 0x69, 0xd8, 0x08, 0x40, 0x9a, 0x72, 0xb3, 0xc1, 0x52, 0x48, 0x23, 0xcf, 0x0d, 0xd4, 0x83,
-	0x3a, 0xef, 0xed, 0x48, 0xf5, 0x94, 0xa7, 0x80, 0x7d, 0xbf, 0x6c, 0x9b, 0x67, 0x3a, 0x81, 0x86,
-	0xd4, 0xbb, 0xd1, 0x43, 0x25, 0x40, 0x37, 0x07, 0xec, 0x47, 0xb7, 0x3b, 0xcd, 0x72, 0x4b, 0x8d,
-	0xa7, 0x90, 0x5b, 0xd7, 0xc5, 0x0b, 0xb9, 0xf5, 0xed, 0x3b, 0x54, 0x66, 0x80, 0x68, 0x39, 0xdb,
-	0xb7, 0x45, 0xcb, 0x9d, 0xd6, 0xde, 0xb9, 0x93, 0x2f, 0x2f, 0xf8, 0x15, 0x2c, 0xf9, 0x29, 0x23,
-	0x15, 0xa8, 0xb6, 0x11, 0xd9, 0x8f, 0xff, 0xe0, 0x35, 0x4b, 0x2f, 0x3f, 0x8c, 0x42, 0x7a, 0xed,
-	0x23, 0x2b, 0xa4, 0xd7, 0xbf, 0xae, 0xee, 0xce, 0xc9, 0xb3, 0x33, 0x3f, 0x39, 0x4f, 0x4f, 0x3b,
-	0xa3, 0x70, 0xbc, 0x37, 0x76, 0xaf, 0xc7, 0x23, 0x6f, 0x8f, 0x85, 0xc8, 0x3f, 0xd1, 0x64, 0x74,
-	0x5a, 0xa3, 0x7f, 0xfb, 0x5e, 0xfe, 0x0e, 0x00, 0x00, 0xff, 0xff, 0xd5, 0x5d, 0x18, 0xbe, 0x06,
-	0x0a, 0x00, 0x00,
+	// 592 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0xdb, 0x6e, 0xd3, 0x40,
+	0x10, 0xc5, 0xb9, 0xd2, 0x49, 0x13, 0xa2, 0x69, 0x02, 0x95, 0x0b, 0x08, 0x19, 0x10, 0xa0, 0x46,
+	0xa9, 0x28, 0x2f, 0x80, 0x40, 0xa2, 0x91, 0x50, 0x53, 0x89, 0x27, 0x07, 0xfa, 0x50, 0x09, 0x45,
+	0xae, 0xbd, 0x4a, 0x57, 0x24, 0x5e, 0xe3, 0x5d, 0x57, 0xe5, 0x0f, 0xfa, 0x13, 0xfc, 0x0a, 0xdf,
+	0x86, 0xbc, 0xbb, 0x49, 0x7c, 0x05, 0x82, 0xd4, 0xa7, 0x78, 0x3c, 0x67, 0xce, 0xcc, 0x1c, 0xcf,
+	0x4c, 0x60, 0x9b, 0x0b, 0xe2, 0x78, 0x3f, 0x86, 0x41, 0xc8, 0x04, 0xc3, 0xb6, 0xb6, 0xd4, 0x8f,
+	0xf5, 0x01, 0xb6, 0x3f, 0xb1, 0x19, 0xf5, 0x6d, 0xf2, 0x3d, 0x22, 0x5c, 0xa0, 0x09, 0xb7, 0x23,
+	0x4e, 0x42, 0xdf, 0x59, 0x90, 0x5d, 0xe3, 0x91, 0xf1, 0x7c, 0xcb, 0x5e, 0xd9, 0xd8, 0x83, 0x3a,
+	0x59, 0x38, 0x74, 0xbe, 0x5b, 0x91, 0x0e, 0x65, 0x58, 0xaf, 0xa1, 0xad, 0x19, 0x78, 0xc0, 0x7c,
+	0x4e, 0xf0, 0x19, 0xd4, 0xe2, 0x10, 0x19, 0xde, 0x3a, 0xdc, 0x19, 0xa6, 0x12, 0x0e, 0xbf, 0x70,
+	0x12, 0xda, 0x12, 0x60, 0x1d, 0x41, 0x7b, 0x42, 0x67, 0x7e, 0x14, 0xfc, 0x7f, 0xf2, 0x37, 0xd0,
+	0x59, 0x52, 0x6c, 0x9a, 0xfd, 0xbd, 0xac, 0x9b, 0x45, 0x62, 0x99, 0x7d, 0x00, 0x18, 0x3b, 0xa6,
+	0x9c, 0x70, 0x4e, 0x99, 0x3f, 0x15, 0xec, 0x1b, 0xf1, 0x75, 0x1d, 0xdd, 0xd8, 0x33, 0x51, 0x8e,
+	0xcf, 0xf1, 0x7b, 0xab, 0x0b, 0x9d, 0x65, 0xb8, 0xca, 0x6c, 0x8d, 0xa1, 0x16, 0xd3, 0x63, 0x07,
+	0x2a, 0xd4, 0x93, 0x71, 0x55, 0xbb, 0x42, 0xbd, 0x54, 0x57, 0x95, 0xb2, 0xae, 0xaa, 0xc9, 0xae,
+	0xba, 0xd0, 0x39, 0x26, 0x42, 0xd6, 0xaa, 0x6a, 0xb3, 0xde, 0xc2, 0x9d, 0xd5, 0x9b, 0x4d, 0x1b,
+	0x1d, 0x40, 0xef, 0xd4, 0x99, 0x53, 0xcf, 0x11, 0x44, 0x96, 0xbe, 0xec, 0xb7, 0x07, 0xf5, 0x64,
+	0x8b, 0xca, 0xb0, 0x7c, 0xe8, 0x67, 0xd0, 0x1b, 0xe6, 0x2b, 0xd1, 0xb1, 0x52, 0xa2, 0xe3, 0x4f,
+	0x03, 0xfa, 0x76, 0xe4, 0x1f, 0x05, 0xc1, 0x9c, 0xba, 0x8e, 0xa0, 0x6c, 0x55, 0x1f, 0x42, 0x2d,
+	0x31, 0x09, 0xf2, 0x19, 0x5f, 0x02, 0x72, 0x12, 0x5e, 0x52, 0x97, 0x4c, 0x2f, 0x49, 0x28, 0xe9,
+	0xa9, 0x27, 0xb9, 0xab, 0xe3, 0x5b, 0x76, 0x57, 0xfb, 0x4e, 0x95, 0xeb, 0xc4, 0xbb, 0x36, 0x0c,
+	0xdc, 0x83, 0x06, 0x67, 0x51, 0xe8, 0x12, 0xa5, 0xf1, 0xd8, 0xb0, 0xb5, 0x7d, 0x6d, 0x18, 0xa3,
+	0x3e, 0xec, 0x4c, 0xf3, 0x84, 0xa3, 0x2d, 0x68, 0x4e, 0x15, 0xc8, 0xba, 0x80, 0xbb, 0xd9, 0xf2,
+	0xb4, 0x20, 0xef, 0xa0, 0xe5, 0xac, 0x5f, 0x6b, 0x5d, 0xcc, 0x8c, 0x2e, 0xc9, 0xc0, 0x24, 0x1c,
+	0xbb, 0x50, 0x8d, 0xc2, 0xe5, 0x34, 0xc7, 0x8f, 0xd6, 0x15, 0xb4, 0x12, 0xe8, 0xdc, 0x18, 0x0d,
+	0xca, 0x5b, 0xcf, 0x37, 0x8e, 0xf7, 0xa0, 0x29, 0x3f, 0x02, 0xf5, 0x64, 0xdb, 0x55, 0xbb, 0x11,
+	0x9b, 0x27, 0xde, 0x4a, 0xd5, 0xda, 0x5a, 0x55, 0x6b, 0x1f, 0xfa, 0xc7, 0x44, 0xfc, 0xdb, 0x27,
+	0x88, 0x05, 0xc9, 0x82, 0x6f, 0x46, 0x90, 0xc3, 0x5f, 0x35, 0x68, 0x4c, 0x64, 0x14, 0x8e, 0xa0,
+	0x2e, 0x8f, 0x0c, 0xee, 0x65, 0xe8, 0x92, 0xc7, 0xcb, 0xbc, 0x5f, 0xec, 0xd4, 0xe5, 0x7d, 0x84,
+	0x86, 0xba, 0x15, 0x98, 0xc5, 0xa5, 0xae, 0x90, 0xf9, 0xa0, 0xc4, 0xbb, 0xa6, 0x51, 0x8b, 0x8f,
+	0x05, 0xe9, 0xd6, 0xe7, 0x24, 0x47, 0x93, 0xbe, 0x16, 0x38, 0x86, 0xa6, 0xde, 0x68, 0xcc, 0x22,
+	0xd3, 0xbb, 0x6f, 0x3e, 0x2c, 0x73, 0x6b, 0xa6, 0x33, 0x68, 0xa7, 0x36, 0x16, 0x1f, 0x67, 0x02,
+	0x8a, 0xb6, 0xdf, 0x7c, 0xf2, 0x67, 0x90, 0xe6, 0xfe, 0x0a, 0x9d, 0xf4, 0xf4, 0x63, 0x36, 0xae,
+	0x70, 0x77, 0xcd, 0xa7, 0x7f, 0x41, 0xad, 0xe9, 0xd3, 0xb3, 0x94, 0xa3, 0x2f, 0x9c, 0xcb, 0x1c,
+	0x7d, 0xf1, 0x40, 0x8e, 0xf6, 0xcf, 0x5e, 0xcc, 0xa8, 0xb8, 0x88, 0xce, 0x87, 0x2e, 0x5b, 0x1c,
+	0x2c, 0x9c, 0xab, 0x85, 0xeb, 0x1d, 0xa8, 0x90, 0xf4, 0x4f, 0x18, 0xb8, 0xe7, 0x0d, 0xf9, 0xff,
+	0xf8, 0xea, 0x77, 0x00, 0x00, 0x00, 0xff, 0xff, 0x09, 0xc2, 0xfc, 0x72, 0x2f, 0x07, 0x00, 0x00,
 }

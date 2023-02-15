@@ -187,43 +187,14 @@ func (s *Server) Logout(ctx context.Context, req *steadyrpc.LogoutRequest) (_ *s
 	return &steadyrpc.LogoutResponse{}, s.db.DeleteUserSession(ctx, userSession.Token)
 }
 
-func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.CreateServiceVersionRequest) (
-	_ *steadyrpc.CreateServiceVersionResponse, err error) {
-	if _, err := s.db.GetService(ctx, db.GetServiceParams{
-		UserID: 1,
-		ID:     req.ServiceId,
-	}); err != nil {
-		return nil, err
-	}
-
-	serviceVersion, err := s.db.CreateServiceVersion(ctx, db.CreateServiceVersionParams{
-		ServiceID: req.ServiceId,
-		Version:   req.Version,
-		Source:    req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &steadyrpc.CreateServiceVersionResponse{
-		ServiceVersion: &steadyrpc.ServiceVersion{
-			Id:        serviceVersion.ID,
-			ServiceId: serviceVersion.ServiceID,
-			Version:   serviceVersion.Version,
-			Source:    serviceVersion.Source,
-		},
-	}, nil
-}
-
 func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicationRequest) (
 	_ *steadyrpc.RunApplicationResponse, err error) {
 	if req.Name == "" {
 		req.Name = steadyutil.RandomString(8)
 	}
 	app, err := s.db.CreateApplication(ctx, db.CreateApplicationParams{
-		Name:             req.Name,
-		UserID:           sql.NullInt64{},
-		ServiceVersionID: sql.NullInt64{},
+		Name:   req.Name,
+		UserID: sql.NullInt64{},
 	})
 	if err != nil {
 		return nil, err
@@ -260,10 +231,9 @@ func (s *Server) GetApplication(ctx context.Context, req *steadyrpc.GetApplicati
 
 	return &steadyrpc.GetApplicationResponse{
 		Application: &steadyrpc.Application{
-			Name:             resp.Name,
-			ServiceVersionId: resp.ServiceVersionID.Int64,
-			UserId:           resp.UserID.Int64,
-			Id:               resp.ID,
+			Name:   resp.Name,
+			UserId: resp.UserID.Int64,
+			Id:     resp.ID,
 		},
 		Url: s.appURL(resp.Name),
 	}, nil

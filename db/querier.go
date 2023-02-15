@@ -13,10 +13,6 @@ type Querier interface {
 	CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error)
 	//
 	CreateLoginToken(ctx context.Context, arg CreateLoginTokenParams) (LoginToken, error)
-	//
-	CreateService(ctx context.Context, arg CreateServiceParams) (Service, error)
-	//
-	CreateServiceVersion(ctx context.Context, arg CreateServiceVersionParams) (ServiceVersion, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (User, error)
 	//
 	CreateUserSession(ctx context.Context, arg CreateUserSessionParams) (UserSession, error)
@@ -24,14 +20,10 @@ type Querier interface {
 	DeleteUserSession(ctx context.Context, token string) error
 	GetApplication(ctx context.Context, name string) (Application, error)
 	GetLoginToken(ctx context.Context, token string) (LoginToken, error)
-	GetService(ctx context.Context, arg GetServiceParams) (Service, error)
-	GetServiceVersion(ctx context.Context, id int64) (ServiceVersion, error)
-	GetServiceVersions(ctx context.Context, serviceID int64) ([]ServiceVersion, error)
 	GetUser(ctx context.Context, id int64) (User, error)
 	//
 	GetUserApplications(ctx context.Context, userID sql.NullInt64) ([]Application, error)
 	GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error)
-	GetUserServices(ctx context.Context, userID int64) ([]Service, error)
 	GetUserSession(ctx context.Context, token string) (UserSession, error)
 }
 

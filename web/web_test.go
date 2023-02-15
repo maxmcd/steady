@@ -100,7 +100,7 @@ func (suite *Suite) TestUserSignup() {
 		suite.Equal(http.StatusOK, resp.StatusCode)
 		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
-		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.Emails[0], nil))
+		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
 		fmt.Println(resp.Cookies())
 		suite.Equal(http.StatusOK, resp.StatusCode)
 		suite.Equal("profile",
@@ -115,6 +115,28 @@ func (suite *Suite) TestUserSignup() {
 	})
 
 	suite.Run("can log out", func() {
+		// Cookie store is still signed in from previous test
+		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr+"/logout", nil))
+		suite.Equal(resp.Request.URL.Path, "/")
+		suite.Contains(suite.findInDoc(doc, ".flash"), "logged out")
+		suite.Equal("login / signup", suite.findInDoc(doc, "a[href$='/login']"))
+	})
+
+	suite.Run("can log in again", func() {
+		signupForm := url.Values{"username_or_email": {"steady"}}
+		resp, doc := suite.postForm(addr+"/login", signupForm)
+		suite.Equal(http.StatusOK, resp.StatusCode)
+		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
+
+		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
+		fmt.Println(resp.Cookies())
+		suite.Equal(http.StatusOK, resp.StatusCode)
+		suite.Equal("profile",
+			suite.findInDoc(doc, ".header a[href$='/@steady']"))
+		suite.findInDoc(doc, ".header a[href$='/logout']")
+	})
+
+	suite.Run("can log out again", func() {
 		// Cookie store is still signed in from previous test
 		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr+"/logout", nil))
 		suite.Equal(resp.Request.URL.Path, "/")
