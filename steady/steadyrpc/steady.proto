@@ -5,56 +5,68 @@ package steady.steady;
 option go_package = "github.com/maxmcd/steady/steady/steadyrpc";
 
 service Steady {
-
-  rpc CreateService(CreateServiceRequest) returns (CreateServiceResponse);
-  rpc CreateServiceVersion(CreateServiceVersionRequest)
-      returns (CreateServiceVersionResponse);
-  rpc DeployApplication(DeployApplicationRequeast)
-      returns (DeployApplicationResponse);
-  rpc DeploySource(DeploySourceRequest) returns (DeploySourceResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc Signup(SignupRequest) returns (SignupResponse);
+  rpc Logout(LogoutRequest) returns (LogoutResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
+  rpc RunApplication(RunApplicationRequest) returns (RunApplicationResponse);
+  rpc GetApplication(GetApplicationRequest) returns (GetApplicationResponse);
 }
 
-message CreateServiceRequest { string name = 1; }
 
-message CreateServiceResponse { Service service = 1; }
+message LoginRequest {
+  string username = 1;
+  string email = 2;
+}
 
-message Service {
+message LoginResponse { User user = 1; }
+
+message SignupRequest {
+  string username = 1;
+  string email = 2;
+}
+
+message SignupResponse { User user = 1; }
+
+message LogoutRequest {}
+
+message LogoutResponse {}
+
+message User {
+  int64 id = 1;
+  string username = 2;
+  string email = 3;
+}
+
+message GetUserRequest {}
+message GetUserResponse { User user = 1; }
+
+message ValidateTokenRequest { string token = 1; }
+message ValidateTokenResponse {
+  User user = 1;
+  string user_session_token = 2;
+}
+
+message RunApplicationRequest {
   string name = 1;
-  int64 id = 2;
-  int64 user_id = 3;
-}
-
-message CreateServiceVersionRequest {
-  int64 service_id = 1;
-  string version = 2;
   string source = 3;
 }
 
-message CreateServiceVersionResponse { ServiceVersion service_version = 1; }
-
-message ServiceVersion {
-  int64 id = 1;
-  int64 service_id = 2;
-  string version = 3;
-  string source = 4;
-}
-
-message DeployApplicationRequeast {
-  int64 service_version_id = 1;
-  string name = 2;
-}
-
-message DeployApplicationResponse {
+message RunApplicationResponse {
   Application application = 1;
   string url = 2;
 }
 
 message Application {
   int64 id = 1;
-  int64 service_version_id = 2;
-  int64 user_id = 3;
-  string name = 4;
+  int64 user_id = 2;
+  string name = 3;
 }
 
-message DeploySourceRequest { string source = 1; }
-message DeploySourceResponse { string url = 1; }
+message GetApplicationRequest { string name = 1; }
+
+message GetApplicationResponse {
+  Application application = 1;
+  string url = 2;
+}

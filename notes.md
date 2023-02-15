@@ -1,3 +1,41 @@
+# 2023-02-14
+
+Things to do:
+
+- Logs and streaming logs to frontend
+- Multiple files in editor
+- Editing application code and updating (w/ validation)
+- Migration of new machine, draining applications
+- GC of temporary applications
+- Sqlite in daemon
+- Design bun daemon
+- Crons
+
+# 2023-02-12
+
+Run application
+
+- Submit form with index.ts contents
+- Generates random app name
+- Apps are anonymous, or they are owned by a user, can be associated with source, or not
+- Globally unique names
+- Running an application will run the app and take you to a page with metadata
+-
+
+# 2023-02-10
+
+- Zig web server
+- Bun process spawner
+- Build in sandboxed filesystem and disabled network
+- Have observability platform
+- Thread per process for tcp io_uring load balancer
+- litestream go subprocess
+- twirp for some coms
+- heavy duckdb and sqlite use
+- worflow per user backed by sqlite, their session. nickname per session for guests. workflows handle state changes and transactional data, private networking. passwords, encrypted data, workflows take action like selecting a backup to roll back to
+- core services are just applications, they write to the same application pages, get the same observability
+
+
 # 2023-02-03
 
 Loadbalancer gets *.steady.page

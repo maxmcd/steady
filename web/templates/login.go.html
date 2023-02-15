@@ -1,0 +1,57 @@
+{{ template "header" . }}
+
+
+<br />
+<br />
+
+<b>Login</b>
+<form action="/login" method="POST">
+  <table border="0">
+    <tbody>
+      <tr>
+        <td>username or email:</td>
+        <td>
+          <input type="text" name="username_or_email" size="20" autocorrect="off" spellcheck="false"
+            autocapitalize="off" autofocus="true" />
+        </td>
+      </tr>
+      {{ if .login_error }}
+      <tr>
+        <td colspan="2" class="error">{{ .login_error }}</td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+  <input type="submit" value="login" />
+</form>
+
+<br />
+<br />
+
+<b>Signup</b>
+<form action="/signup" method="POST">
+  <table border="0">
+    <tbody>
+      <tr>
+        <td>username:</td>
+        <td> <input type="text" name="username" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        </td>
+      </tr>
+      <tr>
+        <td>email:</td>
+        <td> <input type="text" name="email" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        </td>
+      </tr>
+      {{ if .signup_error }}
+      <tr>
+        <td colspan="2" class="error">{{ .signup_error }}</td>
+      </tr>
+      {{ end }}
+    </tbody>
+  </table>
+  <input type="submit" value="signup" />
+</form>
+
+<p><i>After you sign up or log in, you'll receive an email with a login link.</i></p>
+
+{{ template "footer" . }}

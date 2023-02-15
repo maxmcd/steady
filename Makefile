@@ -5,7 +5,7 @@ SHELL := nix-shell
 .PHONY: test generate
 
 test:
-	go test -v -count=1 -cover -race ./...
+	go test -v -count=1 -cover ./...
 
 test_ci:
 	go test -v \
@@ -14,7 +14,7 @@ test_ci:
 	codecov
 
 generate:
-	go generate ./...
+	go generate -x ./...
 
 lint:
 	golangci-lint run --timeout=3m

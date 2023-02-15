@@ -7,47 +7,42 @@ package db
 
 import (
 	"context"
+	"database/sql"
 )
 
-const createService = `-- name: CreateService :one
-INSERT INTO services (name, user_id)
-VALUES (?, ?)
-RETURNING id, name, user_id
+const createApplication = `-- name: CreateApplication :one
+INSERT into applications (name, user_id)
+values (?, ?)
+RETURNING id, user_id, name
 `
 
-type CreateServiceParams struct {
+type CreateApplicationParams struct {
 	Name   string
-	UserID int64
+	UserID sql.NullInt64
 }
 
-func (q *Queries) CreateService(ctx context.Context, arg CreateServiceParams) (Service, error) {
-	row := q.queryRow(ctx, q.createServiceStmt, createService, arg.Name, arg.UserID)
-	var i Service
-	err := row.Scan(&i.ID, &i.Name, &i.UserID)
+func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
+	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.UserID)
+	var i Application
+	err := row.Scan(&i.ID, &i.UserID, &i.Name)
 	return i, err
 }
 
-const createServiceVersion = `-- name: CreateServiceVersion :one
-INSERT INTO service_versions (service_id, version, source)
-VALUES (?, ?, ?)
-RETURNING id, service_id, version, source
+const createLoginToken = `-- name: CreateLoginToken :one
+INSERT INTO login_tokens (user_id, token)
+values (?, ?)
+RETURNING user_id, token, created_at
 `
 
-type CreateServiceVersionParams struct {
-	ServiceID int64
-	Version   string
-	Source    string
+type CreateLoginTokenParams struct {
+	UserID int64
+	Token  string
 }
 
-func (q *Queries) CreateServiceVersion(ctx context.Context, arg CreateServiceVersionParams) (ServiceVersion, error) {
-	row := q.queryRow(ctx, q.createServiceVersionStmt, createServiceVersion, arg.ServiceID, arg.Version, arg.Source)
-	var i ServiceVersion
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceID,
-		&i.Version,
-		&i.Source,
-	)
+func (q *Queries) CreateLoginToken(ctx context.Context, arg CreateLoginTokenParams) (LoginToken, error) {
+	row := q.queryRow(ctx, q.createLoginTokenStmt, createLoginToken, arg.UserID, arg.Token)
+	var i LoginToken
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
 	return i, err
 }
 
@@ -69,75 +64,68 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (User, e
 	return i, err
 }
 
-const getService = `-- name: GetService :one
-SELECT id, name, user_id
-FROM services
-WHERE user_id = ?
-    and id = ?
+const createUserSession = `-- name: CreateUserSession :one
+INSERT INTO user_sessions (user_id, token)
+values (?, ?)
+RETURNING user_id, token, created_at
 `
 
-type GetServiceParams struct {
+type CreateUserSessionParams struct {
 	UserID int64
-	ID     int64
+	Token  string
 }
 
-func (q *Queries) GetService(ctx context.Context, arg GetServiceParams) (Service, error) {
-	row := q.queryRow(ctx, q.getServiceStmt, getService, arg.UserID, arg.ID)
-	var i Service
-	err := row.Scan(&i.ID, &i.Name, &i.UserID)
+func (q *Queries) CreateUserSession(ctx context.Context, arg CreateUserSessionParams) (UserSession, error) {
+	row := q.queryRow(ctx, q.createUserSessionStmt, createUserSession, arg.UserID, arg.Token)
+	var i UserSession
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
 	return i, err
 }
 
-const getServiceVersion = `-- name: GetServiceVersion :one
-SELECT id, service_id, version, source
-FROM service_versions
-WHERE id = ?
+const deleteLoginToken = `-- name: DeleteLoginToken :exec
+DELETE FROM login_tokens
+where token = ?
 `
 
-func (q *Queries) GetServiceVersion(ctx context.Context, id int64) (ServiceVersion, error) {
-	row := q.queryRow(ctx, q.getServiceVersionStmt, getServiceVersion, id)
-	var i ServiceVersion
-	err := row.Scan(
-		&i.ID,
-		&i.ServiceID,
-		&i.Version,
-		&i.Source,
-	)
+func (q *Queries) DeleteLoginToken(ctx context.Context, token string) error {
+	_, err := q.exec(ctx, q.deleteLoginTokenStmt, deleteLoginToken, token)
+	return err
+}
+
+const deleteUserSession = `-- name: DeleteUserSession :exec
+DELETE FROM user_sessions
+where token = ?
+`
+
+func (q *Queries) DeleteUserSession(ctx context.Context, token string) error {
+	_, err := q.exec(ctx, q.deleteUserSessionStmt, deleteUserSession, token)
+	return err
+}
+
+const getApplication = `-- name: GetApplication :one
+SELECT id, user_id, name
+FROM applications
+WHERE name = ?
+`
+
+func (q *Queries) GetApplication(ctx context.Context, name string) (Application, error) {
+	row := q.queryRow(ctx, q.getApplicationStmt, getApplication, name)
+	var i Application
+	err := row.Scan(&i.ID, &i.UserID, &i.Name)
 	return i, err
 }
 
-const getServiceVersions = `-- name: GetServiceVersions :many
-SELECT id, service_id, version, source
-FROM service_versions
-WHERE service_id = ?
+const getLoginToken = `-- name: GetLoginToken :one
+SELECT user_id, token, created_at
+FROM login_tokens
+WHERE token = ?
 `
 
-func (q *Queries) GetServiceVersions(ctx context.Context, serviceID int64) ([]ServiceVersion, error) {
-	rows, err := q.query(ctx, q.getServiceVersionsStmt, getServiceVersions, serviceID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ServiceVersion
-	for rows.Next() {
-		var i ServiceVersion
-		if err := rows.Scan(
-			&i.ID,
-			&i.ServiceID,
-			&i.Version,
-			&i.Source,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+func (q *Queries) GetLoginToken(ctx context.Context, token string) (LoginToken, error) {
+	row := q.queryRow(ctx, q.getLoginTokenStmt, getLoginToken, token)
+	var i LoginToken
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
 }
 
 const getUser = `-- name: GetUser :one
@@ -154,12 +142,12 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 }
 
 const getUserApplications = `-- name: GetUserApplications :many
-SELECT id, service_version_id, user_id, name
+SELECT id, user_id, name
 FROM applications
 WHERE user_id = ?
 `
 
-func (q *Queries) GetUserApplications(ctx context.Context, userID int64) ([]Application, error) {
+func (q *Queries) GetUserApplications(ctx context.Context, userID sql.NullInt64) ([]Application, error) {
 	rows, err := q.query(ctx, q.getUserApplicationsStmt, getUserApplications, userID)
 	if err != nil {
 		return nil, err
@@ -168,12 +156,7 @@ func (q *Queries) GetUserApplications(ctx context.Context, userID int64) ([]Appl
 	var items []Application
 	for rows.Next() {
 		var i Application
-		if err := rows.Scan(
-			&i.ID,
-			&i.ServiceVersionID,
-			&i.UserID,
-			&i.Name,
-		); err != nil {
+		if err := rows.Scan(&i.ID, &i.UserID, &i.Name); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -187,31 +170,34 @@ func (q *Queries) GetUserApplications(ctx context.Context, userID int64) ([]Appl
 	return items, nil
 }
 
-const getUserServices = `-- name: GetUserServices :many
-SELECT id, name, user_id
-FROM services
-WHERE user_id = ?
+const getUserByEmailOrUsername = `-- name: GetUserByEmailOrUsername :one
+SELECT id, email, username
+FROM users
+WHERE username = ?
+    OR email = ?
 `
 
-func (q *Queries) GetUserServices(ctx context.Context, userID int64) ([]Service, error) {
-	rows, err := q.query(ctx, q.getUserServicesStmt, getUserServices, userID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []Service
-	for rows.Next() {
-		var i Service
-		if err := rows.Scan(&i.ID, &i.Name, &i.UserID); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Close(); err != nil {
-		return nil, err
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
+type GetUserByEmailOrUsernameParams struct {
+	Username string
+	Email    string
+}
+
+func (q *Queries) GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error) {
+	row := q.queryRow(ctx, q.getUserByEmailOrUsernameStmt, getUserByEmailOrUsername, arg.Username, arg.Email)
+	var i User
+	err := row.Scan(&i.ID, &i.Email, &i.Username)
+	return i, err
+}
+
+const getUserSession = `-- name: GetUserSession :one
+SELECT user_id, token, created_at
+FROM user_sessions
+WHERE token = ?
+`
+
+func (q *Queries) GetUserSession(ctx context.Context, token string) (UserSession, error) {
+	row := q.queryRow(ctx, q.getUserSessionStmt, getUserSession, token)
+	var i UserSession
+	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
 }

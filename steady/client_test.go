@@ -1,30 +1,27 @@
-package steady
+package steady_test
 
 import (
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
-	"os"
 	"testing"
 
 	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
-	"github.com/maxmcd/steady/internal/daemontest"
-	"github.com/maxmcd/steady/steady/steadyrpc"
+	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/stretchr/testify/suite"
 )
 
 type TestSuite struct {
-	daemontest.DaemonSuite
+	testsuite.Suite
 }
 
 func TestTestSuite(t *testing.T) {
 	suite.Run(t, new(TestSuite))
 }
 
-func (suite *TestSuite) TestDeploy() {
+func (suite *TestSuite) TestMigrate() {
 	t := suite.T()
 
 	// Migrate job
@@ -54,7 +51,7 @@ func (suite *TestSuite) TestDeploy() {
 		suite.Equal(http.StatusNotFound, resp.StatusCode)
 	}
 
-	dClient := suite.NewClient(d)
+	dClient := suite.NewDaemonClient(d.ServerAddr())
 	if _, err := dClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
@@ -76,26 +73,27 @@ func (suite *TestSuite) TestDeploy() {
 		if err != nil {
 			t.Fatal(err)
 		}
-		suite.Require().Equal(http.StatusOK, resp.StatusCode)
 		var jsonResponse map[string]interface{}
-		suite.Require().NoError(json.NewDecoder(resp.Body).Decode(&jsonResponse))
+		_ = json.NewDecoder(resp.Body).Decode(&jsonResponse)
+
+		suite.Require().Equal(http.StatusOK, resp.StatusCode, jsonResponse)
 
 		// Here's the real test. Ensure that every time we make a request the ID
 		// increments, even through deletes/restarts
 		counter++
-		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)))
+		suite.Require().Equal(counter, int(jsonResponse["id"].(float64)), jsonResponse)
 	}
 	createRecordRequest()
 	d.StopAllApplications()
 
 	d2, _ := suite.NewDaemon()
+	d2Client := suite.NewDaemonClient(d2.ServerAddr())
 
 	// How are we finding what to move?
 	if _, err := dClient.DeleteApplication(ctx, &daemonrpc.DeleteApplicationRequest{Name: appName}); err != nil {
 		t.Fatal(err)
 	}
 
-	d2Client := suite.NewClient(d2)
 	if _, err := d2Client.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   appName,
 		Script: suite.LoadExampleScript("http"),
@@ -103,52 +101,4 @@ func (suite *TestSuite) TestDeploy() {
 		t.Fatal(err)
 	}
 	createRecordRequest()
-}
-
-func (suite *TestSuite) TestServer() {
-	t := suite.T()
-
-	// Migrate job
-	// Start job on daemon
-	// send requests to it from the load balancer
-	// add another host
-	// migrate the job to another daemon
-	// ensure all requests make it to a live job
-
-	suite.StartMinioServer()
-
-	ctx := context.Background()
-
-	d, _ := suite.NewDaemon()
-
-	lb := suite.NewLB()
-
-	server := NewServer(ServerOptions{
-		PrivateLoadBalancerURL: lb.PrivateServerAddr(),
-		PublicLoadBalancerURL:  lb.PublicServerAddr(),
-		DaemonClient:           suite.NewClient(d),
-	}, OptionWithSqlite(t.TempDir()+"/foo.sqlite"))
-
-	resp, err := server.DeploySource(ctx, &steadyrpc.DeploySourceRequest{
-		Source: suite.LoadExampleScript("http"),
-	})
-	if err != nil {
-		t.Fatal(err)
-	}
-
-	fmt.Println(resp.Url)
-	{
-		req, err := http.NewRequest(http.MethodGet, "http://"+lb.PublicServerAddr(), nil)
-		if err != nil {
-			t.Fatal(err)
-		}
-		req.Host = resp.Url
-
-		httpResp, err := http.DefaultClient.Do(req)
-		if err != nil {
-			t.Fatal(err)
-		}
-		suite.Equal(http.StatusOK, httpResp.StatusCode)
-		_, _ = io.Copy(os.Stdout, httpResp.Body)
-	}
 }

@@ -20,7 +20,7 @@ issues:
   exclude-rules:
     - linters:
         - lll
-      source: "^//go:generate "
+      source: "^//go:"
 linters-settings:
   staticcheck:
     checks: ["SA*", "S1*"]

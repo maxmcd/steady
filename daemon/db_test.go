@@ -18,7 +18,7 @@ func (suite *DaemonSuite) TestLitestream() {
 
 	d, _ := suite.NewDaemon(daemon.DaemonOptionWithS3(suite.MinioServerS3Config()))
 
-	client := suite.NewClient(d)
+	client := suite.NewDaemonClient(d.ServerAddr())
 	app, err := client.CreateApplication(context.Background(), &daemonrpc.CreateApplicationRequest{
 		Name:   "max-db",
 		Script: suite.LoadExampleScript("http"),
@@ -29,7 +29,7 @@ func (suite *DaemonSuite) TestLitestream() {
 
 	counter := 0
 	createRecordRequest := func() {
-		resp, respBody, err := suite.Request(d, app.Name, http.MethodPost, "/", `{"email":"lite"}`)
+		resp, respBody, err := suite.DaemonRequest(d, app.Name, http.MethodPost, "/", `{"email":"lite"}`)
 		if err != nil {
 			t.Fatal(err)
 		}

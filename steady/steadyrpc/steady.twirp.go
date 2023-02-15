@@ -32,13 +32,19 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 // ================
 
 type Steady interface {
-	CreateService(context.Context, *CreateServiceRequest) (*CreateServiceResponse, error)
+	Login(context.Context, *LoginRequest) (*LoginResponse, error)
 
-	CreateServiceVersion(context.Context, *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error)
+	Signup(context.Context, *SignupRequest) (*SignupResponse, error)
 
-	DeployApplication(context.Context, *DeployApplicationRequeast) (*DeployApplicationResponse, error)
+	Logout(context.Context, *LogoutRequest) (*LogoutResponse, error)
 
-	DeploySource(context.Context, *DeploySourceRequest) (*DeploySourceResponse, error)
+	GetUser(context.Context, *GetUserRequest) (*GetUserResponse, error)
+
+	ValidateToken(context.Context, *ValidateTokenRequest) (*ValidateTokenResponse, error)
+
+	RunApplication(context.Context, *RunApplicationRequest) (*RunApplicationResponse, error)
+
+	GetApplication(context.Context, *GetApplicationRequest) (*GetApplicationResponse, error)
 }
 
 // ======================
@@ -47,7 +53,7 @@ type Steady interface {
 
 type steadyProtobufClient struct {
 	client      HTTPClient
-	urls        [4]string
+	urls        [7]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -75,11 +81,14 @@ func NewSteadyProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "steady.steady", "Steady")
-	urls := [4]string{
-		serviceURL + "CreateService",
-		serviceURL + "CreateServiceVersion",
-		serviceURL + "DeployApplication",
-		serviceURL + "DeploySource",
+	urls := [7]string{
+		serviceURL + "Login",
+		serviceURL + "Signup",
+		serviceURL + "Logout",
+		serviceURL + "GetUser",
+		serviceURL + "ValidateToken",
+		serviceURL + "RunApplication",
+		serviceURL + "GetApplication",
 	}
 
 	return &steadyProtobufClient{
@@ -90,26 +99,26 @@ func NewSteadyProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	}
 }
 
-func (c *steadyProtobufClient) CreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
+func (c *steadyProtobufClient) Login(ctx context.Context, in *LoginRequest) (*LoginResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	caller := c.callCreateService
+	ctx = ctxsetters.WithMethodName(ctx, "Login")
+	caller := c.callLogin
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
+		caller = func(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
+					typedReq, ok := req.(*LoginRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LoginRequest) when calling interceptor")
 					}
-					return c.callCreateService(ctx, typedReq)
+					return c.callLogin(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
+				typedResp, ok := resp.(*LoginResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LoginResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -119,8 +128,8 @@ func (c *steadyProtobufClient) CreateService(ctx context.Context, in *CreateServ
 	return caller(ctx, in)
 }
 
-func (c *steadyProtobufClient) callCreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	out := new(CreateServiceResponse)
+func (c *steadyProtobufClient) callLogin(ctx context.Context, in *LoginRequest) (*LoginResponse, error) {
+	out := new(LoginResponse)
 	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -136,26 +145,26 @@ func (c *steadyProtobufClient) callCreateService(ctx context.Context, in *Create
 	return out, nil
 }
 
-func (c *steadyProtobufClient) CreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+func (c *steadyProtobufClient) Signup(ctx context.Context, in *SignupRequest) (*SignupResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	caller := c.callCreateServiceVersion
+	ctx = ctxsetters.WithMethodName(ctx, "Signup")
+	caller := c.callSignup
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+		caller = func(ctx context.Context, req *SignupRequest) (*SignupResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
+					typedReq, ok := req.(*SignupRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*SignupRequest) when calling interceptor")
 					}
-					return c.callCreateServiceVersion(ctx, typedReq)
+					return c.callSignup(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
+				typedResp, ok := resp.(*SignupResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*SignupResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -165,8 +174,8 @@ func (c *steadyProtobufClient) CreateServiceVersion(ctx context.Context, in *Cre
 	return caller(ctx, in)
 }
 
-func (c *steadyProtobufClient) callCreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	out := new(CreateServiceVersionResponse)
+func (c *steadyProtobufClient) callSignup(ctx context.Context, in *SignupRequest) (*SignupResponse, error) {
+	out := new(SignupResponse)
 	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -182,26 +191,26 @@ func (c *steadyProtobufClient) callCreateServiceVersion(ctx context.Context, in 
 	return out, nil
 }
 
-func (c *steadyProtobufClient) DeployApplication(ctx context.Context, in *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+func (c *steadyProtobufClient) Logout(ctx context.Context, in *LogoutRequest) (*LogoutResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "DeployApplication")
-	caller := c.callDeployApplication
+	ctx = ctxsetters.WithMethodName(ctx, "Logout")
+	caller := c.callLogout
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+		caller = func(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeployApplicationRequeast)
+					typedReq, ok := req.(*LogoutRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeployApplicationRequeast) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LogoutRequest) when calling interceptor")
 					}
-					return c.callDeployApplication(ctx, typedReq)
+					return c.callLogout(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeployApplicationResponse)
+				typedResp, ok := resp.(*LogoutResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeployApplicationResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LogoutResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -211,8 +220,8 @@ func (c *steadyProtobufClient) DeployApplication(ctx context.Context, in *Deploy
 	return caller(ctx, in)
 }
 
-func (c *steadyProtobufClient) callDeployApplication(ctx context.Context, in *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
-	out := new(DeployApplicationResponse)
+func (c *steadyProtobufClient) callLogout(ctx context.Context, in *LogoutRequest) (*LogoutResponse, error) {
+	out := new(LogoutResponse)
 	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -228,26 +237,26 @@ func (c *steadyProtobufClient) callDeployApplication(ctx context.Context, in *De
 	return out, nil
 }
 
-func (c *steadyProtobufClient) DeploySource(ctx context.Context, in *DeploySourceRequest) (*DeploySourceResponse, error) {
+func (c *steadyProtobufClient) GetUser(ctx context.Context, in *GetUserRequest) (*GetUserResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "DeploySource")
-	caller := c.callDeploySource
+	ctx = ctxsetters.WithMethodName(ctx, "GetUser")
+	caller := c.callGetUser
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *DeploySourceRequest) (*DeploySourceResponse, error) {
+		caller = func(ctx context.Context, req *GetUserRequest) (*GetUserResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeploySourceRequest)
+					typedReq, ok := req.(*GetUserRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeploySourceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*GetUserRequest) when calling interceptor")
 					}
-					return c.callDeploySource(ctx, typedReq)
+					return c.callGetUser(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeploySourceResponse)
+				typedResp, ok := resp.(*GetUserResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeploySourceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*GetUserResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -257,9 +266,147 @@ func (c *steadyProtobufClient) DeploySource(ctx context.Context, in *DeploySourc
 	return caller(ctx, in)
 }
 
-func (c *steadyProtobufClient) callDeploySource(ctx context.Context, in *DeploySourceRequest) (*DeploySourceResponse, error) {
-	out := new(DeploySourceResponse)
+func (c *steadyProtobufClient) callGetUser(ctx context.Context, in *GetUserRequest) (*GetUserResponse, error) {
+	out := new(GetUserResponse)
 	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyProtobufClient) ValidateToken(ctx context.Context, in *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "ValidateToken")
+	caller := c.callValidateToken
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ValidateTokenRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ValidateTokenRequest) when calling interceptor")
+					}
+					return c.callValidateToken(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ValidateTokenResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ValidateTokenResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyProtobufClient) callValidateToken(ctx context.Context, in *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+	out := new(ValidateTokenResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyProtobufClient) RunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "RunApplication")
+	caller := c.callRunApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RunApplicationRequest) (*RunApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RunApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RunApplicationRequest) when calling interceptor")
+					}
+					return c.callRunApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RunApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RunApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyProtobufClient) callRunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
+	out := new(RunApplicationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyProtobufClient) GetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "GetApplication")
+	caller := c.callGetApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetApplicationRequest) (*GetApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetApplicationRequest) when calling interceptor")
+					}
+					return c.callGetApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyProtobufClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
+	out := new(GetApplicationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -280,7 +427,7 @@ func (c *steadyProtobufClient) callDeploySource(ctx context.Context, in *DeployS
 
 type steadyJSONClient struct {
 	client      HTTPClient
-	urls        [4]string
+	urls        [7]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -308,11 +455,14 @@ func NewSteadyJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "steady.steady", "Steady")
-	urls := [4]string{
-		serviceURL + "CreateService",
-		serviceURL + "CreateServiceVersion",
-		serviceURL + "DeployApplication",
-		serviceURL + "DeploySource",
+	urls := [7]string{
+		serviceURL + "Login",
+		serviceURL + "Signup",
+		serviceURL + "Logout",
+		serviceURL + "GetUser",
+		serviceURL + "ValidateToken",
+		serviceURL + "RunApplication",
+		serviceURL + "GetApplication",
 	}
 
 	return &steadyJSONClient{
@@ -323,26 +473,26 @@ func NewSteadyJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	}
 }
 
-func (c *steadyJSONClient) CreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
+func (c *steadyJSONClient) Login(ctx context.Context, in *LoginRequest) (*LoginResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
-	caller := c.callCreateService
+	ctx = ctxsetters.WithMethodName(ctx, "Login")
+	caller := c.callLogin
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
+		caller = func(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
+					typedReq, ok := req.(*LoginRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LoginRequest) when calling interceptor")
 					}
-					return c.callCreateService(ctx, typedReq)
+					return c.callLogin(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
+				typedResp, ok := resp.(*LoginResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LoginResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -352,8 +502,8 @@ func (c *steadyJSONClient) CreateService(ctx context.Context, in *CreateServiceR
 	return caller(ctx, in)
 }
 
-func (c *steadyJSONClient) callCreateService(ctx context.Context, in *CreateServiceRequest) (*CreateServiceResponse, error) {
-	out := new(CreateServiceResponse)
+func (c *steadyJSONClient) callLogin(ctx context.Context, in *LoginRequest) (*LoginResponse, error) {
+	out := new(LoginResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[0], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -369,26 +519,26 @@ func (c *steadyJSONClient) callCreateService(ctx context.Context, in *CreateServ
 	return out, nil
 }
 
-func (c *steadyJSONClient) CreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+func (c *steadyJSONClient) Signup(ctx context.Context, in *SignupRequest) (*SignupResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
-	caller := c.callCreateServiceVersion
+	ctx = ctxsetters.WithMethodName(ctx, "Signup")
+	caller := c.callSignup
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+		caller = func(ctx context.Context, req *SignupRequest) (*SignupResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
+					typedReq, ok := req.(*SignupRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*SignupRequest) when calling interceptor")
 					}
-					return c.callCreateServiceVersion(ctx, typedReq)
+					return c.callSignup(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
+				typedResp, ok := resp.(*SignupResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*SignupResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -398,8 +548,8 @@ func (c *steadyJSONClient) CreateServiceVersion(ctx context.Context, in *CreateS
 	return caller(ctx, in)
 }
 
-func (c *steadyJSONClient) callCreateServiceVersion(ctx context.Context, in *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
-	out := new(CreateServiceVersionResponse)
+func (c *steadyJSONClient) callSignup(ctx context.Context, in *SignupRequest) (*SignupResponse, error) {
+	out := new(SignupResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -415,26 +565,26 @@ func (c *steadyJSONClient) callCreateServiceVersion(ctx context.Context, in *Cre
 	return out, nil
 }
 
-func (c *steadyJSONClient) DeployApplication(ctx context.Context, in *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+func (c *steadyJSONClient) Logout(ctx context.Context, in *LogoutRequest) (*LogoutResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "DeployApplication")
-	caller := c.callDeployApplication
+	ctx = ctxsetters.WithMethodName(ctx, "Logout")
+	caller := c.callLogout
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+		caller = func(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeployApplicationRequeast)
+					typedReq, ok := req.(*LogoutRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeployApplicationRequeast) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LogoutRequest) when calling interceptor")
 					}
-					return c.callDeployApplication(ctx, typedReq)
+					return c.callLogout(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeployApplicationResponse)
+				typedResp, ok := resp.(*LogoutResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeployApplicationResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LogoutResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -444,8 +594,8 @@ func (c *steadyJSONClient) DeployApplication(ctx context.Context, in *DeployAppl
 	return caller(ctx, in)
 }
 
-func (c *steadyJSONClient) callDeployApplication(ctx context.Context, in *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
-	out := new(DeployApplicationResponse)
+func (c *steadyJSONClient) callLogout(ctx context.Context, in *LogoutRequest) (*LogoutResponse, error) {
+	out := new(LogoutResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
@@ -461,26 +611,26 @@ func (c *steadyJSONClient) callDeployApplication(ctx context.Context, in *Deploy
 	return out, nil
 }
 
-func (c *steadyJSONClient) DeploySource(ctx context.Context, in *DeploySourceRequest) (*DeploySourceResponse, error) {
+func (c *steadyJSONClient) GetUser(ctx context.Context, in *GetUserRequest) (*GetUserResponse, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Steady")
-	ctx = ctxsetters.WithMethodName(ctx, "DeploySource")
-	caller := c.callDeploySource
+	ctx = ctxsetters.WithMethodName(ctx, "GetUser")
+	caller := c.callGetUser
 	if c.interceptor != nil {
-		caller = func(ctx context.Context, req *DeploySourceRequest) (*DeploySourceResponse, error) {
+		caller = func(ctx context.Context, req *GetUserRequest) (*GetUserResponse, error) {
 			resp, err := c.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeploySourceRequest)
+					typedReq, ok := req.(*GetUserRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeploySourceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*GetUserRequest) when calling interceptor")
 					}
-					return c.callDeploySource(ctx, typedReq)
+					return c.callGetUser(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeploySourceResponse)
+				typedResp, ok := resp.(*GetUserResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeploySourceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*GetUserResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -490,9 +640,147 @@ func (c *steadyJSONClient) DeploySource(ctx context.Context, in *DeploySourceReq
 	return caller(ctx, in)
 }
 
-func (c *steadyJSONClient) callDeploySource(ctx context.Context, in *DeploySourceRequest) (*DeploySourceResponse, error) {
-	out := new(DeploySourceResponse)
+func (c *steadyJSONClient) callGetUser(ctx context.Context, in *GetUserRequest) (*GetUserResponse, error) {
+	out := new(GetUserResponse)
 	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyJSONClient) ValidateToken(ctx context.Context, in *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "ValidateToken")
+	caller := c.callValidateToken
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ValidateTokenRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ValidateTokenRequest) when calling interceptor")
+					}
+					return c.callValidateToken(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ValidateTokenResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ValidateTokenResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyJSONClient) callValidateToken(ctx context.Context, in *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+	out := new(ValidateTokenResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[4], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyJSONClient) RunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "RunApplication")
+	caller := c.callRunApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *RunApplicationRequest) (*RunApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RunApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RunApplicationRequest) when calling interceptor")
+					}
+					return c.callRunApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RunApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RunApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyJSONClient) callRunApplication(ctx context.Context, in *RunApplicationRequest) (*RunApplicationResponse, error) {
+	out := new(RunApplicationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[5], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
+func (c *steadyJSONClient) GetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "steady.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Steady")
+	ctx = ctxsetters.WithMethodName(ctx, "GetApplication")
+	caller := c.callGetApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *GetApplicationRequest) (*GetApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetApplicationRequest) when calling interceptor")
+					}
+					return c.callGetApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *steadyJSONClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*GetApplicationResponse, error) {
+	out := new(GetApplicationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[6], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -604,17 +892,26 @@ func (s *steadyServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 
 	switch method {
-	case "CreateService":
-		s.serveCreateService(ctx, resp, req)
+	case "Login":
+		s.serveLogin(ctx, resp, req)
 		return
-	case "CreateServiceVersion":
-		s.serveCreateServiceVersion(ctx, resp, req)
+	case "Signup":
+		s.serveSignup(ctx, resp, req)
 		return
-	case "DeployApplication":
-		s.serveDeployApplication(ctx, resp, req)
+	case "Logout":
+		s.serveLogout(ctx, resp, req)
 		return
-	case "DeploySource":
-		s.serveDeploySource(ctx, resp, req)
+	case "GetUser":
+		s.serveGetUser(ctx, resp, req)
+		return
+	case "ValidateToken":
+		s.serveValidateToken(ctx, resp, req)
+		return
+	case "RunApplication":
+		s.serveRunApplication(ctx, resp, req)
+		return
+	case "GetApplication":
+		s.serveGetApplication(ctx, resp, req)
 		return
 	default:
 		msg := fmt.Sprintf("no handler for path %q", req.URL.Path)
@@ -623,7 +920,7 @@ func (s *steadyServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	}
 }
 
-func (s *steadyServer) serveCreateService(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLogin(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get("Content-Type")
 	i := strings.Index(header, ";")
 	if i == -1 {
@@ -631,9 +928,9 @@ func (s *steadyServer) serveCreateService(ctx context.Context, resp http.Respons
 	}
 	switch strings.TrimSpace(strings.ToLower(header[:i])) {
 	case "application/json":
-		s.serveCreateServiceJSON(ctx, resp, req)
+		s.serveLoginJSON(ctx, resp, req)
 	case "application/protobuf":
-		s.serveCreateServiceProtobuf(ctx, resp, req)
+		s.serveLoginProtobuf(ctx, resp, req)
 	default:
 		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
 		twerr := badRouteError(msg, req.Method, req.URL.Path)
@@ -641,9 +938,9 @@ func (s *steadyServer) serveCreateService(ctx context.Context, resp http.Respons
 	}
 }
 
-func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLoginJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
+	ctx = ctxsetters.WithMethodName(ctx, "Login")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -656,29 +953,29 @@ func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.Res
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
-	reqContent := new(CreateServiceRequest)
+	reqContent := new(LoginRequest)
 	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
 	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
 
-	handler := s.Steady.CreateService
+	handler := s.Steady.Login
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
+		handler = func(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
+					typedReq, ok := req.(*LoginRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LoginRequest) when calling interceptor")
 					}
-					return s.Steady.CreateService(ctx, typedReq)
+					return s.Steady.Login(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
+				typedResp, ok := resp.(*LoginResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LoginResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -687,7 +984,7 @@ func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.Res
 	}
 
 	// Call service method
-	var respContent *CreateServiceResponse
+	var respContent *LoginResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -698,7 +995,7 @@ func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.Res
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceResponse and nil error while calling CreateService. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *LoginResponse and nil error while calling Login. nil responses are not supported"))
 		return
 	}
 
@@ -724,9 +1021,9 @@ func (s *steadyServer) serveCreateServiceJSON(ctx context.Context, resp http.Res
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLoginProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateService")
+	ctx = ctxsetters.WithMethodName(ctx, "Login")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -738,28 +1035,28 @@ func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http
 		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
 		return
 	}
-	reqContent := new(CreateServiceRequest)
+	reqContent := new(LoginRequest)
 	if err = proto.Unmarshal(buf, reqContent); err != nil {
 		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
 		return
 	}
 
-	handler := s.Steady.CreateService
+	handler := s.Steady.Login
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceRequest) (*CreateServiceResponse, error) {
+		handler = func(ctx context.Context, req *LoginRequest) (*LoginResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceRequest)
+					typedReq, ok := req.(*LoginRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LoginRequest) when calling interceptor")
 					}
-					return s.Steady.CreateService(ctx, typedReq)
+					return s.Steady.Login(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceResponse)
+				typedResp, ok := resp.(*LoginResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LoginResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -768,7 +1065,7 @@ func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http
 	}
 
 	// Call service method
-	var respContent *CreateServiceResponse
+	var respContent *LoginResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -779,7 +1076,7 @@ func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceResponse and nil error while calling CreateService. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *LoginResponse and nil error while calling Login. nil responses are not supported"))
 		return
 	}
 
@@ -803,7 +1100,7 @@ func (s *steadyServer) serveCreateServiceProtobuf(ctx context.Context, resp http
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveCreateServiceVersion(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveSignup(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get("Content-Type")
 	i := strings.Index(header, ";")
 	if i == -1 {
@@ -811,9 +1108,9 @@ func (s *steadyServer) serveCreateServiceVersion(ctx context.Context, resp http.
 	}
 	switch strings.TrimSpace(strings.ToLower(header[:i])) {
 	case "application/json":
-		s.serveCreateServiceVersionJSON(ctx, resp, req)
+		s.serveSignupJSON(ctx, resp, req)
 	case "application/protobuf":
-		s.serveCreateServiceVersionProtobuf(ctx, resp, req)
+		s.serveSignupProtobuf(ctx, resp, req)
 	default:
 		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
 		twerr := badRouteError(msg, req.Method, req.URL.Path)
@@ -821,9 +1118,9 @@ func (s *steadyServer) serveCreateServiceVersion(ctx context.Context, resp http.
 	}
 }
 
-func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveSignupJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
+	ctx = ctxsetters.WithMethodName(ctx, "Signup")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -836,29 +1133,29 @@ func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp h
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
-	reqContent := new(CreateServiceVersionRequest)
+	reqContent := new(SignupRequest)
 	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
 	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
 
-	handler := s.Steady.CreateServiceVersion
+	handler := s.Steady.Signup
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+		handler = func(ctx context.Context, req *SignupRequest) (*SignupResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
+					typedReq, ok := req.(*SignupRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*SignupRequest) when calling interceptor")
 					}
-					return s.Steady.CreateServiceVersion(ctx, typedReq)
+					return s.Steady.Signup(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
+				typedResp, ok := resp.(*SignupResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*SignupResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -867,7 +1164,7 @@ func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp h
 	}
 
 	// Call service method
-	var respContent *CreateServiceVersionResponse
+	var respContent *SignupResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -878,7 +1175,7 @@ func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp h
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceVersionResponse and nil error while calling CreateServiceVersion. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SignupResponse and nil error while calling Signup. nil responses are not supported"))
 		return
 	}
 
@@ -904,9 +1201,9 @@ func (s *steadyServer) serveCreateServiceVersionJSON(ctx context.Context, resp h
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveSignupProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "CreateServiceVersion")
+	ctx = ctxsetters.WithMethodName(ctx, "Signup")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -918,28 +1215,28 @@ func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, re
 		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
 		return
 	}
-	reqContent := new(CreateServiceVersionRequest)
+	reqContent := new(SignupRequest)
 	if err = proto.Unmarshal(buf, reqContent); err != nil {
 		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
 		return
 	}
 
-	handler := s.Steady.CreateServiceVersion
+	handler := s.Steady.Signup
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *CreateServiceVersionRequest) (*CreateServiceVersionResponse, error) {
+		handler = func(ctx context.Context, req *SignupRequest) (*SignupResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*CreateServiceVersionRequest)
+					typedReq, ok := req.(*SignupRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*CreateServiceVersionRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*SignupRequest) when calling interceptor")
 					}
-					return s.Steady.CreateServiceVersion(ctx, typedReq)
+					return s.Steady.Signup(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*CreateServiceVersionResponse)
+				typedResp, ok := resp.(*SignupResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*CreateServiceVersionResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*SignupResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -948,7 +1245,7 @@ func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, re
 	}
 
 	// Call service method
-	var respContent *CreateServiceVersionResponse
+	var respContent *SignupResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -959,7 +1256,7 @@ func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, re
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *CreateServiceVersionResponse and nil error while calling CreateServiceVersion. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *SignupResponse and nil error while calling Signup. nil responses are not supported"))
 		return
 	}
 
@@ -983,7 +1280,7 @@ func (s *steadyServer) serveCreateServiceVersionProtobuf(ctx context.Context, re
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveDeployApplication(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLogout(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get("Content-Type")
 	i := strings.Index(header, ";")
 	if i == -1 {
@@ -991,9 +1288,9 @@ func (s *steadyServer) serveDeployApplication(ctx context.Context, resp http.Res
 	}
 	switch strings.TrimSpace(strings.ToLower(header[:i])) {
 	case "application/json":
-		s.serveDeployApplicationJSON(ctx, resp, req)
+		s.serveLogoutJSON(ctx, resp, req)
 	case "application/protobuf":
-		s.serveDeployApplicationProtobuf(ctx, resp, req)
+		s.serveLogoutProtobuf(ctx, resp, req)
 	default:
 		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
 		twerr := badRouteError(msg, req.Method, req.URL.Path)
@@ -1001,9 +1298,9 @@ func (s *steadyServer) serveDeployApplication(ctx context.Context, resp http.Res
 	}
 }
 
-func (s *steadyServer) serveDeployApplicationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLogoutJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "DeployApplication")
+	ctx = ctxsetters.WithMethodName(ctx, "Logout")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -1016,29 +1313,29 @@ func (s *steadyServer) serveDeployApplicationJSON(ctx context.Context, resp http
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
-	reqContent := new(DeployApplicationRequeast)
+	reqContent := new(LogoutRequest)
 	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
 	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
 
-	handler := s.Steady.DeployApplication
+	handler := s.Steady.Logout
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+		handler = func(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeployApplicationRequeast)
+					typedReq, ok := req.(*LogoutRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeployApplicationRequeast) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LogoutRequest) when calling interceptor")
 					}
-					return s.Steady.DeployApplication(ctx, typedReq)
+					return s.Steady.Logout(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeployApplicationResponse)
+				typedResp, ok := resp.(*LogoutResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeployApplicationResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LogoutResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -1047,7 +1344,7 @@ func (s *steadyServer) serveDeployApplicationJSON(ctx context.Context, resp http
 	}
 
 	// Call service method
-	var respContent *DeployApplicationResponse
+	var respContent *LogoutResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -1058,7 +1355,7 @@ func (s *steadyServer) serveDeployApplicationJSON(ctx context.Context, resp http
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeployApplicationResponse and nil error while calling DeployApplication. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *LogoutResponse and nil error while calling Logout. nil responses are not supported"))
 		return
 	}
 
@@ -1084,9 +1381,9 @@ func (s *steadyServer) serveDeployApplicationJSON(ctx context.Context, resp http
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveDeployApplicationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveLogoutProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "DeployApplication")
+	ctx = ctxsetters.WithMethodName(ctx, "Logout")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -1098,28 +1395,28 @@ func (s *steadyServer) serveDeployApplicationProtobuf(ctx context.Context, resp 
 		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
 		return
 	}
-	reqContent := new(DeployApplicationRequeast)
+	reqContent := new(LogoutRequest)
 	if err = proto.Unmarshal(buf, reqContent); err != nil {
 		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
 		return
 	}
 
-	handler := s.Steady.DeployApplication
+	handler := s.Steady.Logout
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *DeployApplicationRequeast) (*DeployApplicationResponse, error) {
+		handler = func(ctx context.Context, req *LogoutRequest) (*LogoutResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeployApplicationRequeast)
+					typedReq, ok := req.(*LogoutRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeployApplicationRequeast) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*LogoutRequest) when calling interceptor")
 					}
-					return s.Steady.DeployApplication(ctx, typedReq)
+					return s.Steady.Logout(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeployApplicationResponse)
+				typedResp, ok := resp.(*LogoutResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeployApplicationResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*LogoutResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -1128,7 +1425,7 @@ func (s *steadyServer) serveDeployApplicationProtobuf(ctx context.Context, resp 
 	}
 
 	// Call service method
-	var respContent *DeployApplicationResponse
+	var respContent *LogoutResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -1139,7 +1436,7 @@ func (s *steadyServer) serveDeployApplicationProtobuf(ctx context.Context, resp 
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeployApplicationResponse and nil error while calling DeployApplication. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *LogoutResponse and nil error while calling Logout. nil responses are not supported"))
 		return
 	}
 
@@ -1163,7 +1460,7 @@ func (s *steadyServer) serveDeployApplicationProtobuf(ctx context.Context, resp 
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveDeploySource(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveGetUser(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	header := req.Header.Get("Content-Type")
 	i := strings.Index(header, ";")
 	if i == -1 {
@@ -1171,9 +1468,9 @@ func (s *steadyServer) serveDeploySource(ctx context.Context, resp http.Response
 	}
 	switch strings.TrimSpace(strings.ToLower(header[:i])) {
 	case "application/json":
-		s.serveDeploySourceJSON(ctx, resp, req)
+		s.serveGetUserJSON(ctx, resp, req)
 	case "application/protobuf":
-		s.serveDeploySourceProtobuf(ctx, resp, req)
+		s.serveGetUserProtobuf(ctx, resp, req)
 	default:
 		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
 		twerr := badRouteError(msg, req.Method, req.URL.Path)
@@ -1181,9 +1478,9 @@ func (s *steadyServer) serveDeploySource(ctx context.Context, resp http.Response
 	}
 }
 
-func (s *steadyServer) serveDeploySourceJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveGetUserJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "DeploySource")
+	ctx = ctxsetters.WithMethodName(ctx, "GetUser")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -1196,29 +1493,29 @@ func (s *steadyServer) serveDeploySourceJSON(ctx context.Context, resp http.Resp
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
-	reqContent := new(DeploySourceRequest)
+	reqContent := new(GetUserRequest)
 	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
 	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
 		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
 		return
 	}
 
-	handler := s.Steady.DeploySource
+	handler := s.Steady.GetUser
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *DeploySourceRequest) (*DeploySourceResponse, error) {
+		handler = func(ctx context.Context, req *GetUserRequest) (*GetUserResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeploySourceRequest)
+					typedReq, ok := req.(*GetUserRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeploySourceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*GetUserRequest) when calling interceptor")
 					}
-					return s.Steady.DeploySource(ctx, typedReq)
+					return s.Steady.GetUser(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeploySourceResponse)
+				typedResp, ok := resp.(*GetUserResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeploySourceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*GetUserResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -1227,7 +1524,7 @@ func (s *steadyServer) serveDeploySourceJSON(ctx context.Context, resp http.Resp
 	}
 
 	// Call service method
-	var respContent *DeploySourceResponse
+	var respContent *GetUserResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -1238,7 +1535,7 @@ func (s *steadyServer) serveDeploySourceJSON(ctx context.Context, resp http.Resp
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeploySourceResponse and nil error while calling DeploySource. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetUserResponse and nil error while calling GetUser. nil responses are not supported"))
 		return
 	}
 
@@ -1264,9 +1561,9 @@ func (s *steadyServer) serveDeploySourceJSON(ctx context.Context, resp http.Resp
 	callResponseSent(ctx, s.hooks)
 }
 
-func (s *steadyServer) serveDeploySourceProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+func (s *steadyServer) serveGetUserProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
 	var err error
-	ctx = ctxsetters.WithMethodName(ctx, "DeploySource")
+	ctx = ctxsetters.WithMethodName(ctx, "GetUser")
 	ctx, err = callRequestRouted(ctx, s.hooks)
 	if err != nil {
 		s.writeError(ctx, resp, err)
@@ -1278,28 +1575,28 @@ func (s *steadyServer) serveDeploySourceProtobuf(ctx context.Context, resp http.
 		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
 		return
 	}
-	reqContent := new(DeploySourceRequest)
+	reqContent := new(GetUserRequest)
 	if err = proto.Unmarshal(buf, reqContent); err != nil {
 		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
 		return
 	}
 
-	handler := s.Steady.DeploySource
+	handler := s.Steady.GetUser
 	if s.interceptor != nil {
-		handler = func(ctx context.Context, req *DeploySourceRequest) (*DeploySourceResponse, error) {
+		handler = func(ctx context.Context, req *GetUserRequest) (*GetUserResponse, error) {
 			resp, err := s.interceptor(
 				func(ctx context.Context, req interface{}) (interface{}, error) {
-					typedReq, ok := req.(*DeploySourceRequest)
+					typedReq, ok := req.(*GetUserRequest)
 					if !ok {
-						return nil, twirp.InternalError("failed type assertion req.(*DeploySourceRequest) when calling interceptor")
+						return nil, twirp.InternalError("failed type assertion req.(*GetUserRequest) when calling interceptor")
 					}
-					return s.Steady.DeploySource(ctx, typedReq)
+					return s.Steady.GetUser(ctx, typedReq)
 				},
 			)(ctx, req)
 			if resp != nil {
-				typedResp, ok := resp.(*DeploySourceResponse)
+				typedResp, ok := resp.(*GetUserResponse)
 				if !ok {
-					return nil, twirp.InternalError("failed type assertion resp.(*DeploySourceResponse) when calling interceptor")
+					return nil, twirp.InternalError("failed type assertion resp.(*GetUserResponse) when calling interceptor")
 				}
 				return typedResp, err
 			}
@@ -1308,7 +1605,7 @@ func (s *steadyServer) serveDeploySourceProtobuf(ctx context.Context, resp http.
 	}
 
 	// Call service method
-	var respContent *DeploySourceResponse
+	var respContent *GetUserResponse
 	func() {
 		defer ensurePanicResponses(ctx, resp, s.hooks)
 		respContent, err = handler(ctx, reqContent)
@@ -1319,7 +1616,547 @@ func (s *steadyServer) serveDeploySourceProtobuf(ctx context.Context, resp http.
 		return
 	}
 	if respContent == nil {
-		s.writeError(ctx, resp, twirp.InternalError("received a nil *DeploySourceResponse and nil error while calling DeploySource. nil responses are not supported"))
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetUserResponse and nil error while calling GetUser. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveValidateToken(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveValidateTokenJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveValidateTokenProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *steadyServer) serveValidateTokenJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ValidateToken")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(ValidateTokenRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Steady.ValidateToken
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ValidateTokenRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ValidateTokenRequest) when calling interceptor")
+					}
+					return s.Steady.ValidateToken(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ValidateTokenResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ValidateTokenResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ValidateTokenResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ValidateTokenResponse and nil error while calling ValidateToken. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveValidateTokenProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "ValidateToken")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(ValidateTokenRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Steady.ValidateToken
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *ValidateTokenRequest) (*ValidateTokenResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*ValidateTokenRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*ValidateTokenRequest) when calling interceptor")
+					}
+					return s.Steady.ValidateToken(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*ValidateTokenResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*ValidateTokenResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *ValidateTokenResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *ValidateTokenResponse and nil error while calling ValidateToken. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveRunApplication(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveRunApplicationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveRunApplicationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *steadyServer) serveRunApplicationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RunApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(RunApplicationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Steady.RunApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RunApplicationRequest) (*RunApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RunApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RunApplicationRequest) when calling interceptor")
+					}
+					return s.Steady.RunApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RunApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RunApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RunApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RunApplicationResponse and nil error while calling RunApplication. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveRunApplicationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "RunApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(RunApplicationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Steady.RunApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *RunApplicationRequest) (*RunApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*RunApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*RunApplicationRequest) when calling interceptor")
+					}
+					return s.Steady.RunApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*RunApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*RunApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *RunApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *RunApplicationResponse and nil error while calling RunApplication. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveGetApplication(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveGetApplicationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveGetApplicationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *steadyServer) serveGetApplicationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(GetApplicationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Steady.GetApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetApplicationRequest) (*GetApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetApplicationRequest) when calling interceptor")
+					}
+					return s.Steady.GetApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetApplicationResponse and nil error while calling GetApplication. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *steadyServer) serveGetApplicationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "GetApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(GetApplicationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Steady.GetApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *GetApplicationRequest) (*GetApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*GetApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*GetApplicationRequest) when calling interceptor")
+					}
+					return s.Steady.GetApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*GetApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*GetApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *GetApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *GetApplicationResponse and nil error while calling GetApplication. nil responses are not supported"))
 		return
 	}
 
@@ -1924,36 +2761,38 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 488 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x94, 0x5f, 0x6f, 0x94, 0x40,
-	0x14, 0xc5, 0x03, 0x6c, 0x76, 0xb3, 0x77, 0xdb, 0xb5, 0x8e, 0xb5, 0x22, 0xda, 0xa4, 0x99, 0xfa,
-	0x80, 0xad, 0x52, 0x53, 0x5f, 0x7d, 0xf1, 0x4f, 0x9a, 0xf0, 0xca, 0x26, 0x9a, 0x34, 0x31, 0x86,
-	0x32, 0x63, 0x25, 0x2e, 0x0c, 0x9d, 0x81, 0xa6, 0xfd, 0x24, 0x7e, 0x5d, 0xb3, 0xc3, 0x0c, 0xcb,
-	0x50, 0x20, 0x7d, 0x82, 0x7b, 0x73, 0xee, 0x1c, 0xce, 0x8f, 0x0b, 0xb0, 0x23, 0x4a, 0x1a, 0x93,
-	0xfb, 0xa0, 0xe0, 0xac, 0x64, 0x68, 0x57, 0x55, 0xf5, 0x05, 0x9f, 0xc0, 0xfe, 0x57, 0x4e, 0xe3,
-	0x92, 0xae, 0x28, 0xbf, 0x4d, 0x13, 0x1a, 0xd1, 0x9b, 0x8a, 0x8a, 0x12, 0x21, 0x98, 0xe4, 0x71,
-	0x46, 0x5d, 0xeb, 0xc8, 0xf2, 0xe7, 0x91, 0xbc, 0xc7, 0x21, 0x3c, 0xef, 0x68, 0x45, 0xc1, 0x72,
-	0x41, 0xd1, 0x07, 0x98, 0x89, 0xba, 0x25, 0xf5, 0x8b, 0xf3, 0x83, 0xc0, 0x70, 0x09, 0xf4, 0x80,
-	0x96, 0xe1, 0x0b, 0x98, 0xa9, 0x5e, 0x9f, 0x13, 0x5a, 0x82, 0x9d, 0x12, 0xd7, 0x3e, 0xb2, 0x7c,
-	0x27, 0xb2, 0x53, 0x82, 0x5e, 0xc0, 0xac, 0x12, 0x94, 0xff, 0x4a, 0x89, 0xeb, 0xc8, 0xe6, 0x74,
-	0x53, 0x86, 0x04, 0xe7, 0xf0, 0xca, 0x78, 0xa4, 0xef, 0x94, 0x8b, 0x94, 0xe5, 0x3a, 0xc5, 0x21,
-	0x80, 0x72, 0xdc, 0x8c, 0x5a, 0x72, 0x74, 0xae, 0x3a, 0x21, 0x41, 0x2e, 0xcc, 0x6e, 0xeb, 0x01,
-	0xe9, 0x35, 0x8f, 0x74, 0x89, 0x0e, 0x60, 0x2a, 0x58, 0xc5, 0x13, 0x2a, 0xfd, 0xe6, 0x91, 0xaa,
-	0xf0, 0x6f, 0x78, 0xdd, 0xef, 0xa7, 0x48, 0x5c, 0xc0, 0x13, 0x6d, 0xa8, 0x4f, 0xae, 0x89, 0x1c,
-	0xf6, 0x13, 0xd1, 0xf3, 0x4b, 0x61, 0xd4, 0xf8, 0x06, 0x96, 0xa6, 0x42, 0x21, 0xb1, 0x1a, 0x24,
-	0x66, 0x34, 0x7b, 0x24, 0x9a, 0x33, 0x14, 0x6d, 0x62, 0x44, 0xfb, 0x09, 0x2f, 0xbf, 0xd1, 0x62,
-	0xcd, 0xee, 0x3f, 0x17, 0xc5, 0x3a, 0x4d, 0xe2, 0x52, 0x73, 0x8c, 0x45, 0x89, 0xde, 0x01, 0xea,
-	0xe4, 0xda, 0x02, 0xdd, 0x33, 0x9f, 0x3d, 0x24, 0xcd, 0x2b, 0xb5, 0x5b, 0xcb, 0xf3, 0xb7, 0xf7,
-	0x78, 0x85, 0xed, 0x13, 0x2c, 0xe2, 0x6d, 0x5b, 0x21, 0xf3, 0x3a, 0xc8, 0xda, 0x83, 0x6d, 0x39,
-	0xda, 0x03, 0xa7, 0xe2, 0x6b, 0xe5, 0xb6, 0xb9, 0xc5, 0x77, 0xb0, 0x68, 0xa9, 0x1f, 0xb0, 0xeb,
-	0x4f, 0x63, 0x0f, 0xa4, 0x19, 0x5a, 0xbe, 0x26, 0xe6, 0xa4, 0x15, 0xf3, 0x3d, 0x3c, 0xab, 0x63,
-	0xae, 0x24, 0x55, 0xbd, 0x88, 0x5b, 0xe8, 0x96, 0x01, 0xdd, 0x87, 0x7d, 0x53, 0xae, 0x80, 0xa8,
-	0x48, 0x56, 0x13, 0xe9, 0xfc, 0x9f, 0x03, 0xd3, 0x95, 0x04, 0x81, 0x2e, 0x61, 0xd7, 0x58, 0x42,
-	0x74, 0xdc, 0x21, 0xd5, 0xf7, 0x45, 0x7b, 0x6f, 0xc6, 0x45, 0xca, 0x98, 0x75, 0xfe, 0x07, 0x7a,
-	0xfd, 0x4e, 0xc6, 0xa6, 0xcd, 0xaf, 0xce, 0x3b, 0x7d, 0x94, 0x56, 0x19, 0x5e, 0xc3, 0xd3, 0x07,
-	0x7b, 0x81, 0xfc, 0xce, 0x09, 0x83, 0x8b, 0xe9, 0x3d, 0x42, 0xa9, 0x8c, 0x7e, 0xc0, 0x4e, 0x1b,
-	0x35, 0xc2, 0xbd, 0x93, 0xc6, 0x6b, 0xf3, 0x8e, 0x47, 0x35, 0xf5, 0xc1, 0x5f, 0x4e, 0x2f, 0xdf,
-	0x5e, 0xa7, 0xe5, 0x9f, 0xea, 0x2a, 0x48, 0x58, 0x76, 0x96, 0xc5, 0x77, 0x59, 0x42, 0xce, 0xea,
-	0x01, 0xf3, 0xc2, 0x8b, 0xe4, 0x6a, 0x2a, 0xff, 0xc2, 0x1f, 0xff, 0x07, 0x00, 0x00, 0xff, 0xff,
-	0xa1, 0xd5, 0x70, 0x4c, 0x95, 0x05, 0x00, 0x00,
+	// 527 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xb4, 0x55, 0x4d, 0x6f, 0xd3, 0x40,
+	0x10, 0x55, 0xe3, 0xc4, 0x85, 0x49, 0xe3, 0x46, 0x43, 0x52, 0x2a, 0xf3, 0x21, 0xb4, 0x80, 0x00,
+	0xb5, 0x4a, 0xa5, 0x72, 0x01, 0xc4, 0x81, 0x16, 0xa1, 0x16, 0xc4, 0xc9, 0x01, 0x0e, 0x95, 0x50,
+	0xe5, 0xda, 0xab, 0x64, 0x45, 0xec, 0x35, 0xde, 0xb5, 0x04, 0x7f, 0x8e, 0xdf, 0x86, 0xbc, 0xbb,
+	0xf1, 0x57, 0x1c, 0x20, 0x48, 0x3d, 0xd9, 0xb3, 0x33, 0xf3, 0xde, 0x1b, 0xef, 0xbc, 0x04, 0x76,
+	0x84, 0xa4, 0x7e, 0xf8, 0x73, 0x92, 0xa4, 0x5c, 0x72, 0x1c, 0x98, 0x48, 0x3f, 0xc8, 0x1b, 0xd8,
+	0xf9, 0xc8, 0x67, 0x2c, 0xf6, 0xe8, 0xf7, 0x8c, 0x0a, 0x89, 0x2e, 0xdc, 0xc8, 0x04, 0x4d, 0x63,
+	0x3f, 0xa2, 0xfb, 0x5b, 0x0f, 0xb6, 0x9e, 0xde, 0xf4, 0x8a, 0x18, 0x47, 0xd0, 0xa3, 0x91, 0xcf,
+	0x16, 0xfb, 0x1d, 0x95, 0xd0, 0x01, 0x79, 0x01, 0x03, 0x83, 0x20, 0x12, 0x1e, 0x0b, 0x8a, 0x4f,
+	0xa0, 0x9b, 0xb7, 0xa8, 0xf6, 0xfe, 0xf1, 0xad, 0x49, 0x8d, 0x70, 0xf2, 0x59, 0xd0, 0xd4, 0x53,
+	0x05, 0xe4, 0x04, 0x06, 0x53, 0x36, 0x8b, 0xb3, 0xe4, 0xff, 0xc9, 0x5f, 0x82, 0xb3, 0x84, 0xd8,
+	0x94, 0x7d, 0x57, 0xe9, 0xe6, 0x99, 0x34, 0xec, 0x64, 0x08, 0xce, 0xf2, 0x40, 0x63, 0x91, 0x73,
+	0xe8, 0xe6, 0x0d, 0xe8, 0x40, 0x87, 0x85, 0x0a, 0xd1, 0xf2, 0x3a, 0x2c, 0xac, 0xe9, 0xec, 0xac,
+	0xd3, 0x69, 0x55, 0x75, 0x0e, 0xc1, 0x39, 0xa3, 0x52, 0xb1, 0x1b, 0xb6, 0x57, 0xb0, 0x5b, 0x9c,
+	0x6c, 0x2a, 0xfd, 0x10, 0x46, 0x5f, 0xfc, 0x05, 0x0b, 0x7d, 0x49, 0x3f, 0xf1, 0x6f, 0xb4, 0xb8,
+	0xbc, 0x11, 0xf4, 0x64, 0x1e, 0x9b, 0x8f, 0xa7, 0x03, 0x12, 0xc3, 0xb8, 0x51, 0xbd, 0x21, 0x1f,
+	0x1e, 0x02, 0xe6, 0xcf, 0x4b, 0x41, 0x85, 0x60, 0x3c, 0xbe, 0xd4, 0x24, 0x7a, 0xf2, 0x61, 0x9e,
+	0x99, 0xea, 0x84, 0x82, 0x27, 0x6f, 0x61, 0xec, 0x65, 0xf1, 0x49, 0x92, 0x2c, 0x58, 0xe0, 0x4b,
+	0xc6, 0x0b, 0x79, 0x08, 0xdd, 0xca, 0xd5, 0xaa, 0x77, 0xdc, 0x03, 0x5b, 0xf0, 0x2c, 0x0d, 0xa8,
+	0xf9, 0x5e, 0x26, 0x22, 0x73, 0xd8, 0x6b, 0x82, 0x18, 0xd5, 0xaf, 0xa1, 0xef, 0x97, 0xc7, 0x46,
+	0xbc, 0xdb, 0x10, 0x5f, 0x6d, 0xac, 0x96, 0xe3, 0x10, 0xac, 0x2c, 0x5d, 0x2e, 0x51, 0xfe, 0x4a,
+	0x3e, 0x40, 0xbf, 0x52, 0xbd, 0x72, 0xd7, 0xb7, 0x61, 0x5b, 0xcd, 0xce, 0x42, 0xd5, 0x64, 0x79,
+	0x76, 0x1e, 0xbe, 0x0f, 0x8b, 0x69, 0xac, 0x72, 0x1a, 0x72, 0x00, 0xe3, 0x33, 0x2a, 0xff, 0x6d,
+	0xf4, 0x7c, 0xc4, 0x66, 0xf1, 0xf5, 0x8c, 0x78, 0xfc, 0xab, 0x0b, 0xf6, 0x54, 0x75, 0xe1, 0x29,
+	0xf4, 0x94, 0x5b, 0xf1, 0x4e, 0x03, 0xae, 0xfa, 0x2b, 0xe0, 0xde, 0x6d, 0x4f, 0x1a, 0x79, 0xef,
+	0xc0, 0xd6, 0xa6, 0xc3, 0x66, 0x5d, 0xcd, 0xce, 0xee, 0xbd, 0x35, 0xd9, 0x12, 0x46, 0xfb, 0x0d,
+	0x5b, 0xe8, 0x4a, 0x5f, 0xae, 0xc0, 0xd4, 0x4d, 0x8a, 0xe7, 0xb0, 0x6d, 0x8c, 0x84, 0xcd, 0xca,
+	0xba, 0xe5, 0xdc, 0xfb, 0xeb, 0xd2, 0x06, 0xe9, 0x02, 0x06, 0x35, 0xa3, 0xe0, 0xc3, 0x46, 0x43,
+	0x9b, 0xe9, 0xdc, 0x47, 0x7f, 0x2e, 0x32, 0xd8, 0x5f, 0xc1, 0xa9, 0xef, 0x33, 0x36, 0xfb, 0x5a,
+	0x3d, 0xe3, 0x3e, 0xfe, 0x4b, 0x55, 0x09, 0x5f, 0xdf, 0xa5, 0x15, 0xf8, 0xd6, 0xbd, 0x5c, 0x81,
+	0x6f, 0x5f, 0xc8, 0xd3, 0x83, 0x8b, 0x67, 0x33, 0x26, 0xe7, 0xd9, 0xd5, 0x24, 0xe0, 0xd1, 0x51,
+	0xe4, 0xff, 0x88, 0x82, 0xf0, 0x48, 0xb7, 0xd4, 0x1f, 0x69, 0x12, 0x5c, 0xd9, 0xea, 0x8f, 0xe6,
+	0xf9, 0xef, 0x00, 0x00, 0x00, 0xff, 0xff, 0x20, 0x78, 0x20, 0xff, 0x78, 0x06, 0x00, 0x00,
 }

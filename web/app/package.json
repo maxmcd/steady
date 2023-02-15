@@ -1,0 +1,20 @@
+{
+  "name": "web",
+  "version": "1.0.0",
+  "description": "",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "monaco-editor": "^0.34.1",
+    "protoscript": "0.0.14",
+    "twirpscript": "^0.0.66"
+  },
+  "devDependencies": {
+    "buffer": "^5.5.0",
+    "parcel": "^2.8.3",
+    "process": "^0.11.10"
+  }
+}

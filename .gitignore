@@ -1,3 +1,5 @@
 *.sqlite
 node_modules
 coverage.out
+.DS_Store
+*.bun

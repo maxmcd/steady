@@ -2,12 +2,16 @@ package slicer
 
 import (
 	"math"
-	"sort"
 )
 
 // Assigner maintains hosts and their assignments.
 type Assigner struct {
 	hostAssignments *HostAssignments
+
+	// keep a consistent order so that it's easier to write deterministic tests,
+	// remove when we have more complicated slicing logic and can write tests
+	// around explicit calculated migrations
+	hostnames []string
 }
 
 // Host provides a host's identifier for a given key.
@@ -21,14 +25,17 @@ func (s *Assigner) Assignments() map[string][]Range {
 
 func (s *Assigner) AddHost(name string, liveKeys []string) (err error) {
 	if s.hostAssignments == nil {
+		s.hostnames = []string{name}
 		s.hostAssignments, err = NewHostAssignments(map[string][]Range{
 			name: {{0, math.MaxInt64}},
 		})
 		return err
 	}
 
-	// Just consistent hashing for now...
+	// TODO: data race?
+	s.hostnames = append(s.hostnames, name)
 
+	// Just consistent hashing for now...
 	chunks := [][]Range{}
 	newCount := int64(len(s.hostAssignments.assignments) + 1)
 	size := math.MaxInt64 / newCount
@@ -37,14 +44,8 @@ func (s *Assigner) AddHost(name string, liveKeys []string) (err error) {
 	}
 	chunks[len(chunks)-1][0].End = math.MaxInt64
 
-	hostNames := []string{name}
-	for n := range s.hostAssignments.assignments {
-		hostNames = append(hostNames, n)
-	}
-	sort.Strings(hostNames)
-
 	assignments := map[string][]Range{}
-	for i, n := range hostNames {
+	for i, n := range s.hostnames {
 		assignments[n] = chunks[i]
 	}
 

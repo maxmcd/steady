@@ -2,65 +2,74 @@ package steady
 
 import (
 	"context"
+	"fmt"
+	"net/http"
+	"net/url"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxmcd/steady/daemon"
-	daemonrpc "github.com/maxmcd/steady/daemon/daemonrpc"
 	db "github.com/maxmcd/steady/db"
 	"github.com/maxmcd/steady/steady/steadyrpc"
+	"github.com/twitchtv/twirp"
 )
 
 type Server struct {
 	db       *db.Queries
 	dbClient *sqlx.DB
 
-	daemonClient daemon.Client
+	daemonClient *daemon.Client
 
-	privateLoadBalancerHost string
-	publicLoadBalancerURL   string
+	privateLoadBalancerURL string
+	publicLoadBalancerURL  string
+	parsedPublicLB         *url.URL
+
+	emailSink func(email string)
 }
 
 type ServerOptions struct {
 	PrivateLoadBalancerURL string
 	PublicLoadBalancerURL  string
-	DaemonClient           daemon.Client
+	DaemonClient           *daemon.Client
 }
 
-func NewServer(options ServerOptions, opts ...Option) *Server {
+func NewServer(options ServerOptions, opts ...Option) http.Handler {
 	s := &Server{
-		daemonClient:            options.DaemonClient,
-		publicLoadBalancerURL:   options.PublicLoadBalancerURL,
-		privateLoadBalancerHost: options.PrivateLoadBalancerURL,
+		daemonClient:           options.DaemonClient,
+		publicLoadBalancerURL:  options.PublicLoadBalancerURL,
+		privateLoadBalancerURL: options.PrivateLoadBalancerURL,
 	}
+	var err error
+	s.parsedPublicLB, err = url.Parse(s.publicLoadBalancerURL)
+	if err != nil {
+		panic(err)
+	}
+	if options.PublicLoadBalancerURL != "" &&
+		s.parsedPublicLB.Scheme != "http" &&
+		s.parsedPublicLB.Scheme != "https" {
+		panic(fmt.Sprintf("Public load balancer url must be a full URL with schema: %q", options.PublicLoadBalancerURL))
+	}
+
 	for _, opt := range opts {
 		opt(s)
 	}
-	return s
-}
-
-var _ steadyrpc.Steady = new(Server)
-
-func (s *Server) CreateService(ctx context.Context, req *steadyrpc.CreateServiceRequest) (
-	_ *steadyrpc.CreateServiceResponse, err error) {
-	service, err := s.db.CreateService(ctx, db.CreateServiceParams{
-		Name:   req.Name,
-		UserID: 1,
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if token := r.Header.Get("X-Steady-Token"); token != "" {
+			ctx, _ := twirp.WithHTTPRequestHeaders(r.Context(), http.Header{"X-Steady-Token": {token}})
+			r = r.WithContext(ctx)
+		}
+		steadyrpc.NewSteadyServer(s).ServeHTTP(w, r)
 	})
-	if err != nil {
-		return nil, err
-	}
-	return &steadyrpc.CreateServiceResponse{
-		Service: &steadyrpc.Service{
-			Name:   service.Name,
-			Id:     service.ID,
-			UserId: service.UserID,
-		},
-	}, nil
 }
 
 type Option func(*Server)
+
+func OptionWithEmailSink(e func(email string)) Option {
+	return func(s *Server) {
+		s.emailSink = e
+	}
+}
 
 func OptionWithSqlite(path string) Option {
 	return func(s *Server) {
@@ -110,82 +119,4 @@ func OptionWithPostgres(connectionString string) Option {
 		}
 		s.dbClient = dbClient
 	}
-}
-
-func (s *Server) dbTX(ctx context.Context) (db.Querier, error) {
-	tx, err := s.dbClient.BeginTx(ctx, nil)
-	if err != nil {
-		return nil, err
-	}
-	return s.db.WithTx(tx), nil
-}
-
-func (s *Server) CreateServiceVersion(ctx context.Context, req *steadyrpc.CreateServiceVersionRequest) (
-	_ *steadyrpc.CreateServiceVersionResponse, err error) {
-	dbtx, err := s.dbTX(ctx)
-	if err != nil {
-		return nil, err
-	}
-
-	if _, err := dbtx.GetService(ctx, db.GetServiceParams{
-		UserID: 1,
-		ID:     req.ServiceId,
-	}); err != nil {
-		return nil, err
-	}
-
-	serviceVersion, err := dbtx.CreateServiceVersion(ctx, db.CreateServiceVersionParams{
-		ServiceID: req.ServiceId,
-		Version:   req.Version,
-		Source:    req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	return &steadyrpc.CreateServiceVersionResponse{
-		ServiceVersion: &steadyrpc.ServiceVersion{
-			Id:        serviceVersion.ID,
-			ServiceId: serviceVersion.ServiceID,
-			Version:   serviceVersion.Version,
-			Source:    serviceVersion.Source,
-		},
-	}, nil
-}
-
-func (s *Server) DeployApplication(ctx context.Context, req *steadyrpc.DeployApplicationRequeast) (
-	_ *steadyrpc.DeployApplicationResponse, err error) {
-	serviceVersion, err := s.db.GetServiceVersion(ctx, req.ServiceVersionId)
-	if err != nil {
-		return nil, err
-	}
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   req.Name,
-		Script: serviceVersion.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-
-	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeployApplicationResponse{
-		Application: &steadyrpc.Application{Name: app.Name},
-		Url:         s.publicLoadBalancerURL,
-	}, nil
-}
-
-func (s *Server) DeploySource(ctx context.Context, req *steadyrpc.DeploySourceRequest) (
-	_ *steadyrpc.DeploySourceResponse, err error) {
-	app, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
-		Name:   "faketemporaryname",
-		Script: req.Source,
-	})
-	if err != nil {
-		return nil, err
-	}
-	_ = app
-	// TODO: deploy application to host, confirm that it works
-	return &steadyrpc.DeploySourceResponse{
-		Url: app.Name,
-	}, nil
 }

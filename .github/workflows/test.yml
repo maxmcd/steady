@@ -11,14 +11,18 @@ jobs:
           nix_path: nixpkgs=channel:nixos-unstable
       - name: download nix deps
         run: nix-shell --run "echo \"Rock steady\""
-      - env:
-          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
-        run: |
-          make test_ci
+      - name: download go deps
+        run: go mod download
       - name: Confirm there are not untracked changes after generate
+        env:
+          DOCKER_BUILDKIT: "1"
         run: |
           make generate
           git status
           [[ -z $(git status -s) ]]
+      - env:
+          CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+        run: |
+          make test_ci
       # - name: lint
       #   run: make lint

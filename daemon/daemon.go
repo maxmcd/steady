@@ -255,7 +255,7 @@ func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error
 		return nil, err
 	}
 	output, err := s3Client.ListObjects(&awss3.ListObjectsInput{
-		Bucket:    aws.String("litestream"), // TODO
+		Bucket:    aws.String(d.s3Config.Bucket),
 		Prefix:    aws.String(name + "/"),
 		Delimiter: aws.String("/"),
 	})
@@ -341,18 +341,20 @@ func (d *Daemon) Start(ctx context.Context) {
 
 	daemonServer := daemonrpc.NewDaemonServer(server{daemon: d})
 	srv := http.Server{
-		Handler: http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-			name := steadyutil.ExtractAppName(r)
-			if name == "" {
-				http.Error(rw, "invalid host header", http.StatusBadRequest)
-				return
-			}
-			if name == "steady" {
-				daemonServer.ServeHTTP(rw, r)
-			} else {
-				d.applicationHandler(name, rw, r)
-			}
-		}),
+		Handler: steadyutil.Logger("dm", os.Stdout,
+			http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+				name := steadyutil.ExtractAppName(r)
+				if name == "" {
+					http.Error(rw, "invalid host header", http.StatusBadRequest)
+					return
+				}
+				if name == "steady" {
+					daemonServer.ServeHTTP(rw, r)
+				} else {
+					d.applicationHandler(name, rw, r)
+				}
+			}),
+		),
 		ReadHeaderTimeout: time.Second * 15,
 	}
 

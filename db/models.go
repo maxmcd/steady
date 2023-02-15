@@ -4,30 +4,31 @@
 
 package db
 
-import ()
+import (
+	"database/sql"
+	"time"
+)
 
 type Application struct {
-	ID               int64
-	ServiceVersionID int64
-	UserID           int64
-	Name             string
-}
-
-type Service struct {
 	ID     int64
+	UserID sql.NullInt64
 	Name   string
-	UserID int64
 }
 
-type ServiceVersion struct {
-	ID        int64
-	ServiceID int64
-	Version   string
-	Source    string
+type LoginToken struct {
+	UserID    int64
+	Token     string
+	CreatedAt time.Time
 }
 
 type User struct {
 	ID       int64
 	Email    string
 	Username string
+}
+
+type UserSession struct {
+	UserID    int64
+	Token     string
+	CreatedAt time.Time
 }
