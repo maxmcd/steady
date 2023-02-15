@@ -5,17 +5,14 @@ import (
 	"context"
 	"fmt"
 	"io"
-	"net"
 	"net/http"
 	"os"
 	"path/filepath"
-	"time"
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/maxmcd/steady/steady"
-	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/maxmcd/steady/web"
 	"github.com/stretchr/testify/suite"
 )
@@ -136,29 +133,16 @@ func (es *EmailSink) LatestEmail() string {
 func (suite *Suite) NewWebServer() (*EmailSink, string) {
 	es, steadyHandler := suite.NewSteadyServer()
 
-	listener, err := net.Listen("tcp", ":0")
+	server, err := web.NewServer(steadyHandler)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
-	url := fmt.Sprintf("http://%s", listener.Addr().String())
-	webHandler, err := web.NewServer(
-		steadyrpc.NewSteadyProtobufClient(
-			url,
-			http.DefaultClient))
-	if err != nil {
-		suite.T().Fatal(err)
-	}
-	server := http.Server{Handler: web.WebAndSteadyHandler(steadyHandler, webHandler)}
 	ctx, cancel := context.WithCancel(context.Background())
+	if err := server.Start(ctx, ":0"); err != nil {
+		suite.T().Fatal(err)
+	}
 	suite.cancels = append(suite.cancels, cancel)
-	go func() { _ = server.Serve(listener) }()
-	go func() {
-		<-ctx.Done()
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
-		_ = server.Shutdown(ctx)
-		cancel()
-	}()
-	return es, url
+	return es, fmt.Sprintf("http://%s", server.Addr())
 }
 
 func (suite *Suite) NewLB() *loadbalancer.LB {
@@ -187,7 +171,7 @@ func (suite *Suite) StartMinioServer() {
 		return
 	}
 	var err error
-	suite.minioServer, err = NewMinioServer(suite.T().TempDir())
+	suite.minioServer, err = NewMinioServer(context.Background(), suite.T().TempDir())
 	if err != nil {
 		suite.T().Fatal(err)
 	}

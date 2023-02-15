@@ -3,10 +3,13 @@ package web
 import (
 	"context"
 	"embed"
+	"fmt"
 	"html/template"
+	"net"
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/internal/mux"
@@ -14,6 +17,7 @@ import (
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/pkg/errors"
 	"github.com/twitchtv/twirp"
+	"golang.org/x/sync/errgroup"
 )
 
 //go:embed templates/*
@@ -26,9 +30,54 @@ type Server struct {
 	t            *template.Template
 	router       *mux.Router
 	steadyClient steadyrpc.Steady
+	steadyServer http.Handler
+
+	listener net.Listener
+	eg       *errgroup.Group
 }
 
-func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
+func (s *Server) Addr() string {
+	if s.eg == nil {
+		panic("Cannot call Addr when the server has not been started")
+	}
+	return s.listener.Addr().String()
+}
+
+func (s *Server) Start(ctx context.Context, addr string) error {
+	var err error
+	s.listener, err = net.Listen("tcp", addr)
+	if err != nil {
+		return err
+	}
+	s.steadyClient = steadyrpc.NewSteadyProtobufClient("http://"+s.listener.Addr().String(), nil)
+
+	s.eg, ctx = errgroup.WithContext(ctx)
+	srv := http.Server{
+		Handler: s.Handler(),
+	}
+	s.eg.Go(func() (err error) {
+		err = srv.Serve(s.listener)
+		if err == http.ErrServerClosed {
+			return nil
+		}
+		return err
+	})
+	s.eg.Go(func() error {
+		<-ctx.Done()
+		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
+		if err := srv.Shutdown(timeoutCtx); err != nil {
+			fmt.Printf("WARN: error shutting down web server: %v\n", err)
+		}
+		cancel()
+		return nil
+	})
+	return nil
+}
+func (s *Server) Wait() error {
+	return s.eg.Wait()
+}
+
+func NewServer(steadyServer http.Handler) (*Server, error) {
 	t, err := template.ParseFS(templates, "templates/*")
 	if err != nil {
 		return nil, errors.Wrap(err, "error running ParseFS")
@@ -40,7 +89,7 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 
 	s := &Server{
 		t:            t,
-		steadyClient: steadyClient,
+		steadyServer: steadyServer,
 		router:       mux.NewRouter(),
 	}
 	s.router.ErrorHandler = s.errorHandler()
@@ -64,17 +113,17 @@ func NewServer(steadyClient steadyrpc.Steady) (http.Handler, error) {
 	s.router.POST("/application", s.runApplication)
 	s.router.GET("/application/:name", s.showApplication)
 
-	return s.router, nil
+	return s, nil
 }
 
-func WebAndSteadyHandler(steadyHandler, webHandler http.Handler) http.Handler {
+func (s *Server) Handler() http.Handler {
 	return handlers.RecoveryHandler(handlers.PrintRecoveryStack(true))(
 		steadyutil.Logger("wb", os.Stdout,
 			http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 				if strings.HasPrefix(r.URL.Path, "/twirp") {
-					steadyHandler.ServeHTTP(w, r)
+					s.steadyServer.ServeHTTP(w, r)
 				} else {
-					webHandler.ServeHTTP(w, r)
+					s.router.ServeHTTP(w, r)
 				}
 			}),
 		),

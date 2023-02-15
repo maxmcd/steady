@@ -27,14 +27,14 @@ type MinioServer struct {
 	eg     *errgroup.Group
 }
 
-func NewMinioServer(dir string) (*MinioServer, error) {
+func NewMinioServer(ctx context.Context, dir string) (*MinioServer, error) {
 	start := time.Now()
 
 	port, err := netx.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(ctx)
 	eg, ctx := errgroup.WithContext(ctx)
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
 	cmd := exec.CommandContext(ctx, "minio", "server", "--address="+addr, dir)
@@ -157,6 +157,10 @@ func (server *MinioServer) S3Client() (*s3.S3, error) {
 
 func (server *MinioServer) Stop() error {
 	server.cancel()
+	return server.Wait()
+}
+
+func (server *MinioServer) Wait() error {
 	if err := server.eg.Wait(); err != nil && !strings.Contains(err.Error(), "killed") {
 		return err
 	}
