@@ -33,9 +33,7 @@ export interface SignupResponse {
   user: User;
 }
 
-export interface LogoutRequest {
-  userSessionToken: string;
-}
+export interface LogoutRequest {}
 
 export interface LogoutResponse {}
 
@@ -656,42 +654,31 @@ export const LogoutRequest = {
   /**
    * Serializes LogoutRequest to protobuf.
    */
-  encode: function (msg: Partial<LogoutRequest>): Uint8Array {
-    return LogoutRequest._writeMessage(
-      msg,
-      new BinaryWriter()
-    ).getResultBuffer();
+  encode: function (_msg?: Partial<LogoutRequest>): Uint8Array {
+    return new Uint8Array();
   },
 
   /**
    * Deserializes LogoutRequest from protobuf.
    */
-  decode: function (bytes: ByteSource): LogoutRequest {
-    return LogoutRequest._readMessage(
-      LogoutRequest.initialize(),
-      new BinaryReader(bytes)
-    );
+  decode: function (_bytes?: ByteSource): LogoutRequest {
+    return {};
   },
 
   /**
    * Initializes LogoutRequest with all fields set to their default value.
    */
   initialize: function (): LogoutRequest {
-    return {
-      userSessionToken: "",
-    };
+    return {};
   },
 
   /**
    * @private
    */
   _writeMessage: function (
-    msg: Partial<LogoutRequest>,
+    _msg: Partial<LogoutRequest>,
     writer: BinaryWriter
   ): BinaryWriter {
-    if (msg.userSessionToken) {
-      writer.writeString(1, msg.userSessionToken);
-    }
     return writer;
   },
 
@@ -699,23 +686,10 @@ export const LogoutRequest = {
    * @private
    */
   _readMessage: function (
-    msg: LogoutRequest,
-    reader: BinaryReader
+    _msg: LogoutRequest,
+    _reader: BinaryReader
   ): LogoutRequest {
-    while (reader.nextField()) {
-      const field = reader.getFieldNumber();
-      switch (field) {
-        case 1: {
-          msg.userSessionToken = reader.readString();
-          break;
-        }
-        default: {
-          reader.skipField();
-          break;
-        }
-      }
-    }
-    return msg;
+    return _msg;
   },
 };
 
@@ -1699,51 +1673,37 @@ export const LogoutRequestJSON = {
   /**
    * Serializes LogoutRequest to JSON.
    */
-  encode: function (msg: Partial<LogoutRequest>): string {
-    return JSON.stringify(LogoutRequestJSON._writeMessage(msg));
+  encode: function (_msg?: Partial<LogoutRequest>): string {
+    return "{}";
   },
 
   /**
    * Deserializes LogoutRequest from JSON.
    */
-  decode: function (json: string): LogoutRequest {
-    return LogoutRequestJSON._readMessage(
-      LogoutRequestJSON.initialize(),
-      JSON.parse(json)
-    );
+  decode: function (_json?: string): LogoutRequest {
+    return {};
   },
 
   /**
    * Initializes LogoutRequest with all fields set to their default value.
    */
   initialize: function (): LogoutRequest {
-    return {
-      userSessionToken: "",
-    };
+    return {};
   },
 
   /**
    * @private
    */
   _writeMessage: function (
-    msg: Partial<LogoutRequest>
+    _msg: Partial<LogoutRequest>
   ): Record<string, unknown> {
-    const json: Record<string, unknown> = {};
-    if (msg.userSessionToken) {
-      json["userSessionToken"] = msg.userSessionToken;
-    }
-    return json;
+    return {};
   },
 
   /**
    * @private
    */
-  _readMessage: function (msg: LogoutRequest, json: any): LogoutRequest {
-    const _userSessionToken_ =
-      json["userSessionToken"] ?? json["user_session_token"];
-    if (_userSessionToken_) {
-      msg.userSessionToken = _userSessionToken_;
-    }
+  _readMessage: function (msg: LogoutRequest, _json: any): LogoutRequest {
     return msg;
   },
 };
