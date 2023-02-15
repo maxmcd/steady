@@ -106,12 +106,8 @@ func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *s
 	if err != nil && err != sql.ErrNoRows {
 		return nil, err
 	}
-
-	if err == nil {
-		if user.Username == req.Username {
-			return nil, twirp.NewError(twirp.AlreadyExists, "a user with this username already exists")
-		}
-		return nil, twirp.NewError(twirp.AlreadyExists, "a user with this email addr already exists")
+	if err == nil && user.Username == req.Username {
+		return nil, twirp.NewError(twirp.AlreadyExists, "a user with this username already exists")
 	}
 
 	user, err = s.db.CreateUser(ctx, db.CreateUserParams{
