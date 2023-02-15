@@ -1,7 +1,6 @@
 package web
 
 import (
-	"fmt"
 	"io"
 	"mime"
 	"path/filepath"
@@ -72,13 +71,8 @@ func (s *Server) signupEndpoint(c *mux.Context) error {
 
 func (s *Server) runApplication(c *mux.Context) error {
 	source := c.Request.FormValue("index.ts")
-	if source == "" {
-		return NewTemplateError(
-			fmt.Errorf("Application source cannot be empty"), "index.go.html",
-			"application_error", twirp.InvalidArgument)
-	}
 	resp, err := s.steadyClient.RunApplication(c.Request.Context(), &steadyrpc.RunApplicationRequest{
-		Source: &source,
+		Source: source,
 	})
 	if err != nil {
 		return NewTemplateError(

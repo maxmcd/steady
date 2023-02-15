@@ -62,8 +62,7 @@ export interface ValidateTokenResponse {
 
 export interface RunApplicationRequest {
   name: string;
-  serviceVersionId?: bigint | null | undefined;
-  source?: string | null | undefined;
+  source: string;
 }
 
 export interface RunApplicationResponse {
@@ -73,7 +72,6 @@ export interface RunApplicationResponse {
 
 export interface Application {
   id: bigint;
-  serviceVersionId: bigint;
   userId: bigint;
   name: string;
 }
@@ -1117,8 +1115,7 @@ export const RunApplicationRequest = {
   initialize: function (): RunApplicationRequest {
     return {
       name: "",
-      serviceVersionId: undefined,
-      source: undefined,
+      source: "",
     };
   },
 
@@ -1132,10 +1129,7 @@ export const RunApplicationRequest = {
     if (msg.name) {
       writer.writeString(1, msg.name);
     }
-    if (msg.serviceVersionId != undefined) {
-      writer.writeInt64String(2, msg.serviceVersionId.toString() as any);
-    }
-    if (msg.source != undefined) {
+    if (msg.source) {
       writer.writeString(3, msg.source);
     }
     return writer;
@@ -1153,10 +1147,6 @@ export const RunApplicationRequest = {
       switch (field) {
         case 1: {
           msg.name = reader.readString();
-          break;
-        }
-        case 2: {
-          msg.serviceVersionId = BigInt(reader.readInt64String());
           break;
         }
         case 3: {
@@ -1272,7 +1262,6 @@ export const Application = {
   initialize: function (): Application {
     return {
       id: 0n,
-      serviceVersionId: 0n,
       userId: 0n,
       name: "",
     };
@@ -1288,14 +1277,11 @@ export const Application = {
     if (msg.id) {
       writer.writeInt64String(1, msg.id.toString() as any);
     }
-    if (msg.serviceVersionId) {
-      writer.writeInt64String(2, msg.serviceVersionId.toString() as any);
-    }
     if (msg.userId) {
-      writer.writeInt64String(3, msg.userId.toString() as any);
+      writer.writeInt64String(2, msg.userId.toString() as any);
     }
     if (msg.name) {
-      writer.writeString(4, msg.name);
+      writer.writeString(3, msg.name);
     }
     return writer;
   },
@@ -1312,14 +1298,10 @@ export const Application = {
           break;
         }
         case 2: {
-          msg.serviceVersionId = BigInt(reader.readInt64String());
-          break;
-        }
-        case 3: {
           msg.userId = BigInt(reader.readInt64String());
           break;
         }
-        case 4: {
+        case 3: {
           msg.name = reader.readString();
           break;
         }
@@ -2112,8 +2094,7 @@ export const RunApplicationRequestJSON = {
   initialize: function (): RunApplicationRequest {
     return {
       name: "",
-      serviceVersionId: undefined,
-      source: undefined,
+      source: "",
     };
   },
 
@@ -2127,10 +2108,7 @@ export const RunApplicationRequestJSON = {
     if (msg.name) {
       json["name"] = msg.name;
     }
-    if (msg.serviceVersionId != undefined) {
-      json["serviceVersionId"] = msg.serviceVersionId.toString();
-    }
-    if (msg.source != undefined) {
+    if (msg.source) {
       json["source"] = msg.source;
     }
     return json;
@@ -2146,11 +2124,6 @@ export const RunApplicationRequestJSON = {
     const _name_ = json["name"];
     if (_name_) {
       msg.name = _name_;
-    }
-    const _serviceVersionId_ =
-      json["serviceVersionId"] ?? json["service_version_id"];
-    if (_serviceVersionId_) {
-      msg.serviceVersionId = BigInt(_serviceVersionId_);
     }
     const _source_ = json["source"];
     if (_source_) {
@@ -2252,7 +2225,6 @@ export const ApplicationJSON = {
   initialize: function (): Application {
     return {
       id: 0n,
-      serviceVersionId: 0n,
       userId: 0n,
       name: "",
     };
@@ -2265,9 +2237,6 @@ export const ApplicationJSON = {
     const json: Record<string, unknown> = {};
     if (msg.id) {
       json["id"] = msg.id.toString();
-    }
-    if (msg.serviceVersionId) {
-      json["serviceVersionId"] = msg.serviceVersionId.toString();
     }
     if (msg.userId) {
       json["userId"] = msg.userId.toString();
@@ -2285,11 +2254,6 @@ export const ApplicationJSON = {
     const _id_ = json["id"];
     if (_id_) {
       msg.id = BigInt(_id_);
-    }
-    const _serviceVersionId_ =
-      json["serviceVersionId"] ?? json["service_version_id"];
-    if (_serviceVersionId_) {
-      msg.serviceVersionId = BigInt(_serviceVersionId_);
     }
     const _userId_ = json["userId"] ?? json["user_id"];
     if (_userId_) {

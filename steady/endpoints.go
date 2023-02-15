@@ -61,13 +61,16 @@ func (s *Server) getUserSession(ctx context.Context) (_ *db.UserSession, err err
 }
 
 func (s *Server) Login(ctx context.Context, req *steadyrpc.LoginRequest) (_ *steadyrpc.LoginResponse, err error) {
+	if req.Email == "" && req.Username == "" {
+		return nil, twirp.NewError(twirp.InvalidArgument, "username or email cannot be blank")
+	}
 	user, err := s.db.GetUserByEmailOrUsername(ctx, db.GetUserByEmailOrUsernameParams{
 		Username: req.Username,
 		Email:    req.Email,
 	})
 	if err != nil {
 		if err == sql.ErrNoRows {
-			return nil, twirp.NewError(twirp.NotFound, "not found")
+			return nil, twirp.NewError(twirp.NotFound, "A user with this username or email could not be found")
 		}
 		return nil, err
 	}
@@ -86,6 +89,12 @@ func (s *Server) Login(ctx context.Context, req *steadyrpc.LoginRequest) (_ *ste
 }
 
 func (s *Server) Signup(ctx context.Context, req *steadyrpc.SignupRequest) (_ *steadyrpc.SignupResponse, err error) {
+	if req.Email == "" {
+		return nil, twirp.NewError(twirp.InvalidArgument, "email address cannot be blank")
+	}
+	if req.Username == "" {
+		return nil, twirp.NewError(twirp.InvalidArgument, "username cannot be blank")
+	}
 	if _, err := mail.ParseAddress(req.Email); err != nil {
 		return nil, twirp.NewError(twirp.InvalidArgument, "email address is invalid")
 	}
@@ -188,7 +197,12 @@ func (s *Server) Logout(ctx context.Context, req *steadyrpc.LogoutRequest) (_ *s
 }
 
 func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicationRequest) (
-	_ *steadyrpc.RunApplicationResponse, err error) {
+	_ *steadyrpc.RunApplicationResponse, err error,
+) {
+	if req.Source == "" {
+		return nil, twirp.NewError(twirp.InvalidArgument, "Application source cannot be empty")
+	}
+
 	if req.Name == "" {
 		req.Name = steadyutil.RandomString(8)
 	}
@@ -204,7 +218,7 @@ func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicati
 	}
 	if _, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   app.Name,
-		Script: *req.Source,
+		Script: req.Source,
 	}); err != nil {
 		return nil, err
 	}

@@ -161,28 +161,14 @@ func (s *Server) renderTemplate(c *mux.Context, name string) error {
 }
 
 func (s *Server) login(ctx context.Context, usernameOrEmail string) error {
-	if usernameOrEmail == "" {
-		return twirp.NewError(twirp.InvalidArgument, "username or email cannot be blank")
-	}
 	_, err := s.steadyClient.Login(ctx, &steadyrpc.LoginRequest{
 		Username: usernameOrEmail,
 		Email:    usernameOrEmail,
 	})
-	if err != nil {
-		if strings.Contains(err.Error(), "not_found") {
-			return errors.New("A user with this username or email could not be found")
-		}
-	}
 	return err
 }
 
 func (s *Server) signup(ctx context.Context, username, email string) error {
-	if username == "" {
-		return twirp.NewError(twirp.InvalidArgument, "username cannot be blank")
-	}
-	if email == "" {
-		return twirp.NewError(twirp.InvalidArgument, "email cannot be blank")
-	}
 	_, err := s.steadyClient.Signup(ctx, &steadyrpc.SignupRequest{
 		Username: username,
 		Email:    email,
