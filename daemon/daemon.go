@@ -255,7 +255,7 @@ func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error
 		return nil, err
 	}
 	output, err := s3Client.ListObjects(&awss3.ListObjectsInput{
-		Bucket:    aws.String("litestream"), // TODO
+		Bucket:    aws.String(d.s3Config.Bucket),
 		Prefix:    aws.String(name + "/"),
 		Delimiter: aws.String("/"),
 	})

@@ -13,6 +13,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/maxmcd/steady/internal/netx"
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -41,6 +42,7 @@ func NewMinioServer(dir string) (*MinioServer, error) {
 	cmd.Stdout = io.Discard
 
 	if err := cmd.Start(); err != nil {
+		cancel()
 		return nil, err
 	}
 	eg.Go(cmd.Wait)
@@ -49,7 +51,7 @@ func NewMinioServer(dir string) (*MinioServer, error) {
 		Address:    addr,
 		Username:   "minioadmin",
 		Password:   "minioadmin",
-		BucketName: "litestream",
+		BucketName: steadyutil.RandomString(15),
 		eg:         eg,
 		cancel:     cancel,
 	}
@@ -80,6 +82,55 @@ func NewMinioServer(dir string) (*MinioServer, error) {
 	}
 	fmt.Println("minio startup", time.Since(start))
 	return &server, nil
+}
+
+func (server *MinioServer) CycleBucket() error {
+	s3Client, err := server.S3Client()
+	if err != nil {
+		return err
+	}
+	var innerErr error
+
+	if err := s3Client.ListObjectsPages(&s3.ListObjectsInput{
+		Bucket: aws.String(server.BucketName),
+	}, func(loo *s3.ListObjectsOutput, b bool) bool {
+		objects := []*s3.ObjectIdentifier{}
+		for _, obj := range loo.Contents {
+			objects = append(objects, &s3.ObjectIdentifier{
+				Key: obj.Key,
+			})
+		}
+
+		if _, innerErr = s3Client.DeleteObjects(&s3.DeleteObjectsInput{
+			Bucket: aws.String(server.BucketName),
+			Delete: &s3.Delete{
+				Objects: objects,
+			},
+		}); err != nil {
+			return false
+		}
+		return true
+	}); err != nil {
+		return fmt.Errorf("error listing objects: %w", err)
+	}
+	if innerErr != nil {
+		return fmt.Errorf("error deleting objects: %w", err)
+	}
+
+	if _, err := s3Client.DeleteBucket(&s3.DeleteBucketInput{
+		Bucket: aws.String(server.BucketName),
+	}); err != nil {
+		return fmt.Errorf("error deleting bucket: %w", err)
+	}
+
+	server.BucketName = steadyutil.RandomString(15)
+
+	if _, err := s3Client.CreateBucket(&s3.CreateBucketInput{
+		Bucket: aws.String(server.BucketName),
+	}); err != nil {
+		return fmt.Errorf("error creating bucket: %w", err)
+	}
+	return nil
 }
 
 func (server *MinioServer) S3Config() *aws.Config {

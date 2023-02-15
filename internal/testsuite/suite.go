@@ -28,7 +28,8 @@ type Suite struct {
 
 	cancels []func()
 
-	minioServer *MinioServer
+	minioEnabled bool
+	minioServer  *MinioServer
 }
 
 // NewDaemon creates a daemon with the provided options. If you've called
@@ -36,7 +37,8 @@ type Suite struct {
 func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
-	if suite.minioServer != nil {
+	fmt.Println("HUH!", suite.minioEnabled)
+	if suite.minioEnabled {
 		opts = append(opts, daemon.DaemonOptionWithS3(daemon.S3Config{
 			AccessKeyID:     suite.minioServer.Username,
 			SecretAccessKey: suite.minioServer.Password,
@@ -74,28 +76,29 @@ func (suite *Suite) BeforeTest(suiteName, testName string) {
 }
 
 func (suite *Suite) AfterTest(suiteName, testName string) {
+	t := suite.T()
 	for _, cancel := range suite.cancels {
 		cancel()
 	}
 	suite.cancels = nil
 	for _, daemon := range suite.daemons {
 		if err := daemon.Wait(); err != nil {
-			suite.T().Error(err)
+			t.Error(err)
 		}
 	}
 	suite.daemons = nil
 	for _, lb := range suite.loadBalancers {
 		if err := lb.Wait(); err != nil {
-			suite.T().Error(err)
+			t.Error(err)
 		}
 	}
 	suite.loadBalancers = nil
-	if suite.minioServer != nil {
-		if err := suite.minioServer.Stop(); err != nil {
-			suite.T().Fatal(err)
+	if suite.minioEnabled {
+		if err := suite.minioServer.CycleBucket(); err != nil {
+			t.Fatal(err)
 		}
-		suite.minioServer = nil
 	}
+	suite.minioEnabled = false
 }
 
 func (suite *Suite) NewSteadyServer() http.Handler {
@@ -165,6 +168,13 @@ func (suite *Suite) NewLB() *loadbalancer.LB {
 }
 
 func (suite *Suite) StartMinioServer() {
+	if suite.minioEnabled && suite.minioServer != nil {
+		return
+	}
+	suite.minioEnabled = true
+	if suite.minioServer != nil {
+		return
+	}
 	var err error
 	suite.minioServer, err = NewMinioServer(suite.T().TempDir())
 	if err != nil {
@@ -173,7 +183,7 @@ func (suite *Suite) StartMinioServer() {
 }
 
 func (suite *Suite) MinioServerS3Config() daemon.S3Config {
-	if suite.minioServer == nil {
+	if !suite.minioEnabled {
 		suite.T().Fatal("must call StartMinioServer before this method")
 	}
 	return daemon.S3Config{
