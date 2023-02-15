@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"time"
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/loadbalancer"
@@ -101,16 +102,24 @@ func (suite *Suite) AfterTest(suiteName, testName string) {
 	suite.minioEnabled = false
 }
 
-func (suite *Suite) NewSteadyServer() http.Handler {
+func (suite *Suite) NewSteadyServer() (*EmailSink, http.Handler) {
 	t := suite.T()
-	if len(suite.loadBalancers) == 0 {
-		t.Fatal("need at least one load balancer to create a steady server")
+	es := &EmailSink{}
+
+	opt := steady.ServerOptions{}
+	if len(suite.loadBalancers) > 0 {
+		opt = steady.ServerOptions{
+			PrivateLoadBalancerURL: "http://" + suite.loadBalancers[0].PrivateServerAddr(),
+			PublicLoadBalancerURL:  "http://" + suite.loadBalancers[0].PublicServerAddr(),
+			DaemonClient:           suite.NewDaemonClient(suite.loadBalancers[0].PrivateServerAddr()),
+		}
 	}
-	return steady.NewServer(steady.ServerOptions{
-		PrivateLoadBalancerURL: suite.loadBalancers[0].PrivateServerAddr(),
-		PublicLoadBalancerURL:  suite.loadBalancers[0].PublicServerAddr(),
-		DaemonClient:           suite.NewDaemonClient(suite.loadBalancers[0].PrivateServerAddr()),
-	}, steady.OptionWithSqlite(t.TempDir()+"/steady.sqlite"))
+	return es, steady.NewServer(opt,
+		steady.OptionWithSqlite(t.TempDir()+"/steady.sqlite"),
+		steady.OptionWithEmailSink(func(email string) {
+			es.Emails = append(es.Emails, email)
+		}),
+	)
 }
 
 type EmailSink struct {
@@ -124,16 +133,9 @@ func (es *EmailSink) LatestEmail() string {
 	return es.Emails[len(es.Emails)-1]
 }
 
-func (suite *Suite) NewWebServer(opts steady.ServerOptions) (*EmailSink, string) {
-	es := &EmailSink{}
-	sqliteDataDir := suite.T().TempDir()
-	steadyHandler := steady.NewServer(
-		opts,
-		steady.OptionWithSqlite(filepath.Join(sqliteDataDir, "./steady.sqlite")),
-		steady.OptionWithEmailSink(func(email string) {
-			es.Emails = append(es.Emails, email)
-		}),
-	)
+func (suite *Suite) NewWebServer() (*EmailSink, string) {
+	es, steadyHandler := suite.NewSteadyServer()
+
 	listener, err := net.Listen("tcp", ":0")
 	if err != nil {
 		suite.T().Fatal(err)
@@ -152,14 +154,16 @@ func (suite *Suite) NewWebServer(opts steady.ServerOptions) (*EmailSink, string)
 	go func() { _ = server.Serve(listener) }()
 	go func() {
 		<-ctx.Done()
-		_ = server.Shutdown(context.Background())
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute)
+		_ = server.Shutdown(ctx)
+		cancel()
 	}()
 	return es, url
 }
 
 func (suite *Suite) NewLB() *loadbalancer.LB {
 	if len(suite.daemons) == 0 {
-		suite.T().Fatal("You cannot create a load balancer if no daemon servers exis")
+		suite.T().Fatal("You cannot create a load balancer if no daemon servers exist")
 	}
 	lb := loadbalancer.NewLB()
 	if err := lb.NewHostAssignments(suite.assigner.Assignments()); err != nil {

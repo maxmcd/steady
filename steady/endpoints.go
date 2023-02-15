@@ -44,7 +44,7 @@ func (s *Server) sendLoginEmail(ctx context.Context, user db.User) (err error) {
 func (s *Server) getUserSession(ctx context.Context) (_ *db.UserSession, err error) {
 	header, found := twirp.HTTPRequestHeaders(ctx)
 	if !found {
-		panic("oh")
+		return nil, twirp.NewError(twirp.Unauthenticated, "User session token not found in headers")
 	}
 	token := header.Get("X-Steady-Token")
 	if token == "" {

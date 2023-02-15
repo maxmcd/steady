@@ -2,6 +2,7 @@ package steady
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"net/url"
 
@@ -43,6 +44,11 @@ func NewServer(options ServerOptions, opts ...Option) http.Handler {
 	s.parsedPublicLB, err = url.Parse(s.publicLoadBalancerURL)
 	if err != nil {
 		panic(err)
+	}
+	if options.PublicLoadBalancerURL != "" &&
+		s.parsedPublicLB.Scheme != "http" &&
+		s.parsedPublicLB.Scheme != "https" {
+		panic(fmt.Sprintf("Public load balancer url must be a full URL with schema: %q", options.PublicLoadBalancerURL))
 	}
 
 	for _, opt := range opts {

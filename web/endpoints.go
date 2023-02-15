@@ -3,6 +3,7 @@ package web
 import (
 	"io"
 	"mime"
+	"net/http"
 	"path/filepath"
 
 	"github.com/maxmcd/steady/internal/mux"
@@ -21,9 +22,20 @@ func (s *Server) assetsEndpoints(c *mux.Context) error {
 
 	_, _ = io.Copy(c.Writer, f)
 	return nil
+
 }
 
 func (s *Server) logoutEndpoint(c *mux.Context) error {
+	ctx, err := twirp.WithHTTPRequestHeaders(c.Request.Context(), http.Header{
+		"X-Steady-Token": []string{c.Token},
+	})
+	if err != nil {
+		return err
+	}
+	if _, err := s.steadyClient.Logout(ctx, nil); err != nil {
+		return err
+	}
+
 	c.DeleteToken()
 	c.AddFlash("You have been successfully logged out")
 	c.SaveFlash()

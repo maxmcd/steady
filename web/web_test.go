@@ -10,7 +10,6 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/maxmcd/steady/internal/testsuite"
-	"github.com/maxmcd/steady/steady"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -69,7 +68,7 @@ func (suite *Suite) postForm(url string, body url.Values) (_ *http.Response, doc
 }
 
 func (suite *Suite) TestUserSignup() {
-	es, addr := suite.NewWebServer(steady.ServerOptions{})
+	es, addr := suite.NewWebServer()
 
 	suite.Run("index page includes login link", func() {
 		resp, doc := suite.webRequest(http.NewRequest(http.MethodGet, addr, nil))
@@ -148,13 +147,9 @@ func (suite *Suite) TestUserSignup() {
 func (suite *Suite) TestRunApplication() {
 	suite.StartMinioServer()
 	_, _ = suite.NewDaemon()
-	lb := suite.NewLB()
 
-	_, addr := suite.NewWebServer(steady.ServerOptions{
-		DaemonClient:           suite.NewDaemonClient(lb.PrivateServerAddr()),
-		PublicLoadBalancerURL:  "http://" + lb.PublicServerAddr(),
-		PrivateLoadBalancerURL: "http://" + lb.PrivateServerAddr(),
-	})
+	lb := suite.NewLB()
+	_, addr := suite.NewWebServer()
 
 	signupForm := url.Values{"index.ts": {suite.LoadExampleScript("http")}}
 	resp, doc := suite.postForm(addr+"/application", signupForm)

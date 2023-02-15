@@ -28,7 +28,7 @@ message SignupRequest {
 
 message SignupResponse { User user = 1; }
 
-message LogoutRequest { string user_session_token = 1; }
+message LogoutRequest {}
 
 message LogoutResponse {}
 
