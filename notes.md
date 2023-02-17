@@ -1,3 +1,21 @@
+# 2023-02-15
+
+Next is a focus on application editing and basic observability:
+
+- Edit an existing application
+    - Send code to existing daemon
+    - Oh, try and run code with copy of the database first, see if it runs? Stretch goal.
+    - Do we need to keep multiple versions and do a roll-back on failure?
+    - Stop app, attempt to start new one
+        - Swap source code out "under-foot", otherwise we have to move databases around?
+- Service logs
+    - Logs dir, combine stdout/stderr for now
+    - New versions append to the log
+    - No journaling for now
+- CLI/repl
+- Actual sandboxing?
+- Request log
+
 # 2023-02-14
 
 Things to do:

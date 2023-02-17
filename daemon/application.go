@@ -222,6 +222,7 @@ func (a *application) endOfRequest() {
 
 func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 	cmd := exec.Command("bun", "index.ts")
+
 	cmd.Dir = dir
 	cmd.Env = append([]string{fmt.Sprintf("PORT=%d", port)}, env...)
 
