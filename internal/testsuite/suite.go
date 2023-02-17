@@ -219,8 +219,19 @@ func (suite *Suite) NewDaemonClient(addr string) *daemon.Client {
 	return daemon.NewClient(fmt.Sprintf("http://%s", addr), nil)
 }
 
+func (suite *Suite) repoRoot() string {
+	dir, err := os.Getwd()
+	suite.Require().NoError(err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); !os.IsNotExist(err) {
+			return dir
+		}
+		dir = filepath.Join(dir, "..")
+	}
+}
+
 func (suite *Suite) LoadExampleScript(name string) string {
-	abs, err := filepath.Abs("../examples/" + name)
+	abs, err := filepath.Abs(filepath.Join(suite.repoRoot(), "/examples/"+name))
 	if err != nil {
 		suite.T().Fatal(err)
 	}
