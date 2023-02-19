@@ -3,7 +3,6 @@ package execx_test
 import (
 	"bytes"
 	"context"
-	"fmt"
 	"strings"
 	"testing"
 	"time"
@@ -49,6 +48,5 @@ func TestCommand(t *testing.T) {
 		}
 		require.GreaterOrEqual(t, time.Since(start), timeout)
 		cancel()
-		fmt.Println(buf.String())
 	})
 }

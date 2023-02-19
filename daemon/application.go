@@ -280,7 +280,7 @@ func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
 			_ = cmd.Process.Kill()
 			return nil, fmt.Errorf("Process is running, but nothing is listening on the expected port")
 		}
-		exponent := time.Duration(i + 1*i + 1)
+		exponent := time.Duration((i+1)*(i+1)) / 2
 		time.Sleep(time.Millisecond * exponent)
 	}
 	return cmd, nil

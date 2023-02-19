@@ -14,6 +14,7 @@ import (
 
 	"github.com/maxmcd/steady/daemon/boxpool"
 	"github.com/maxmcd/steady/internal/execx"
+	"github.com/mitchellh/go-ps"
 )
 
 func main() {
@@ -68,7 +69,16 @@ func main() {
 				sendError(err)
 			}
 			cmd = nil
+
 			sendResponse(boxpool.ContainerResponse{Err: ""})
+
+			// Kill any orphaned processes that are no us
+			processList, _ := ps.Processes()
+			for _, p := range processList {
+				if p.Pid() != 1 {
+					_ = syscall.Kill(p.Pid(), syscall.SIGKILL)
+				}
+			}
 		case "status":
 			running := cmd.Running()
 			exitCode := cmd.ExitCode()
