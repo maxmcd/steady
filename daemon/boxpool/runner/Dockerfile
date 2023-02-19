@@ -1,36 +1,36 @@
 FROM debian:11 as bun
 
-RUN apt-get update -qq && apt-get install -y curl unzip
-RUN curl -fsSL https://bun.sh/install | bash
-
-
-FROM debian:11 as user
-
 RUN useradd -ms /bin/bash steady
-RUN mkdir -p /home/newuser
+RUN mkdir -p /home/steady
+RUN apt-get update -qq && apt-get install -y curl unzip
+
+USER steady
+RUN curl -fsSL https://bun.sh/install | bash
 
 FROM golang as golang
 
 WORKDIR /steady
-RUN mkdir -p /steady/daemon/boxpool/runner
 
 COPY ./go.mod ./go.sum /steady/
-COPY ./daemon/boxpool/*.go /steady/daemon/boxpool
-COPY ./daemon/boxpool/runner/*.go /steady/daemon/boxpool/runner
+COPY ./daemon/boxpool/*.go /steady/daemon/boxpool/
+COPY ./daemon/boxpool/runner/*.go /steady/daemon/boxpool/runner/
+COPY ./internal/execx/*.go /steady/internal/execx/
 
 WORKDIR /steady/daemon/boxpool/runner
-RUN go build .
+RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
+    --mount=type=cache,id=gomcache,target=/root/.cache/go-build \
+    go build .
 
 FROM gcr.io/distroless/base-debian11:debug
 
-ENV BUN_INSTALL="/root/.bun"
+ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
 COPY --from=golang /steady/daemon/boxpool/runner/runner /bin/runner
 # https://github.com/GoogleContainerTools/distroless/issues/277#issuecomment-456941869
-COPY --from=user /etc/passwd /etc/passwd
-COPY --from=user /home/newuser /home/newuser
-COPY --from=bun /root/.bun /root/.bun
+COPY --from=bun /etc/passwd /etc/passwd
+COPY --from=bun /home/steady /home/steady
+COPY --from=bun /home/steady/.bun /home/steady/.bun
 
 # USER steady
 

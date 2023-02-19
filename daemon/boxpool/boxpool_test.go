@@ -17,7 +17,7 @@ func TestBasic(t *testing.T) {
 
 	suite := new(testsuite.Suite)
 	suite.SetT(t)
-	pool, err := boxpool.NewPool(context.Background(), "runner", dataDir)
+	pool, err := boxpool.New(context.Background(), "runner", dataDir)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,11 +31,17 @@ func TestBasic(t *testing.T) {
 	f.Close()
 
 	fmt.Println(appDir, dataDir)
-	if _, err := pool.RunBox(context.Background(),
+	box, err := pool.RunBox(context.Background(),
 		[]string{"bun", "run", "index.ts", "--no-install"},
-		appDir, nil); err != nil {
+		appDir, nil)
+	if err != nil {
 		t.Fatal(err)
 	}
 
-	time.Sleep(time.Hour)
+	time.Sleep(time.Second)
+	start := time.Now()
+	if err := box.Stop(context.Background()); err != nil {
+		t.Error(err)
+	}
+	fmt.Println(time.Since(start))
 }

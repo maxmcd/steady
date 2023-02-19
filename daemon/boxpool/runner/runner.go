@@ -2,47 +2,97 @@ package main
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
-	"os/exec"
+	"os/user"
+	"strconv"
+	"syscall"
+	"time"
 
 	"github.com/maxmcd/steady/daemon/boxpool"
+	"github.com/maxmcd/steady/internal/execx"
 )
 
 func main() {
-	// user, err := user.Current()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	user, err := user.Lookup("steady")
+	if err != nil {
+		panic(err)
+	}
+
+	var cmd *execx.Cmd
 
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		var action boxpool.ContainerAction
 		lineBytes := scanner.Bytes()
 		if err := json.Unmarshal(lineBytes, &action); err != nil {
-			fmt.Fprintln(os.Stderr, err)
+			sendError(err)
 			continue
 		}
 		fmt.Fprintln(os.Stderr, "got action", action)
-		if action.Action == "run" {
+		switch action.Action {
+		case "run":
 			logs, err := os.Create("/opt/log.log")
 			if err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				sendError(err)
 				continue
 			}
-			cmd := exec.Command(action.Cmd[0], action.Cmd[1:]...)
+			cmd = execx.Command(action.Cmd[0], action.Cmd[1:]...)
+			cmd.SysProcAttr = &syscall.SysProcAttr{}
+			cmd.SysProcAttr.Credential = userToCred(user)
 			cmd.Env = action.Env
 			cmd.Dir = "/opt/app"
-			cmd.Stdout = logs
-			cmd.Stderr = logs
+			cmd.Stdout = io.MultiWriter(logs, os.Stderr)
+			cmd.Stderr = io.MultiWriter(logs, os.Stderr)
 			if err := cmd.Start(); err != nil {
-				fmt.Fprintln(os.Stderr, err)
+				sendError(err)
 				continue
 			}
+			sendResponse(boxpool.ContainerResponse{Err: ""})
+		case "stop":
+			if cmd == nil {
+				sendError(fmt.Errorf("No command currently running"))
+				continue
+			}
+			if err := cmd.Process.Signal(os.Interrupt); err != nil {
+				sendError(err)
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+			err := cmd.Shutdown(ctx)
+			cancel()
+			if err != nil {
+				sendError(err)
+			}
+			cmd = nil
+			sendResponse(boxpool.ContainerResponse{Err: ""})
+		case "status":
+			running := cmd.Running()
+			exitCode := cmd.ExitCode()
+			sendResponse(boxpool.ContainerResponse{
+				Running:  &running,
+				ExitCode: &exitCode,
+			})
 		}
 	}
 	if err := scanner.Err(); err != nil {
 		panic(err)
 	}
+}
+
+func sendError(err error) {
+	sendResponse(boxpool.ContainerResponse{Err: err.Error()})
+}
+
+func sendResponse(resp boxpool.ContainerResponse) {
+	_ = json.NewEncoder(os.Stdout).Encode(resp)
+}
+
+func userToCred(u *user.User) *syscall.Credential {
+	uid, _ := strconv.Atoi(u.Uid)
+	gid, _ := strconv.Atoi(u.Gid)
+	return &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
 }

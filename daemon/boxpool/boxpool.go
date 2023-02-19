@@ -29,7 +29,7 @@ type Pool struct {
 	pool []*poolContainer
 }
 
-func NewPool(ctx context.Context, image string, dataDir string) (*Pool, error) {
+func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 	p := &Pool{
 		image:   image,
 		dataDir: dataDir,
@@ -112,11 +112,35 @@ type poolContainer struct {
 
 type ContainerAction struct {
 	Action string
-	Cmd    []string
-	Env    []string
+	Cmd    []string `json:",omitempty"`
+	Env    []string `json:",omitempty"`
 }
 type ContainerResponse struct {
-	Action string
+	ExitCode *int  `json:",omitempty"`
+	Running  *bool `json:",omitempty"`
+	Err      string
+}
+
+func (pc *poolContainer) sendMsg(req ContainerAction) (resp ContainerResponse, err error) {
+	if err := json.NewEncoder(pc.attach.Conn).Encode(req); err != nil {
+		return ContainerResponse{}, err
+	}
+	if ok := pc.scanner.Scan(); !ok {
+		return ContainerResponse{}, pc.scanner.Err()
+	}
+	respString := pc.scanner.Text()
+	fmt.Println("got it", respString)
+	if err := json.Unmarshal([]byte(pc.scanner.Text()), &resp); err != nil {
+		return ContainerResponse{}, err
+	}
+	if resp.Err != "" {
+		return ContainerResponse{}, fmt.Errorf(resp.Err)
+	}
+	return resp, nil
+}
+
+func (pc *poolContainer) exec(ctx context.Context) {
+	pc.pool.dockerClient.ContainerExecCreate(ctx, pc.id, types.ExecConfig{})
 }
 
 func (pc *poolContainer) Run(ctx context.Context, cmd []string, dataDir string, env []string) error {
@@ -125,20 +149,16 @@ func (pc *poolContainer) Run(ctx context.Context, cmd []string, dataDir string, 
 		return err
 	}
 
-	if err := json.NewEncoder(pc.attach.Conn).Encode(ContainerAction{
+	// TODO: lock, running status, err if already running
+	// TODO: persist dataDir and move back when complete
+	// TODO:
+
+	resp, err := pc.sendMsg(ContainerAction{
 		Action: "run",
 		Cmd:    cmd,
 		Env:    env,
-	}); err != nil {
-		return err
-	}
-	if ok := pc.scanner.Scan(); !ok {
-		return pc.scanner.Err()
-	}
-	respString := pc.scanner.Text()
-	fmt.Println("got it", respString)
-	var resp ContainerResponse
-	if err := json.Unmarshal([]byte(pc.scanner.Text()), &resp); err != nil {
+	})
+	if err != nil {
 		return err
 	}
 	fmt.Println(resp)
@@ -146,17 +166,32 @@ func (pc *poolContainer) Run(ctx context.Context, cmd []string, dataDir string, 
 }
 
 func (pc *poolContainer) Stop(ctx context.Context) error {
+	resp, err := pc.sendMsg(ContainerAction{
+		Action: "stop",
+	})
+	if err != nil {
+		return err
+	}
+	fmt.Println(resp)
+	return nil
+}
+
+func (pc *poolContainer) Shutdown(ctx context.Context) error {
 	return pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
 }
 
 func (p *Pool) RunBox(ctx context.Context, cmd []string, dataDir string, env []string) (*Box, error) {
-	return nil, p.pool[0].Run(ctx, cmd, dataDir, env)
-	return nil, nil
+	cont := p.pool[0]
+	if err := cont.Run(ctx, cmd, dataDir, env); err != nil {
+		return nil, err
+	}
+	return &Box{cont: cont, dataDir: dataDir}, nil
 }
 
 type Box struct {
-	pool    *Pool
+	cont    *poolContainer
 	dataDir string
+	running bool
 }
 
 // Exec opens a shell session within the box.
@@ -164,9 +199,9 @@ func (b *Box) Exec() {
 
 }
 
-// Close stops the program and frees the container back to the pool.
-func (b *Box) Close() error {
-	return nil
+// Stop stops the program and frees the container back to the pool.
+func (b *Box) Stop(ctx context.Context) error {
+	return b.cont.Stop(ctx)
 }
 
 // Pool of images. New command runs the command within the image and mounts the
