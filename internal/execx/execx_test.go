@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"context"
 	"strings"
+	"sync"
 	"testing"
 	"time"
 
@@ -24,10 +25,10 @@ func TestCommand(t *testing.T) {
 		cancel()
 	})
 	t.Run("shutdown with kill", func(t *testing.T) {
-		var buf bytes.Buffer
+		buf := &safeBuffer{}
 		cmd := execx.Command("bash", "-c", "echo 'started' && trap \"\" INT && sleep 1000000")
-		cmd.Stderr = &buf
-		cmd.Stdout = &buf
+		cmd.Stderr = buf
+		cmd.Stdout = buf
 		if err := cmd.Start(); err != nil {
 			t.Fatal(err)
 		}
@@ -49,4 +50,21 @@ func TestCommand(t *testing.T) {
 		require.GreaterOrEqual(t, time.Since(start), timeout)
 		cancel()
 	})
+}
+
+type safeBuffer struct {
+	buf  bytes.Buffer
+	lock sync.Mutex
+}
+
+func (sb *safeBuffer) Write(b []byte) (int, error) {
+	sb.lock.Lock()
+	defer sb.lock.Unlock()
+	return sb.buf.Write(b)
+}
+
+func (sb *safeBuffer) String() string {
+	sb.lock.Lock()
+	defer sb.lock.Unlock()
+	return sb.buf.String()
 }

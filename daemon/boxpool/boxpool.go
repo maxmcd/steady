@@ -93,6 +93,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}
 
 	cont.ipAddress = info.NetworkSettings.IPAddress
+	cont.attach = resp
 
 	pr, pw := io.Pipe()
 	go func() {
@@ -101,7 +102,6 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 		fmt.Println("reader closed")
 	}()
 
-	cont.attach = resp
 	cont.scanner = bufio.NewScanner(pr)
 
 	return cont, nil
