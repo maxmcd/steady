@@ -21,8 +21,8 @@ jobs:
           git status
           [[ -z $(git status -s) ]]
       # for your debugging needs, will pause job and print ssh connection string
-      - name: Setup tmate session
-        uses: mxschmitt/action-tmate@v3
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
       - env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |

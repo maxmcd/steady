@@ -29,6 +29,8 @@ type Pool struct {
 
 	lock *sync.Mutex
 	pool []*poolContainer
+
+	gid, uid int
 }
 
 func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
@@ -36,6 +38,8 @@ func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 		image:   image,
 		dataDir: dataDir,
 		lock:    &sync.Mutex{},
+		gid:     os.Getegid(),
+		uid:     os.Getuid(),
 	}
 	var err error
 	p.dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -150,10 +154,16 @@ type poolContainer struct {
 	running bool
 }
 
+type Exec struct {
+	Cmd []string `json:",omitempty"`
+	Env []string `json:",omitempty"`
+	Gid int
+	Uid int
+}
+
 type ContainerAction struct {
 	Action string
-	Cmd    []string `json:",omitempty"`
-	Env    []string `json:",omitempty"`
+	Exec   *Exec
 }
 type ContainerResponse struct {
 	ExitCode *int  `json:",omitempty"`
@@ -212,8 +222,12 @@ func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, 
 
 	_, err := pc.sendMsg(ContainerAction{
 		Action: "run",
-		Cmd:    cmd,
-		Env:    env,
+		Exec: &Exec{
+			Cmd: cmd,
+			Env: env,
+			Gid: pc.pool.gid,
+			Uid: pc.pool.uid,
+		},
 	})
 	if err != nil {
 		pc.setRunning(false)

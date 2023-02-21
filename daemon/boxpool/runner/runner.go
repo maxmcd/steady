@@ -18,10 +18,6 @@ import (
 )
 
 func main() {
-	user, err := user.Lookup("steady")
-	if err != nil {
-		panic(err)
-	}
 
 	var cmd *execx.Cmd
 
@@ -40,10 +36,11 @@ func main() {
 				sendError(err)
 				continue
 			}
-			cmd = execx.Command(action.Cmd[0], action.Cmd[1:]...)
+			exec := action.Exec
+			cmd = execx.Command(exec.Cmd[0], exec.Cmd[1:]...)
 			cmd.SysProcAttr = &syscall.SysProcAttr{}
-			cmd.SysProcAttr.Credential = userToCred(user)
-			cmd.Env = action.Env
+			cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(exec.Uid), Gid: uint32(exec.Gid)}
+			cmd.Env = exec.Env
 			cmd.Dir = "/opt/app"
 			cmd.Stdout = io.MultiWriter(logs, os.Stderr)
 			cmd.Stderr = io.MultiWriter(logs, os.Stderr)

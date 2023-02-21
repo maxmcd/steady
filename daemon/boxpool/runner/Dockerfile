@@ -1,6 +1,6 @@
 FROM debian:11 as bun
 
-RUN useradd -ms /bin/bash steady
+RUN useradd -u 1500 -ms /bin/bash steady
 RUN mkdir -p /home/steady
 RUN apt-get update -qq && apt-get install -y curl unzip
 
@@ -29,6 +29,7 @@ FROM debian:11
 
 ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
+ENV HOME="/home/steady"
 
 COPY --from=go /steady/daemon/boxpool/runner/runner /bin/runner
 # https://github.com/GoogleContainerTools/distroless/issues/277#issuecomment-456941869
