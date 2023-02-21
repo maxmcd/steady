@@ -19,6 +19,8 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 )
 
+var ErrContainerStopped = fmt.Errorf("container has stopped")
+
 type Pool struct {
 	image   string
 	dataDir string
@@ -65,6 +67,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}, &container.HostConfig{
 		ReadonlyRootfs: true,
 		Binds:          []string{dataDir + ":/opt"},
+		// Runtime:        "runsc",
 	}, nil, nil, "")
 	if err != nil {
 		return nil, err
@@ -98,8 +101,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	pr, pw := io.Pipe()
 	go func() {
 		_, _ = stdcopy.StdCopy(pw, os.Stderr, cont.attach.Reader)
-		pw.Close()
-		fmt.Println("reader closed")
+		_ = pw.Close()
 	}()
 
 	cont.scanner = bufio.NewScanner(pr)
@@ -167,8 +169,7 @@ func (pc *poolContainer) sendMsg(req ContainerAction) (resp ContainerResponse, e
 		return ContainerResponse{}, fmt.Errorf("container has stopped")
 	}
 	respString := pc.scanner.Text()
-	fmt.Println("got it", respString)
-	if err := json.Unmarshal([]byte(pc.scanner.Text()), &resp); err != nil {
+	if err := json.Unmarshal([]byte(respString), &resp); err != nil {
 		return ContainerResponse{}, err
 	}
 	if resp.Err != "" {
@@ -177,9 +178,10 @@ func (pc *poolContainer) sendMsg(req ContainerAction) (resp ContainerResponse, e
 	return resp, nil
 }
 
-func (pc *poolContainer) exec(ctx context.Context) {
-	pc.pool.dockerClient.ContainerExecCreate(ctx, pc.id, types.ExecConfig{})
-}
+// TODO
+// func (pc *poolContainer) exec(ctx context.Context) {
+// 	pc.pool.dockerClient.ContainerExecCreate(ctx, pc.id, types.ExecConfig{})
+// }
 
 func (pc *poolContainer) isRunning() bool {
 	pc.lock.Lock()
@@ -207,9 +209,6 @@ func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, 
 		return err
 	}
 	pc.appDataReturnLocation = dataDir
-
-	// TODO: lock, running status, err if already running
-	// TODO: persist dataDir and move back when complete
 
 	_, err := pc.sendMsg(ContainerAction{
 		Action: "run",
@@ -239,6 +238,14 @@ func (pc *poolContainer) stop(ctx context.Context) error {
 		return sendErr
 	}
 	return nil
+}
+
+func (pc *poolContainer) status(ctx context.Context) (exitCode int, running bool, err error) {
+	resp, err := pc.sendMsg(ContainerAction{Action: "status"})
+	if err != nil {
+		return 0, false, err
+	}
+	return *resp.ExitCode, *resp.Running, nil
 }
 
 func (pc *poolContainer) shutdown(ctx context.Context) error {
@@ -271,10 +278,11 @@ func (b *Box) Exec() {
 
 }
 
+func (b *Box) Status(ctx context.Context) (exitCode int, running bool, err error) {
+	return b.cont.status(ctx)
+}
+
 // Stop stops the program and frees the container back to the pool.
 func (b *Box) Stop(ctx context.Context) error {
 	return b.cont.stop(ctx)
 }
-
-// Pool of images. New command runs the command within the image and mounts the
-// OS directory into the expected location.

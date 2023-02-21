@@ -34,8 +34,9 @@ func TestBasic(t *testing.T) {
 	for i := 0; i < 5; i++ {
 		start := time.Now()
 		box, err := pool.RunBox(context.Background(),
-			[]string{"bun", "run", "index.ts", "--no-install"},
-			appDir, nil)
+			[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
+			appDir,
+			[]string{"STEADY_INDEX_LOCATION=/opt/app/index.ts"})
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -49,7 +50,13 @@ func TestBasic(t *testing.T) {
 			}
 			exponent := time.Duration((i+1)*(i+1)) / 2
 			time.Sleep(time.Millisecond * exponent)
-			fmt.Println(time.Millisecond * exponent)
+			_, running, err := box.Status(context.Background())
+			if err != nil {
+				t.Fatal(err)
+			}
+			if !running {
+				t.Fatal("not running")
+			}
 		}
 
 		fmt.Println("alive", time.Since(start))

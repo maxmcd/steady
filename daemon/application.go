@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/benbjohnson/litestream"
+	"github.com/sourcegraph/conc/pool"
 )
 
 var (
@@ -47,8 +48,8 @@ type application struct {
 
 	cancel func()
 
-	litestreamServer *litestream.Server
-	createDBFunc     func(string) (*litestream.DB, error)
+	dbs          map[string]*litestream.DB
+	createDBFunc func(string) (*litestream.DB, error)
 }
 
 func (d *Daemon) newApplication(name string, dir string, port int) *application {
@@ -59,6 +60,7 @@ func (d *Daemon) newApplication(name string, dir string, port int) *application 
 		stopRequestChan: make(chan struct{}),
 		createDBFunc:    d.createDB(name),
 		dbLimitWaiter:   newLimitWaiter(10),
+		dbs:             make(map[string]*litestream.DB),
 	}
 	return w
 }
@@ -117,6 +119,7 @@ func (a *application) stopProcess(force bool) {
 	}
 }
 
+// shutdown will completely shut down all applications and clean up
 func (a *application) shutdown() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
@@ -125,73 +128,65 @@ func (a *application) shutdown() error {
 		_ = a.cmd.Process.Kill()
 		a.running = false
 	}
-	if a.litestreamServer != nil {
-		return a.litestreamServer.Close()
+	var err error
+	if a.dbs != nil {
+		for _, db := range a.dbs {
+			if e := db.Close(); e != nil && err == nil {
+				err = fmt.Errorf("close db: path=%s err=%w", db.Path(), e)
+			}
+		}
 	}
-	return nil
+	return err
 }
 
 func (a *application) checkForDBs() error {
-	dbs, err := filepath.Glob(filepath.Join(a.dir, "./*.sqlite"))
+	dbPaths, err := filepath.Glob(filepath.Join(a.dir, "./*.sqlite"))
 	if err != nil {
 		return err
 	}
 	foundDBFiles := map[string]struct{}{}
-	for _, db := range dbs {
-		foundDBFiles[db] = struct{}{}
+	for _, dbPath := range dbPaths {
+		foundDBFiles[dbPath] = struct{}{}
 	}
 
-	existingPaths := map[string]struct{}{}
-
-	if a.litestreamServer != nil {
-		for _, db := range a.litestreamServer.DBs() {
-			path := db.Path()
-			// If we didn't find a litestream db in our project, unwatch it.
-			// TODO: Is this even possible?
-			if _, found := foundDBFiles[path]; !found {
-				if err := a.litestreamServer.Unwatch(path); err != nil {
-					return err
-				}
-			} else {
-				existingPaths[path] = struct{}{}
+	for _, db := range a.dbs {
+		path := db.Path()
+		// If we didn't find a litestream db in our project, remove it.
+		// TODO: Figure out when this will happen, if litestream will event allow it,
+		// other cleanup we have to do, what is the expected user-facing
+		// behavior for deleting DBs.
+		if _, found := foundDBFiles[path]; !found {
+			if err := db.Close(); err != nil {
+				return fmt.Errorf("closing deleted database: %w", err)
 			}
+			delete(a.dbs, path)
 		}
 	}
-	newDBs := []string{}
-	for _, db := range dbs {
-		if _, found := existingPaths[db]; !found {
-			newDBs = append(newDBs, db)
+	newDBPaths := []string{}
+	for _, dbPath := range dbPaths {
+		if _, found := a.dbs[dbPath]; !found {
+			newDBPaths = append(newDBPaths, dbPath)
 		}
 	}
 
-	if len(newDBs) == 0 {
+	if len(newDBPaths) == 0 {
 		// No new db-like files found that we haven't accounted for
 		return nil
 	}
 
-	if a.litestreamServer == nil {
-		a.litestreamServer = litestream.NewServer()
-		if err := a.litestreamServer.Open(); err != nil {
-			return err
+	for _, dbPath := range newDBPaths {
+		db, err := a.createDBFunc(dbPath)
+		if err != nil {
+			return fmt.Errorf("creating new db path=%q: %w", dbPath, err)
 		}
+		a.dbs[dbPath] = db
 	}
-	for _, db := range newDBs {
-		if err := a.litestreamServer.Watch(db, a.createDBFunc); err != nil {
-			return err
-		}
+	pl := pool.New().WithErrors()
+	for _, db := range a.dbs {
+		d := db // loop to goroutine
+		pl.Go(func() error { return d.Sync(context.Background()) })
 	}
-	for _, db := range a.litestreamServer.DBs() {
-		if _, found := existingPaths[db.Path()]; found {
-			// Don't init db's we already have
-			continue
-		}
-		// Sync now so that we can catch errors
-		if err := db.Sync(context.Background()); err != nil {
-			return err
-		}
-	}
-
-	return nil
+	return pl.Wait()
 }
 
 func (a *application) newRequest(ctx context.Context) (err error) {

@@ -6,8 +6,12 @@ RUN apt-get update -qq && apt-get install -y curl unzip
 
 USER steady
 RUN curl -fsSL https://bun.sh/install | bash
+ENV BUN_INSTALL="/home/steady/.bun"
+ENV PATH="$BUN_INSTALL/bin:$PATH"
+# Install supporting files needed for bun repl.
+RUN bun x bun-repl --print 'console.log(1)'
 
-FROM golang as golang
+FROM golang as go
 
 WORKDIR /steady
 
@@ -21,16 +25,17 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     --mount=type=cache,id=gomcache,target=/root/.cache/go-build \
     go build .
 
-FROM gcr.io/distroless/base-debian11:debug
+FROM debian:11
 
 ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 
-COPY --from=golang /steady/daemon/boxpool/runner/runner /bin/runner
+COPY --from=go /steady/daemon/boxpool/runner/runner /bin/runner
 # https://github.com/GoogleContainerTools/distroless/issues/277#issuecomment-456941869
 COPY --from=bun /etc/passwd /etc/passwd
 COPY --from=bun /home/steady /home/steady
 COPY --from=bun /home/steady/.bun /home/steady/.bun
+COPY ./daemon/boxpool/runner/wrapper.ts /home/steady/wrapper.ts
 
 # USER steady
 

@@ -33,7 +33,6 @@ func main() {
 			sendError(err)
 			continue
 		}
-		fmt.Fprintln(os.Stderr, "got action", action)
 		switch action.Action {
 		case "run":
 			logs, err := os.Create("/opt/log.log")
