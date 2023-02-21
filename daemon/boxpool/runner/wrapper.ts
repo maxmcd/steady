@@ -7,7 +7,6 @@ let healthEndpoint = process.env.STEADY_HEALTH_ENDPOINT
 // TODO: delete when bun support delete
 process.env.STEADY_HEALTH_ENDPOINT = undefined
 
-console.log("HI", process.env)
 let module = require(toLoad)
 
 let app = module.default;

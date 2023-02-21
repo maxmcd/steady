@@ -16,8 +16,7 @@ console.log("Listening on port " + port);
 let insertUser = db.query("insert into user (email) values (?) returning *");
 
 export default {
-  port,
-  development: false,
+  port: port,
   async fetch(request: Request): Promise<Response> {
     console.log(`http: ${request.method} ${request.url}`)
     if (request.method === "POST") {
@@ -33,3 +32,4 @@ export default {
     return new Response(JSON.stringify(db.query("select * from user").all()));
   },
 };
+
