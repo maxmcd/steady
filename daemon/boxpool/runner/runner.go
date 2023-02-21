@@ -18,7 +18,6 @@ import (
 )
 
 func main() {
-
 	var cmd *execx.Cmd
 
 	scanner := bufio.NewScanner(os.Stdin)

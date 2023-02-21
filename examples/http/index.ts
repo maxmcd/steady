@@ -1,4 +1,5 @@
 import { Database } from "bun:sqlite";
+import { format } from "path";
 
 let db = new Database("db.sqlite");
 
@@ -18,6 +19,7 @@ export default {
   port,
   development: false,
   async fetch(request: Request): Promise<Response> {
+    console.log(`http: ${request.method} ${request.url}`)
     if (request.method === "POST") {
       let req: { email: string } = await request.json();
       // console.log(req, request, JSON.stringify(request.headers));

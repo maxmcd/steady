@@ -3,6 +3,7 @@ package boxpool_test
 import (
 	"context"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -10,6 +11,7 @@ import (
 	"time"
 
 	"github.com/maxmcd/steady/daemon/boxpool"
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/testsuite"
 )
 
@@ -32,19 +34,25 @@ func TestBasic(t *testing.T) {
 	f.Close()
 
 	for i := 0; i < 5; i++ {
+		healthEndpoint := steadyutil.RandomString(10)
+
 		start := time.Now()
 		box, err := pool.RunBox(context.Background(),
 			[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
 			appDir,
-			[]string{"STEADY_INDEX_LOCATION=/opt/app/index.ts"})
+			[]string{
+				"STEADY_INDEX_LOCATION=/opt/app/index.ts",
+				"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
+			})
 		if err != nil {
 			t.Fatal(err)
 		}
 		fmt.Println("start", time.Since(start))
 
 		for i := 0; i < 20; i++ {
-			res, err := http.Get(fmt.Sprintf("http://%s:3000/health", box.IPAddress()))
+			res, err := http.Get(fmt.Sprintf("http://%s:3000/"+healthEndpoint, box.IPAddress()))
 			if err == nil {
+				io.Copy(os.Stdout, res.Body)
 				_ = res.Body.Close()
 				break
 			}

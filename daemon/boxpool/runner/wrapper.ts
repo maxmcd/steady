@@ -1,8 +1,13 @@
 
 
 let toLoad = process.env.STEADY_INDEX_LOCATION
+// TODO: delete when bun support delete
 process.env.STEADY_INDEX_LOCATION = undefined
+let healthEndpoint = process.env.STEADY_HEALTH_ENDPOINT
+// TODO: delete when bun support delete
+process.env.STEADY_HEALTH_ENDPOINT = undefined
 
+console.log("HI", process.env)
 let module = require(toLoad)
 
 let app = module.default;
@@ -18,13 +23,20 @@ const AsyncFunction = (async () => {}).constructor;
 app.port = process.env.PORT
 app.development = false
 
-if (app.fetch instanceof AsyncFunction) {
+let innerFetch = app.fetch;
+if (innerFetch instanceof AsyncFunction) {
     app.fetch = (async (request: Request): Promise<Response> => {
-        return app.fetch
+        if (request.url.endsWith(healthEndpoint)) {
+            return new Response("steady")
+        }
+        return innerFetch(request)
     })
 } else {
     app.fetch = (request: Request): Response => {
-        return app.fetch
+        if (request.url.endsWith(healthEndpoint)) {
+            return new Response("steady")
+        }
+        return innerFetch(request)
     }
 }
 export default app
