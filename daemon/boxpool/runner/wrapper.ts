@@ -4,7 +4,7 @@ let toLoad = process.env.STEADY_INDEX_LOCATION
 // TODO: delete when bun support delete
 process.env.STEADY_INDEX_LOCATION = undefined
 let healthEndpoint = process.env.STEADY_HEALTH_ENDPOINT
-// TODO: delete when bun support delete
+// TODO: delete when bun support delete https://github.com/oven-sh/bun/issues/1559
 process.env.STEADY_HEALTH_ENDPOINT = undefined
 
 let module = require(toLoad)

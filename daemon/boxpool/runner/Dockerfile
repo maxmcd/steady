@@ -11,7 +11,7 @@ ENV PATH="$BUN_INSTALL/bin:$PATH"
 # Install supporting files needed for bun repl.
 RUN bun x bun-repl --print 'console.log(1)'
 
-FROM golang as go
+FROM golang:1.20-bullseye as go
 
 WORKDIR /steady
 

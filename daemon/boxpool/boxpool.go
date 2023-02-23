@@ -17,6 +17,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/sourcegraph/conc/iter"
 )
 
 var ErrContainerStopped = fmt.Errorf("container has stopped")
@@ -27,19 +28,24 @@ type Pool struct {
 
 	dockerClient *client.Client
 
-	lock *sync.Mutex
-	pool []*poolContainer
+	newContainerWG *sync.WaitGroup
+	lock           *sync.Mutex
+	pool           []*poolContainer
+
+	running bool
 
 	gid, uid int
 }
 
 func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 	p := &Pool{
-		image:   image,
-		dataDir: dataDir,
-		lock:    &sync.Mutex{},
-		gid:     os.Getegid(),
-		uid:     os.Getuid(),
+		image:          image,
+		dataDir:        dataDir,
+		newContainerWG: &sync.WaitGroup{},
+		lock:           &sync.Mutex{},
+		gid:            os.Getegid(),
+		uid:            os.Getuid(),
+		running:        true,
 	}
 	var err error
 	p.dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -47,13 +53,49 @@ func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 		return nil, err
 	}
 
-	cont, err := p.startContainer(ctx)
-	if err != nil {
+	if _, err := p.addContainer(ctx); err != nil {
 		return nil, err
 	}
-	p.pool = []*poolContainer{cont}
 
 	return p, nil
+}
+
+type ContainerState struct {
+	ID      string
+	State   *types.ContainerState
+	InUse   bool
+	Healthy bool
+}
+
+func GetContainerStates(ctx context.Context, pool *Pool) (states []ContainerState, err error) {
+	pool.lock.Lock()
+	defer pool.lock.Unlock()
+	for _, cont := range pool.pool {
+		if cont == nil {
+			continue
+		}
+		info, err := pool.dockerClient.ContainerInspect(ctx, cont.id)
+		if err != nil {
+			return nil, fmt.Errorf("container inspect on container %q: %w", cont.id, err)
+		}
+		states = append(states, ContainerState{
+			ID: cont.id, State: info.State, InUse: cont.isInUse(), Healthy: cont.isHealthy()})
+	}
+	return states, nil
+}
+
+func (p *Pool) Shutdown() {
+	p.newContainerWG.Wait()
+	p.lock.Lock()
+	p.running = false
+	defer p.lock.Unlock()
+	iter.ForEach(p.pool, func(c **poolContainer) {
+		if *c == nil {
+			return
+		}
+		(*c).shutdown(context.Background())
+	})
+	p.pool = nil
 }
 
 func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error) {
@@ -71,7 +113,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}, &container.HostConfig{
 		ReadonlyRootfs: true,
 		Binds:          []string{dataDir + ":/opt"},
-		// Runtime:        "runsc",
+		Runtime:        "runsc",
 	}, nil, nil, "")
 	if err != nil {
 		return nil, err
@@ -90,12 +132,12 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 		Logs:   true,
 	})
 	if err != nil {
-		_ = cont.shutdown(context.Background())
+		cont.shutdown(context.Background())
 		return nil, err
 	}
 	info, err := p.dockerClient.ContainerInspect(ctx, cont.id)
 	if err != nil {
-		_ = cont.shutdown(context.Background())
+		cont.shutdown(context.Background())
 		return nil, err
 	}
 
@@ -113,30 +155,58 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	return cont, nil
 }
 func (p *Pool) addContainer(ctx context.Context) (*poolContainer, error) {
+	p.lock.Lock()
+	p.pool = append(p.pool, nil)
+	p.lock.Unlock()
+	p.newContainerWG.Add(1)
 	cont, err := p.startContainer(ctx)
 	if err != nil {
 		return nil, err
 	}
 	p.lock.Lock()
-	p.pool = append(p.pool, cont)
-	p.lock.Unlock()
-	return cont, nil
+	if !p.running {
+		cont.shutdown(context.Background())
+		return nil, nil
+	}
+	for i, c := range p.pool {
+		if c == nil {
+			p.pool[i] = cont
+			p.lock.Unlock()
+			p.newContainerWG.Done()
+			return cont, nil
+		}
+	}
+	panic("unreachable" + fmt.Sprint(p.pool))
 }
 func (p *Pool) nextContainer(ctx context.Context) (*poolContainer, error) {
 	p.lock.Lock()
-	defer p.lock.Unlock()
 	free := []int{}
+	pending := 0
+	temp := p.pool[:0]
 	for i, cont := range p.pool {
-		if !cont.isRunning() {
+		if cont == nil {
+			temp = append(temp, cont)
+			pending++
+			continue
+		}
+		if !cont.isHealthy() {
+			go cont.shutdown(context.Background())
+			continue
+		}
+		if !cont.isInUse() {
 			free = append(free, i)
 		}
+		temp = append(temp, cont)
 	}
+	p.pool = temp // Remove unhealthy containers
 	if len(free) == 0 {
+		p.lock.Unlock()
 		return p.addContainer(ctx)
 	}
-	if len(free) == 1 {
+	if len(free) == 1 && pending < 2 {
 		go func() { _, _ = p.addContainer(context.Background()) }()
 	}
+	defer p.lock.Unlock()
 	return p.pool[free[0]], nil
 }
 
@@ -151,7 +221,8 @@ type poolContainer struct {
 	attach  types.HijackedResponse
 	scanner *bufio.Scanner
 
-	running bool
+	inUse          bool
+	containerState *types.ContainerState
 }
 
 type Exec struct {
@@ -172,11 +243,13 @@ type ContainerResponse struct {
 }
 
 func (pc *poolContainer) sendMsg(req ContainerAction) (resp ContainerResponse, err error) {
+	// Assume lock is acquired already
 	if err := json.NewEncoder(pc.attach.Conn).Encode(req); err != nil {
 		return ContainerResponse{}, err
 	}
 	if ok := pc.scanner.Scan(); !ok {
-		return ContainerResponse{}, fmt.Errorf("container has stopped")
+		pc.handleUnexpectedClose()
+		return ContainerResponse{}, ErrContainerStopped
 	}
 	respString := pc.scanner.Text()
 	if err := json.Unmarshal([]byte(respString), &resp); err != nil {
@@ -188,34 +261,46 @@ func (pc *poolContainer) sendMsg(req ContainerAction) (resp ContainerResponse, e
 	return resp, nil
 }
 
+func (pc *poolContainer) handleUnexpectedClose() {
+	// Assume lock is acquired already
+	info, err := pc.pool.dockerClient.ContainerInspect(context.Background(), pc.id)
+	if err != nil {
+		fmt.Println("WARN: error fetching closed container state: ", err)
+	}
+	if err == nil {
+		pc.containerState = info.State
+	}
+	pc.inUse = false
+}
+
 // TODO
 // func (pc *poolContainer) exec(ctx context.Context) {
 // 	pc.pool.dockerClient.ContainerExecCreate(ctx, pc.id, types.ExecConfig{})
 // }
 
-func (pc *poolContainer) isRunning() bool {
+func (pc *poolContainer) isHealthy() bool {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
-	return pc.running
+	return pc.containerState == nil
 }
-func (pc *poolContainer) setRunning(v bool) {
+
+func (pc *poolContainer) isInUse() bool {
 	pc.lock.Lock()
-	pc.running = v
-	pc.lock.Unlock()
+	defer pc.lock.Unlock()
+	return pc.inUse
 }
 
 func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, env []string) error {
 	pc.lock.Lock()
-	if pc.running {
-		pc.lock.Unlock()
+	defer pc.lock.Unlock()
+	if pc.inUse {
 		return fmt.Errorf("poolContainer is already running")
 	}
-	pc.running = true
-	pc.lock.Unlock()
+	pc.inUse = true
 
 	// Mv datadir to ./app so that mount sees it as /opt/app
 	if err := os.Rename(dataDir, filepath.Join(pc.dataDir, "app")); err != nil {
-		pc.setRunning(false)
+		pc.inUse = false
 		return err
 	}
 	pc.appDataReturnLocation = dataDir
@@ -230,31 +315,40 @@ func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, 
 		},
 	})
 	if err != nil {
-		pc.setRunning(false)
+		pc.inUse = false
 		return err
 	}
 	return nil
 }
 
+type StopInfo struct {
+	DataDir string
+	LogFile string
+}
+
 func (pc *poolContainer) stop(ctx context.Context) error {
 	pc.lock.Lock()
-	if !pc.running {
-		pc.lock.Unlock()
+	defer pc.lock.Unlock()
+	if !pc.inUse {
 		return fmt.Errorf("poolContainer is not running and can't be stopped")
 	}
-	pc.lock.Unlock()
 	_, sendErr := pc.sendMsg(ContainerAction{
 		Action: "stop",
 	})
 	_ = os.Rename(filepath.Join(pc.dataDir, "app"), pc.appDataReturnLocation)
-	pc.setRunning(false)
+	pc.inUse = false
 	if sendErr != nil {
 		return sendErr
 	}
 	return nil
 }
 
-func (pc *poolContainer) status(ctx context.Context) (exitCode int, running bool, err error) {
+func (pc *poolContainer) status() (exitCode int, running bool, err error) {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+	if !pc.inUse {
+		return 0, false, ErrContainerStopped
+	}
 	resp, err := pc.sendMsg(ContainerAction{Action: "status"})
 	if err != nil {
 		return 0, false, err
@@ -262,8 +356,13 @@ func (pc *poolContainer) status(ctx context.Context) (exitCode int, running bool
 	return *resp.ExitCode, *resp.Running, nil
 }
 
-func (pc *poolContainer) shutdown(ctx context.Context) error {
-	return pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
+func (pc *poolContainer) shutdown(ctx context.Context) {
+	pc.lock.Lock()
+	defer pc.lock.Unlock()
+	pc.inUse = false
+	_ = pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
+	_ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
+	fmt.Println("killed", pc.id)
 }
 
 func (p *Pool) RunBox(ctx context.Context, cmd []string, dataDir string, env []string) (*Box, error) {
@@ -292,8 +391,12 @@ func (b *Box) Exec() {
 
 }
 
-func (b *Box) Status(ctx context.Context) (exitCode int, running bool, err error) {
-	return b.cont.status(ctx)
+func (b *Box) Status() (exitCode int, running bool, err error) {
+	return b.cont.status()
+}
+
+func (b *Box) ContainerID() string {
+	return b.cont.id
 }
 
 // Stop stops the program and frees the container back to the pool.

@@ -74,6 +74,8 @@ func (c *Cmd) ExitCode() int {
 	return -1
 }
 
+// Shutdown will shut down the os process. If the provided context is cancelled
+// the process will be killed with SIGKILL.
 func (c *Cmd) Shutdown(ctx context.Context) error {
 	{
 		c.lock.RLock()
@@ -98,7 +100,7 @@ func (c *Cmd) Shutdown(ctx context.Context) error {
 		// Again, see above:
 		// https://medium.com/@felixge/killing-a-child-process-and-all-of-its-children-in-go-54079af94773
 		_ = syscall.Kill(-c.Cmd.Process.Pid, syscall.SIGKILL)
-		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond)
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*5)
 		select {
 		case <-c.doneChan:
 			err = c.waitErr

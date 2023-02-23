@@ -44,6 +44,7 @@ func main() {
 			cmd.Stdout = io.MultiWriter(logs, os.Stderr)
 			cmd.Stderr = io.MultiWriter(logs, os.Stderr)
 			if err := cmd.Start(); err != nil {
+				cmd = nil
 				sendError(err)
 				continue
 			}
@@ -53,15 +54,11 @@ func main() {
 				sendError(fmt.Errorf("No command currently running"))
 				continue
 			}
-			if err := cmd.Process.Signal(os.Interrupt); err != nil {
-				sendError(err)
-				continue
-			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 			err := cmd.Shutdown(ctx)
 			cancel()
 			if err != nil {
-				sendError(err)
+				sendError(fmt.Errorf("shutting down process: %w", err))
 			}
 			cmd = nil
 
