@@ -24,6 +24,7 @@ import (
 	"github.com/benbjohnson/litestream/s3"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/netx"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/errgroup"

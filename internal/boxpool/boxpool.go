@@ -17,7 +17,9 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/sourcegraph/conc/iter"
+	"golang.org/x/exp/slog"
 )
 
 var ErrContainerStopped = fmt.Errorf("container has stopped")
@@ -362,7 +364,8 @@ func (pc *poolContainer) shutdown(ctx context.Context) {
 	pc.inUse = false
 	_ = pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
 	_ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
-	fmt.Println("killed", pc.id)
+
+	slog.Debug("Killed", "id", pc.id)
 }
 
 func (p *Pool) RunBox(ctx context.Context, cmd []string, dataDir string, env []string) (*Box, error) {

@@ -7,10 +7,10 @@ import (
 	"net/url"
 
 	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
 	_ "github.com/mattn/go-sqlite3"
 	"github.com/maxmcd/steady/daemon"
 	db "github.com/maxmcd/steady/db"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/twitchtv/twirp"
 )

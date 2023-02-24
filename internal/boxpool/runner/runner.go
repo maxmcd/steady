@@ -12,7 +12,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/maxmcd/steady/daemon/boxpool"
+	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/execx"
 	"github.com/mitchellh/go-ps"
 )

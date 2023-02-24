@@ -10,12 +10,12 @@ import (
 	"testing"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/docker/docker/client"
-	"github.com/maxmcd/steady/daemon/boxpool"
+	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/stretchr/testify/assert"
+	"golang.org/x/exp/slog"
 )
 
 func TestBasic(t *testing.T) {
@@ -38,7 +38,7 @@ func TestBasic(t *testing.T) {
 	f.Close()
 
 	for i := 0; i < 5; i++ {
-		fmt.Println("New run")
+		slog.Info("New run")
 		healthEndpoint := steadyutil.RandomString(10)
 
 		start := time.Now()
@@ -146,7 +146,6 @@ func TestErrorStates(t *testing.T) {
 			if err != nil {
 				t.Fatal(err)
 			}
-			spew.Dump(states)
 			for _, state := range states {
 				if state.InUse {
 					t.Errorf("Container is in-use, but it shouldn't be: %v", state)
