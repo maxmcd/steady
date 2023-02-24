@@ -24,6 +24,19 @@ func TestCommand(t *testing.T) {
 		}
 		cancel()
 	})
+	t.Run("exit 0", func(t *testing.T) {
+		cmd := execx.Command("echo", "hi")
+		if err := cmd.Start(); err != nil {
+			t.Fatal(err)
+		}
+		for i := 0; i < 100; i++ {
+			time.Sleep(time.Millisecond * 10)
+			if !cmd.Running() {
+				return
+			}
+		}
+		t.Fatal("Command never stopped")
+	})
 	t.Run("shutdown with kill", func(t *testing.T) {
 		buf := &safeBuffer{}
 		cmd := execx.Command("bash", "-c", "echo 'started' && trap \"\" INT && sleep 1000000")

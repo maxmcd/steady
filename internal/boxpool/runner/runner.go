@@ -8,7 +8,9 @@ import (
 	"io"
 	"os"
 	"os/user"
+	"path/filepath"
 	"strconv"
+	"strings"
 	"syscall"
 	"time"
 
@@ -16,6 +18,19 @@ import (
 	"github.com/maxmcd/steady/internal/execx"
 	"github.com/mitchellh/go-ps"
 )
+
+func removeTmpFiles() error {
+	tmpFiles, err := filepath.Glob("/tmp/*")
+	if err != nil {
+		return err
+	}
+	for _, f := range tmpFiles {
+		if err := os.RemoveAll(f); err != nil {
+			fmt.Fprintln(os.Stderr, err)
+		}
+	}
+	return nil
+}
 
 func main() {
 	var cmd *execx.Cmd
@@ -51,20 +66,26 @@ func main() {
 			sendResponse(boxpool.ContainerResponse{Err: ""})
 		case "stop":
 			if cmd == nil {
-				sendError(fmt.Errorf("No command currently running"))
+				sendError(fmt.Errorf("no command running, cannot stop"))
+				continue
+			}
+			if !cmd.Running() {
+				sendResponse(boxpool.ContainerResponse{Err: ""})
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
 			err := cmd.Shutdown(ctx)
 			cancel()
-			if err != nil {
+			if err != nil && !strings.Contains(err.Error(), "process already finished") {
 				sendError(fmt.Errorf("shutting down process: %w", err))
 			}
 			cmd = nil
 
 			sendResponse(boxpool.ContainerResponse{Err: ""})
-
-			// Kill any orphaned processes that are no us
+			// if err := removeTmpFiles(); err != nil {
+			// 	fmt.Fprintln(os.Stderr, fmt.Errorf("removing editable files: %w", err))
+			// }
+			// Kill any orphaned processes
 			processList, _ := ps.Processes()
 			for _, p := range processList {
 				if p.Pid() != 1 {

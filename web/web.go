@@ -14,6 +14,7 @@ import (
 	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/internal/mux"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/pkg/errors"

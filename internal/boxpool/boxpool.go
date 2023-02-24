@@ -12,12 +12,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
 	_ "github.com/maxmcd/steady/internal/slogx"
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/sourcegraph/conc/iter"
 	"golang.org/x/exp/slog"
 )
@@ -115,7 +117,9 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}, &container.HostConfig{
 		ReadonlyRootfs: true,
 		Binds:          []string{dataDir + ":/opt"},
-		Runtime:        "runsc",
+		// TODO: gvisor doesn't support bun :(
+		// [pid    14] <... io_uring_setup resumed>}) = -1 ENOSYS (Function not implemented)
+		// Runtime:        "runsc",
 	}, nil, nil, "")
 	if err != nil {
 		return nil, err
@@ -328,21 +332,27 @@ type StopInfo struct {
 	LogFile string
 }
 
-func (pc *poolContainer) stop(ctx context.Context) error {
+func (pc *poolContainer) stop() (_ *StopInfo, err error) {
 	pc.lock.Lock()
 	defer pc.lock.Unlock()
 	if !pc.inUse {
-		return fmt.Errorf("poolContainer is not running and can't be stopped")
+		return nil, fmt.Errorf("poolContainer is not running and can't be stopped")
 	}
 	_, sendErr := pc.sendMsg(ContainerAction{
 		Action: "stop",
 	})
+	logName := filepath.Join(pc.pool.dataDir, fmt.Sprintf("%d-%s.log", time.Now().UnixNano(), steadyutil.RandomString(4)))
+	// TODO: if we can't do this we should report the error and also clean the
+	// container up to be used again?
 	_ = os.Rename(filepath.Join(pc.dataDir, "app"), pc.appDataReturnLocation)
+	_ = os.Rename(filepath.Join(pc.dataDir, "log.log"), logName)
+	// TODO: we need to ensure the container is healthy and can be used again
+	// before setting inUse to false
 	pc.inUse = false
 	if sendErr != nil {
-		return sendErr
+		return nil, sendErr
 	}
-	return nil
+	return &StopInfo{DataDir: pc.appDataReturnLocation, LogFile: logName}, nil
 }
 
 func (pc *poolContainer) status() (exitCode int, running bool, err error) {
@@ -363,7 +373,7 @@ func (pc *poolContainer) shutdown(ctx context.Context) {
 	defer pc.lock.Unlock()
 	pc.inUse = false
 	_ = pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
-	_ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
+	// _ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
 
 	slog.Debug("Killed", "id", pc.id)
 }
@@ -403,6 +413,6 @@ func (b *Box) ContainerID() string {
 }
 
 // Stop stops the program and frees the container back to the pool.
-func (b *Box) Stop(ctx context.Context) error {
-	return b.cont.stop(ctx)
+func (b *Box) Stop() (*StopInfo, error) {
+	return b.cont.stop()
 }

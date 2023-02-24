@@ -10,6 +10,9 @@ ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 # Install supporting files needed for bun repl.
 RUN bun x bun-repl --print 'console.log(1)'
+# Patch the location of the history log
+COPY ./internal/boxpool/runner/replmanager.ts /tmp/bun-repl@latest--bunx/node_modules/bun-repl/src/replmanager.ts
+
 
 FROM golang:1.20-bullseye as go
 
@@ -20,6 +23,7 @@ COPY ./internal/boxpool/*.go /steady/internal/boxpool/
 COPY ./internal/boxpool/runner/*.go /steady/internal/boxpool/runner/
 COPY ./internal/slogx/*.go /steady/internal/slogx/
 COPY ./internal/execx/*.go /steady/internal/execx/
+COPY ./internal/steadyutil/*.go /steady/internal/steadyutil/
 
 WORKDIR /steady/internal/boxpool/runner
 RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
@@ -27,6 +31,8 @@ RUN --mount=type=cache,id=gomod,target=/go/pkg/mod \
     go build .
 
 FROM debian:11
+
+RUN apt-get update -qq && apt-get install -y strace
 
 ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
@@ -37,8 +43,10 @@ COPY --from=go /steady/internal/boxpool/runner/runner /bin/runner
 COPY --from=bun /etc/passwd /etc/passwd
 COPY --from=bun /home/steady /home/steady
 COPY --from=bun /home/steady/.bun /home/steady/.bun
+COPY --from=bun /tmp /tmp
 COPY ./internal/boxpool/runner/wrapper.ts /home/steady/wrapper.ts
 
+# VOLUME /tmp
 # USER steady
 
 ENTRYPOINT []

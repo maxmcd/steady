@@ -1,6 +1,7 @@
 package boxpool_test
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -15,6 +16,7 @@ import (
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/testsuite"
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/exp/slog"
 )
 
@@ -76,7 +78,7 @@ func TestBasic(t *testing.T) {
 		fmt.Println("alive", time.Since(start))
 		start = time.Now()
 
-		if err := box.Stop(context.Background()); err != nil {
+		if _, err := box.Stop(); err != nil {
 			t.Error(err)
 		}
 		fmt.Println("stop", time.Since(start))
@@ -129,13 +131,41 @@ func TestErrorStates(t *testing.T) {
 				box, err := p.RunBox(context.Background(), []string{"sleep", "10000000"}, t.TempDir(), nil)
 				assert.NoError(t, err)
 				fmt.Println("runBox", time.Since(start))
-				assert.NoError(t, err)
-				if err := box.Stop(context.Background()); err != nil {
+				if _, err := box.Stop(); err != nil {
 					t.Fatal(err)
 				}
-				if err := box.Stop(context.Background()); err == nil {
+				if _, err := box.Stop(); err == nil {
 					t.Fatal("expected error from box.Stop, container already stopped")
 				}
+			},
+		},
+		{
+			name: "exit early",
+			doWork: func(t *testing.T, p *boxpool.Pool) {
+				box, err := p.RunBox(context.Background(), []string{"echo", "hi"}, t.TempDir(), nil)
+				assert.NoError(t, err)
+
+				for i := 0; i < 100; i++ {
+					if _, running, _ := box.Status(); !running {
+						break
+					}
+					time.Sleep(time.Millisecond * 5)
+				}
+				exitCode, running, err := box.Status()
+				require.NoError(t, err)
+				assert.Equal(t, 0, exitCode)
+				assert.Equal(t, false, running)
+				cr, err := box.Stop()
+				if err != nil {
+					t.Fatal(err)
+				}
+				f, err := os.Open(cr.LogFile)
+				if err != nil {
+					t.Fatal(err)
+				}
+				var buf bytes.Buffer
+				_, _ = io.Copy(&buf, f)
+				assert.Equal(t, "hi\n", buf.String())
 			},
 		},
 	} {
@@ -156,4 +186,37 @@ func TestErrorStates(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestLogs(t *testing.T) {
+	pool, err := boxpool.New(context.Background(), "runner", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Shutdown)
+
+	box, err := pool.RunBox(context.Background(),
+		[]string{"bun", "x", "bun-repl", "--eval",
+			`process.stdout.write('stdout\n'); process.stderr.write('stderr\n')`},
+		t.TempDir(), nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for {
+		if _, running, _ := box.Status(); !running {
+			break
+		}
+	}
+	cr, err := box.Stop()
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	f, err := os.Open(cr.LogFile)
+	if err != nil {
+		t.Fatal(err)
+	}
+	var buf bytes.Buffer
+	_, _ = io.Copy(&buf, f)
+	assert.Equal(t, "stdout\nstderr\n", buf.String())
 }

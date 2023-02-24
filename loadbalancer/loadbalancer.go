@@ -15,6 +15,7 @@ import (
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/pkg/errors"
