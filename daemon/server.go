@@ -18,7 +18,6 @@ var _ daemonrpc.Daemon = new(server)
 func (s server) CreateApplication(ctx context.Context, req *daemonrpc.CreateApplicationRequest) (
 	_ *daemonrpc.Application, err error,
 ) {
-	fmt.Println(s.daemon.s3Config.Bucket)
 	if _, err := s.daemon.validateAndAddApplication(ctx, req.Name, []byte(req.Script)); err != nil {
 		return nil, twirp.NewError(twirp.InvalidArgument, err.Error())
 	}
