@@ -24,11 +24,12 @@ import (
 	"github.com/benbjohnson/litestream/s3"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/boxpool"
+	"github.com/maxmcd/steady/internal/httpx"
 	"github.com/maxmcd/steady/internal/netx"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/exp/slog"
 )
 
 // Daemon is the steady daemon. It runs an http server, handles requests to
@@ -46,9 +47,8 @@ type Daemon struct {
 	applicationsLock sync.RWMutex
 	applications     map[string]*application
 
-	listenerWait *sync.WaitGroup
-	listener     net.Listener
-	eg           *errgroup.Group
+	listener net.Listener
+	wait     func() error
 }
 
 type DaemonOption func(*Daemon)
@@ -68,7 +68,6 @@ func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon 
 		addr:          addr,
 		pool:          pool,
 		applications:  map[string]*application{},
-		listenerWait:  &sync.WaitGroup{},
 		client: &http.Client{
 			Transport: &http.Transport{
 				Dial: (&net.Dialer{
@@ -99,7 +98,20 @@ func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.
 
 // Wait for the server to exit, returning any errors.
 func (d *Daemon) Wait() error {
-	err := d.eg.Wait()
+	defer slog.Info("daemon stopped")
+	if d.wait == nil {
+		panic("Cannot call Addr when the server has not been started")
+	}
+	err := d.wait()
+	d.applicationsLock.Lock()
+	defer d.applicationsLock.Unlock()
+	for name, app := range d.applications {
+		// TODO: will need to be parallel if we ever care about shutdown
+		// speed with live applications
+		if err := app.shutdown(); err != nil {
+			slog.Error("error shutting down application", err, "app", name)
+		}
+	}
 	d.pool.Shutdown()
 	return err
 }
@@ -107,10 +119,9 @@ func (d *Daemon) Wait() error {
 // ServerAddr returns the address of the running server. Will panic if the
 // server hasn't been started yet.
 func (d *Daemon) ServerAddr() string {
-	if d.eg == nil {
+	if d.wait == nil {
 		panic(fmt.Errorf("server has not started"))
 	}
-	d.listenerWait.Wait()
 	return d.listener.Addr().String()
 }
 
@@ -152,7 +163,7 @@ func (d *Daemon) newReplica(db *litestream.DB, name string) *litestream.Replica 
 func (d *Daemon) createDB(name string) func(path string) (_ *litestream.DB, err error) {
 	return func(path string) (_ *litestream.DB, err error) {
 		if d.s3Config == nil {
-			fmt.Println("WARN: skipping creating a new db because there is no s3 config")
+			slog.Warn("skipping creating a new db because there is no s3 config")
 			return nil, nil
 		}
 		db := litestream.NewDB(path)
@@ -295,6 +306,46 @@ func (d *Daemon) findDatabasesForApplication(name string) (_ []string, err error
 	return dbs, nil
 }
 
+func (d *Daemon) applicationDataDirectory() (loc string, err error) {
+	return os.MkdirTemp(d.dataDirectory, "")
+}
+
+func (d *Daemon) updateApplication(name string, script []byte) error {
+	d.applicationsLock.RLock()
+	app, found := d.applications[name]
+	d.applicationsLock.RUnlock()
+	if !found {
+		return fmt.Errorf("an application with this name is not present on this host")
+	}
+	if err := d.validateApplication(script); err != nil {
+		return err
+	}
+	return app.updateApplication(script)
+}
+
+func (d *Daemon) validateApplication(script []byte) error {
+	tmpDir, err := d.applicationDataDirectory()
+	if err != nil {
+		return err
+	}
+	fileName := filepath.Join(tmpDir, "index.ts")
+	if err := os.WriteFile(fileName, script, 0600); err != nil {
+		return fmt.Errorf("creating file %q: %w", fileName, err)
+	}
+
+	port, err := netx.GetFreePort()
+	if err != nil {
+		return err
+	}
+
+	box, err := bunRun(d.pool, tmpDir, port, nil)
+	if err != nil {
+		return err
+	}
+	_, _ = box.Stop()
+	return os.RemoveAll(tmpDir)
+}
+
 func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, script []byte) (*application, error) {
 	// If two requests are validated simultaneously we won't catch them here,
 	// but we'll error when adding them to the map later
@@ -305,27 +356,19 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 		return nil, fmt.Errorf("an application with this name is already present on this host")
 	}
 
-	tmpDir, err := os.MkdirTemp(d.dataDirectory, "")
+	if err := d.validateApplication(script); err != nil {
+		return nil, err
+	}
+
+	tmpDir, err := d.applicationDataDirectory()
 	if err != nil {
 		return nil, err
 	}
 	fileName := filepath.Join(tmpDir, "index.ts")
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
-		return nil, errors.Wrapf(err, "error creating file %q", fileName)
+		return nil, fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-
-	port, err := netx.GetFreePort()
-	if err != nil {
-		return nil, err
-	}
-
-	box, err := bunRun(d.pool, tmpDir, port, nil)
-	if err != nil {
-		return nil, err
-	}
-	_, _ = box.Stop()
-
-	app := d.newApplication(name, tmpDir, port)
+	app := d.newApplication(name, tmpDir, 3000)
 	app.waitForDB()
 	app.start()
 	d.applicationsLock.Lock()
@@ -343,7 +386,8 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 		}
 	}
 	app.DBs = dbs
-	if err := app.dbDownladed(); err != nil {
+	if err := app.dbDownloaded(); err != nil {
+		// TODO: recover!
 		panic(err)
 	}
 
@@ -351,61 +395,37 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 }
 
 // Start starts the server.
-func (d *Daemon) Start(ctx context.Context) {
-	if d.eg != nil {
+func (d *Daemon) Start(ctx context.Context) error {
+	if d.wait != nil {
 		panic("Daemon has already started")
 	}
-	d.listenerWait.Add(1)
-	d.eg, ctx = errgroup.WithContext(ctx)
+	var err error
+	d.listener, err = net.Listen("tcp", d.addr)
+	if err != nil {
+		return err
+	}
+	slog.Info("daemon listening", "addr", d.listener.Addr().String())
 
 	daemonServer := daemonrpc.NewDaemonServer(server{daemon: d})
-	srv := http.Server{
-		Handler: steadyutil.Logger("dm", os.Stdout,
-			http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
-				name := steadyutil.ExtractAppName(r)
-				if name == "" {
-					http.Error(rw, "invalid host header", http.StatusBadRequest)
-					return
-				}
-				if name == "steady" {
-					daemonServer.ServeHTTP(rw, r)
-				} else {
-					d.applicationHandler(name, rw, r)
-				}
-			}),
-		),
-		ReadHeaderTimeout: time.Second * 15,
-	}
 
-	d.eg.Go(func() (err error) {
-		d.listener, err = net.Listen("tcp", d.addr)
-		if err != nil {
-			return err
-		}
-		d.listenerWait.Done()
-		err = srv.Serve(d.listener)
-		if err == http.ErrServerClosed {
-			return nil
-		}
-		return err
-	})
-	d.eg.Go(func() error {
-		<-ctx.Done()
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := srv.Shutdown(timeoutCtx); err != nil {
-			fmt.Printf("WARN: error shutting down http server: %v\n", err)
-		}
-		cancel()
-		d.applicationsLock.Lock()
-		defer d.applicationsLock.Unlock()
-
-		for name, app := range d.applications {
-			// TODO: will need to be parallel if we ever care about shutdown
-			// speed with live applications
-			if err := app.shutdown(); err != nil {
-				fmt.Printf("WARN: error shutting down application %q: %v\n", name, err)
-			}
-		}
-		return nil
-	})
+	d.wait = httpx.ServeContext(ctx, d.listener,
+		&http.Server{
+			Handler: steadyutil.Logger("dm", os.Stdout,
+				http.HandlerFunc(func(rw http.ResponseWriter, r *http.Request) {
+					name := steadyutil.ExtractAppName(r)
+					if name == "" {
+						http.Error(rw, "invalid host header", http.StatusBadRequest)
+						return
+					}
+					if name == "steady" {
+						daemonServer.ServeHTTP(rw, r)
+					} else {
+						d.applicationHandler(name, rw, r)
+					}
+				}),
+			),
+			ReadHeaderTimeout: time.Second * 15,
+		},
+	)
+	return nil
 }

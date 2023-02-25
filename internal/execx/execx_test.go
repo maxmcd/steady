@@ -35,7 +35,7 @@ func TestCommand(t *testing.T) {
 				return
 			}
 		}
-		t.Fatal("Command never stopped")
+		t.Fatal("command never stopped")
 	})
 	t.Run("shutdown with kill", func(t *testing.T) {
 		buf := &safeBuffer{}

@@ -83,6 +83,15 @@ export interface GetApplicationResponse {
   url: string;
 }
 
+export interface UpdateApplicationRequest {
+  name: string;
+  source: string;
+}
+
+export interface UpdateApplicationResponse {
+  application: Application;
+}
+
 //========================================//
 //         Steady Protobuf Client         //
 //========================================//
@@ -169,6 +178,18 @@ export async function GetApplication(
     config
   );
   return GetApplicationResponse.decode(response);
+}
+
+export async function UpdateApplication(
+  updateApplicationRequest: UpdateApplicationRequest,
+  config?: ClientConfiguration
+): Promise<UpdateApplicationResponse> {
+  const response = await PBrequest(
+    "/steady.steady.Steady/UpdateApplication",
+    UpdateApplicationRequest.encode(updateApplicationRequest),
+    config
+  );
+  return UpdateApplicationResponse.decode(response);
 }
 
 //========================================//
@@ -259,6 +280,18 @@ export async function GetApplicationJSON(
   return GetApplicationResponseJSON.decode(response);
 }
 
+export async function UpdateApplicationJSON(
+  updateApplicationRequest: UpdateApplicationRequest,
+  config?: ClientConfiguration
+): Promise<UpdateApplicationResponse> {
+  const response = await JSONrequest(
+    "/steady.steady.Steady/UpdateApplication",
+    UpdateApplicationRequestJSON.encode(updateApplicationRequest),
+    config
+  );
+  return UpdateApplicationResponseJSON.decode(response);
+}
+
 //========================================//
 //                 Steady                 //
 //========================================//
@@ -292,6 +325,10 @@ export interface Steady<Context = unknown> {
     getApplicationRequest: GetApplicationRequest,
     context: Context
   ) => Promise<GetApplicationResponse> | GetApplicationResponse;
+  UpdateApplication: (
+    updateApplicationRequest: UpdateApplicationRequest,
+    context: Context
+  ) => Promise<UpdateApplicationResponse> | UpdateApplicationResponse;
 }
 
 export function createSteady<Context>(service: Steady<Context>) {
@@ -356,6 +393,18 @@ export function createSteady<Context>(service: Steady<Context>) {
         output: {
           protobuf: GetApplicationResponse,
           json: GetApplicationResponseJSON,
+        },
+      },
+      UpdateApplication: {
+        name: "UpdateApplication",
+        handler: service.UpdateApplication,
+        input: {
+          protobuf: UpdateApplicationRequest,
+          json: UpdateApplicationRequestJSON,
+        },
+        output: {
+          protobuf: UpdateApplicationResponse,
+          json: UpdateApplicationResponseJSON,
         },
       },
     },
@@ -1431,6 +1480,148 @@ export const GetApplicationResponse = {
   },
 };
 
+export const UpdateApplicationRequest = {
+  /**
+   * Serializes UpdateApplicationRequest to protobuf.
+   */
+  encode: function (msg: Partial<UpdateApplicationRequest>): Uint8Array {
+    return UpdateApplicationRequest._writeMessage(
+      msg,
+      new BinaryWriter()
+    ).getResultBuffer();
+  },
+
+  /**
+   * Deserializes UpdateApplicationRequest from protobuf.
+   */
+  decode: function (bytes: ByteSource): UpdateApplicationRequest {
+    return UpdateApplicationRequest._readMessage(
+      UpdateApplicationRequest.initialize(),
+      new BinaryReader(bytes)
+    );
+  },
+
+  /**
+   * Initializes UpdateApplicationRequest with all fields set to their default value.
+   */
+  initialize: function (): UpdateApplicationRequest {
+    return {
+      name: "",
+      source: "",
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<UpdateApplicationRequest>,
+    writer: BinaryWriter
+  ): BinaryWriter {
+    if (msg.name) {
+      writer.writeString(1, msg.name);
+    }
+    if (msg.source) {
+      writer.writeString(3, msg.source);
+    }
+    return writer;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: UpdateApplicationRequest,
+    reader: BinaryReader
+  ): UpdateApplicationRequest {
+    while (reader.nextField()) {
+      const field = reader.getFieldNumber();
+      switch (field) {
+        case 1: {
+          msg.name = reader.readString();
+          break;
+        }
+        case 3: {
+          msg.source = reader.readString();
+          break;
+        }
+        default: {
+          reader.skipField();
+          break;
+        }
+      }
+    }
+    return msg;
+  },
+};
+
+export const UpdateApplicationResponse = {
+  /**
+   * Serializes UpdateApplicationResponse to protobuf.
+   */
+  encode: function (msg: Partial<UpdateApplicationResponse>): Uint8Array {
+    return UpdateApplicationResponse._writeMessage(
+      msg,
+      new BinaryWriter()
+    ).getResultBuffer();
+  },
+
+  /**
+   * Deserializes UpdateApplicationResponse from protobuf.
+   */
+  decode: function (bytes: ByteSource): UpdateApplicationResponse {
+    return UpdateApplicationResponse._readMessage(
+      UpdateApplicationResponse.initialize(),
+      new BinaryReader(bytes)
+    );
+  },
+
+  /**
+   * Initializes UpdateApplicationResponse with all fields set to their default value.
+   */
+  initialize: function (): UpdateApplicationResponse {
+    return {
+      application: Application.initialize(),
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<UpdateApplicationResponse>,
+    writer: BinaryWriter
+  ): BinaryWriter {
+    if (msg.application) {
+      writer.writeMessage(1, msg.application, Application._writeMessage);
+    }
+    return writer;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: UpdateApplicationResponse,
+    reader: BinaryReader
+  ): UpdateApplicationResponse {
+    while (reader.nextField()) {
+      const field = reader.getFieldNumber();
+      switch (field) {
+        case 1: {
+          reader.readMessage(msg.application, Application._readMessage);
+          break;
+        }
+        default: {
+          reader.skipField();
+          break;
+        }
+      }
+    }
+    return msg;
+  },
+};
+
 //========================================//
 //          JSON Encode / Decode          //
 //========================================//
@@ -2345,6 +2536,129 @@ export const GetApplicationResponseJSON = {
     const _url_ = json["url"];
     if (_url_) {
       msg.url = _url_;
+    }
+    return msg;
+  },
+};
+
+export const UpdateApplicationRequestJSON = {
+  /**
+   * Serializes UpdateApplicationRequest to JSON.
+   */
+  encode: function (msg: Partial<UpdateApplicationRequest>): string {
+    return JSON.stringify(UpdateApplicationRequestJSON._writeMessage(msg));
+  },
+
+  /**
+   * Deserializes UpdateApplicationRequest from JSON.
+   */
+  decode: function (json: string): UpdateApplicationRequest {
+    return UpdateApplicationRequestJSON._readMessage(
+      UpdateApplicationRequestJSON.initialize(),
+      JSON.parse(json)
+    );
+  },
+
+  /**
+   * Initializes UpdateApplicationRequest with all fields set to their default value.
+   */
+  initialize: function (): UpdateApplicationRequest {
+    return {
+      name: "",
+      source: "",
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<UpdateApplicationRequest>
+  ): Record<string, unknown> {
+    const json: Record<string, unknown> = {};
+    if (msg.name) {
+      json["name"] = msg.name;
+    }
+    if (msg.source) {
+      json["source"] = msg.source;
+    }
+    return json;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: UpdateApplicationRequest,
+    json: any
+  ): UpdateApplicationRequest {
+    const _name_ = json["name"];
+    if (_name_) {
+      msg.name = _name_;
+    }
+    const _source_ = json["source"];
+    if (_source_) {
+      msg.source = _source_;
+    }
+    return msg;
+  },
+};
+
+export const UpdateApplicationResponseJSON = {
+  /**
+   * Serializes UpdateApplicationResponse to JSON.
+   */
+  encode: function (msg: Partial<UpdateApplicationResponse>): string {
+    return JSON.stringify(UpdateApplicationResponseJSON._writeMessage(msg));
+  },
+
+  /**
+   * Deserializes UpdateApplicationResponse from JSON.
+   */
+  decode: function (json: string): UpdateApplicationResponse {
+    return UpdateApplicationResponseJSON._readMessage(
+      UpdateApplicationResponseJSON.initialize(),
+      JSON.parse(json)
+    );
+  },
+
+  /**
+   * Initializes UpdateApplicationResponse with all fields set to their default value.
+   */
+  initialize: function (): UpdateApplicationResponse {
+    return {
+      application: ApplicationJSON.initialize(),
+    };
+  },
+
+  /**
+   * @private
+   */
+  _writeMessage: function (
+    msg: Partial<UpdateApplicationResponse>
+  ): Record<string, unknown> {
+    const json: Record<string, unknown> = {};
+    if (msg.application) {
+      const _application_ = ApplicationJSON._writeMessage(msg.application);
+      if (Object.keys(_application_).length > 0) {
+        json["application"] = _application_;
+      }
+    }
+    return json;
+  },
+
+  /**
+   * @private
+   */
+  _readMessage: function (
+    msg: UpdateApplicationResponse,
+    json: any
+  ): UpdateApplicationResponse {
+    const _application_ = json["application"];
+    if (_application_) {
+      const m = Application.initialize();
+      ApplicationJSON._readMessage(m, _application_);
+      msg.application = m;
     }
     return msg;
   },

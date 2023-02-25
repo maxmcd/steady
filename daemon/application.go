@@ -15,11 +15,13 @@ import (
 	"github.com/benbjohnson/litestream"
 	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/steadyutil"
+	"github.com/maxmcd/steady/internal/syncx"
 	"github.com/sourcegraph/conc/pool"
+	"golang.org/x/exp/slog"
 )
 
 var (
-	maxBufferedRequestsDuringStartup = 10
+	maxBufferedRequests = 10
 )
 
 // application is an application instance. Data for the application is stored in
@@ -35,7 +37,7 @@ type application struct {
 	DBs []string
 	Env []string
 
-	dbLimitWaiter *singeUseLimitedBroadcast
+	dbLimitWaiter *syncx.LimitedBroadcast
 
 	mutex           sync.Mutex
 	inFlightCounter int
@@ -44,6 +46,7 @@ type application struct {
 	running bool
 
 	stopRequestChan chan struct{}
+	resetKillTimer  chan struct{}
 
 	requestCount int
 	startCount   int
@@ -63,23 +66,22 @@ func (d *Daemon) newApplication(name string, dir string, port int) *application 
 		port:            port,
 		pool:            d.pool,
 		stopRequestChan: make(chan struct{}),
+		resetKillTimer:  make(chan struct{}),
 		createDBFunc:    d.createDB(name),
-		dbLimitWaiter:   newLimitWaiter(10),
+		dbLimitWaiter:   syncx.NewLimitedBroadcast(maxBufferedRequests),
 		dbs:             make(map[string]*litestream.DB),
 	}
 	return w
 }
 func (a *application) waitForDB() {
-	a.dbLimitWaiter = newLimitWaiter(maxBufferedRequestsDuringStartup)
+	a.dbLimitWaiter.StartWait()
 }
 
-func (a *application) dbDownladed() error {
+func (a *application) dbDownloaded() error {
 	if err := a.checkForDBs(); err != nil {
 		return err
 	}
-	if a.dbLimitWaiter != nil {
-		a.dbLimitWaiter.Signal()
-	}
+	a.dbLimitWaiter.Signal()
 	return nil
 }
 
@@ -96,6 +98,8 @@ func (a *application) runLoop() {
 	for {
 		// TODO: stop loop
 		select {
+		case <-a.resetKillTimer:
+			killTimer.Reset(math.MaxInt64)
 		case <-a.stopRequestChan:
 			killTimer.Reset(time.Second)
 		case <-killTimer.C:
@@ -104,6 +108,28 @@ func (a *application) runLoop() {
 			return
 		}
 	}
+}
+
+func (a *application) updateApplication(src []byte) error {
+	// TODO: drain requests
+	a.stopProcess(true)
+	a.resetKillTimer <- struct{}{}
+	// Queue future requests
+	a.dbLimitWaiter.StartWait()
+
+	f, err := os.Create(filepath.Join(a.dir, "index.ts"))
+	if err != nil {
+		a.dbLimitWaiter.Signal()
+		return err
+	}
+
+	if _, err := f.Write(src); err != nil {
+		a.dbLimitWaiter.Signal()
+		return err
+	}
+
+	// TODO: ensure it is healthy, roll back if needed
+	return nil
 }
 
 func (a *application) stopProcess(force bool) {
@@ -119,13 +145,13 @@ func (a *application) stopProcess(force bool) {
 	}
 	si, err := a.box.Stop()
 	if err != nil {
-		fmt.Println("WARN: ", err)
+		slog.Error("error stopping process", err)
 	}
 	_ = si
 	// TODO: move logs
 	a.running = false
 	if err := a.checkForDBs(); err != nil {
-		fmt.Println("WARN: ", err)
+		slog.Error("error checking for dbs", err)
 	}
 }
 
@@ -282,50 +308,4 @@ func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Bo
 		time.Sleep(time.Millisecond * exponent)
 	}
 	return box, nil
-}
-
-type singeUseLimitedBroadcast struct {
-	notify     chan struct{}
-	count      int
-	maxWaiting int
-	waiting    int
-	lock       *sync.RWMutex
-}
-
-func newLimitWaiter(maxWaiting int) *singeUseLimitedBroadcast {
-	return &singeUseLimitedBroadcast{
-		lock:       &sync.RWMutex{},
-		maxWaiting: maxWaiting,
-		notify:     make(chan struct{}),
-	}
-}
-
-func (l *singeUseLimitedBroadcast) Signal() {
-	close(l.notify)
-}
-
-func (l *singeUseLimitedBroadcast) Wait(ctx context.Context) error {
-	l.lock.RLock()
-	if l.count == 0 {
-		l.lock.RUnlock()
-		return nil
-	}
-
-	if l.waiting >= l.maxWaiting {
-		l.lock.RUnlock()
-		return fmt.Errorf("too many requests waiting")
-	}
-	l.lock.RUnlock()
-	l.lock.Lock()
-	l.waiting++
-	l.lock.Unlock()
-	select {
-	case <-ctx.Done():
-		l.lock.Lock()
-		l.waiting--
-		l.lock.Unlock()
-		return nil
-	case <-l.notify:
-		return nil
-	}
 }

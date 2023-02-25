@@ -11,20 +11,26 @@ import (
 )
 
 const createApplication = `-- name: CreateApplication :one
-INSERT into applications (name, user_id)
-values (?, ?)
-RETURNING id, user_id, name
+INSERT into applications (name, source, user_id)
+values (?, ?, ?)
+RETURNING id, user_id, name, source
 `
 
 type CreateApplicationParams struct {
 	Name   string
+	Source string
 	UserID sql.NullInt64
 }
 
 func (q *Queries) CreateApplication(ctx context.Context, arg CreateApplicationParams) (Application, error) {
-	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.UserID)
+	row := q.queryRow(ctx, q.createApplicationStmt, createApplication, arg.Name, arg.Source, arg.UserID)
 	var i Application
-	err := row.Scan(&i.ID, &i.UserID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Source,
+	)
 	return i, err
 }
 
@@ -103,7 +109,7 @@ func (q *Queries) DeleteUserSession(ctx context.Context, token string) error {
 }
 
 const getApplication = `-- name: GetApplication :one
-SELECT id, user_id, name
+SELECT id, user_id, name, source
 FROM applications
 WHERE name = ?
 `
@@ -111,7 +117,12 @@ WHERE name = ?
 func (q *Queries) GetApplication(ctx context.Context, name string) (Application, error) {
 	row := q.queryRow(ctx, q.getApplicationStmt, getApplication, name)
 	var i Application
-	err := row.Scan(&i.ID, &i.UserID, &i.Name)
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Source,
+	)
 	return i, err
 }
 
@@ -142,7 +153,7 @@ func (q *Queries) GetUser(ctx context.Context, id int64) (User, error) {
 }
 
 const getUserApplications = `-- name: GetUserApplications :many
-SELECT id, user_id, name
+SELECT id, user_id, name, source
 FROM applications
 WHERE user_id = ?
 `
@@ -156,7 +167,12 @@ func (q *Queries) GetUserApplications(ctx context.Context, userID sql.NullInt64)
 	var items []Application
 	for rows.Next() {
 		var i Application
-		if err := rows.Scan(&i.ID, &i.UserID, &i.Name); err != nil {
+		if err := rows.Scan(
+			&i.ID,
+			&i.UserID,
+			&i.Name,
+			&i.Source,
+		); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
@@ -199,5 +215,29 @@ func (q *Queries) GetUserSession(ctx context.Context, token string) (UserSession
 	row := q.queryRow(ctx, q.getUserSessionStmt, getUserSession, token)
 	var i UserSession
 	err := row.Scan(&i.UserID, &i.Token, &i.CreatedAt)
+	return i, err
+}
+
+const updateApplication = `-- name: UpdateApplication :one
+UPDATE applications
+SET source = ?
+WHERE id = ?
+RETURNING id, user_id, name, source
+`
+
+type UpdateApplicationParams struct {
+	Source string
+	ID     int64
+}
+
+func (q *Queries) UpdateApplication(ctx context.Context, arg UpdateApplicationParams) (Application, error) {
+	row := q.queryRow(ctx, q.updateApplicationStmt, updateApplication, arg.Source, arg.ID)
+	var i Application
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Name,
+		&i.Source,
+	)
 	return i, err
 }

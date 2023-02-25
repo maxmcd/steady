@@ -20,5 +20,6 @@ CREATE TABLE user_sessions (
 CREATE TABLE applications (
     id INTEGER PRIMARY KEY,
     user_id INTEGER,
-    name TEXT UNIQUE NOT NULL
+    name TEXT UNIQUE NOT NULL,
+    source TEXT NOT NULL
 );

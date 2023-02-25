@@ -25,6 +25,7 @@ type Querier interface {
 	GetUserApplications(ctx context.Context, userID sql.NullInt64) ([]Application, error)
 	GetUserByEmailOrUsername(ctx context.Context, arg GetUserByEmailOrUsernameParams) (User, error)
 	GetUserSession(ctx context.Context, token string) (UserSession, error)
+	UpdateApplication(ctx context.Context, arg UpdateApplicationParams) (Application, error)
 }
 
 var _ Querier = (*Queries)(nil)

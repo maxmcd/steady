@@ -12,8 +12,9 @@ service Steady {
   rpc ValidateToken(ValidateTokenRequest) returns (ValidateTokenResponse);
   rpc RunApplication(RunApplicationRequest) returns (RunApplicationResponse);
   rpc GetApplication(GetApplicationRequest) returns (GetApplicationResponse);
+  rpc UpdateApplication(UpdateApplicationRequest)
+      returns (UpdateApplicationResponse);
 }
-
 
 message LoginRequest {
   string username = 1;
@@ -70,3 +71,10 @@ message GetApplicationResponse {
   Application application = 1;
   string url = 2;
 }
+
+message UpdateApplicationRequest {
+  string name = 1;
+  string source = 3;
+}
+
+message UpdateApplicationResponse { Application application = 1; }

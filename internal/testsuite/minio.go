@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/maxmcd/steady/internal/netx"
 	"github.com/maxmcd/steady/internal/steadyutil"
+	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -161,6 +162,7 @@ func (server *MinioServer) Stop() error {
 }
 
 func (server *MinioServer) Wait() error {
+	defer slog.Info("minio stopped")
 	if err := server.eg.Wait(); err != nil && !strings.Contains(err.Error(), "killed") {
 		return err
 	}

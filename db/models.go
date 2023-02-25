@@ -13,6 +13,7 @@ type Application struct {
 	ID     int64
 	UserID sql.NullInt64
 	Name   string
+	Source string
 }
 
 type LoginToken struct {

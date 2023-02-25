@@ -90,7 +90,6 @@ func (suite *Suite) TestUserSignup() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
-		fmt.Println(resp.Cookies())
 		require.Equal(http.StatusOK, resp.StatusCode)
 		require.Equal("profile",
 			suite.findInDoc(doc, ".header a[href$='/@steady']"))
@@ -146,7 +145,6 @@ func (suite *Suite) TestUserSignup() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
-		fmt.Println(resp.Cookies())
 		suite.Equal(http.StatusOK, resp.StatusCode)
 		suite.Equal("profile",
 			suite.findInDoc(doc, ".header a[href$='/@steady']"))

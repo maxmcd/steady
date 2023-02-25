@@ -34,6 +34,8 @@ const _ = twirp.TwirpPackageMinVersion_8_1_0
 type Daemon interface {
 	CreateApplication(context.Context, *CreateApplicationRequest) (*Application, error)
 
+	UpdateApplication(context.Context, *UpdateApplicationRequest) (*UpdateApplicationResponse, error)
+
 	DeleteApplication(context.Context, *DeleteApplicationRequest) (*Application, error)
 
 	GetApplication(context.Context, *GetApplicationRequest) (*Application, error)
@@ -45,7 +47,7 @@ type Daemon interface {
 
 type daemonProtobufClient struct {
 	client      HTTPClient
-	urls        [3]string
+	urls        [4]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -73,8 +75,9 @@ func NewDaemonProtobufClient(baseURL string, client HTTPClient, opts ...twirp.Cl
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "daemon.steady", "Daemon")
-	urls := [3]string{
+	urls := [4]string{
 		serviceURL + "CreateApplication",
+		serviceURL + "UpdateApplication",
 		serviceURL + "DeleteApplication",
 		serviceURL + "GetApplication",
 	}
@@ -133,6 +136,52 @@ func (c *daemonProtobufClient) callCreateApplication(ctx context.Context, in *Cr
 	return out, nil
 }
 
+func (c *daemonProtobufClient) UpdateApplication(ctx context.Context, in *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "daemon.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Daemon")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateApplication")
+	caller := c.callUpdateApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateApplicationRequest) when calling interceptor")
+					}
+					return c.callUpdateApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *daemonProtobufClient) callUpdateApplication(ctx context.Context, in *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+	out := new(UpdateApplicationResponse)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
 func (c *daemonProtobufClient) DeleteApplication(ctx context.Context, in *DeleteApplicationRequest) (*Application, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "daemon.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Daemon")
@@ -164,7 +213,7 @@ func (c *daemonProtobufClient) DeleteApplication(ctx context.Context, in *Delete
 
 func (c *daemonProtobufClient) callDeleteApplication(ctx context.Context, in *DeleteApplicationRequest) (*Application, error) {
 	out := new(Application)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -210,7 +259,7 @@ func (c *daemonProtobufClient) GetApplication(ctx context.Context, in *GetApplic
 
 func (c *daemonProtobufClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*Application, error) {
 	out := new(Application)
-	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	ctx, err := doProtobufRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -231,7 +280,7 @@ func (c *daemonProtobufClient) callGetApplication(ctx context.Context, in *GetAp
 
 type daemonJSONClient struct {
 	client      HTTPClient
-	urls        [3]string
+	urls        [4]string
 	interceptor twirp.Interceptor
 	opts        twirp.ClientOptions
 }
@@ -259,8 +308,9 @@ func NewDaemonJSONClient(baseURL string, client HTTPClient, opts ...twirp.Client
 	// Build method URLs: <baseURL>[<prefix>]/<package>.<Service>/<Method>
 	serviceURL := sanitizeBaseURL(baseURL)
 	serviceURL += baseServicePath(pathPrefix, "daemon.steady", "Daemon")
-	urls := [3]string{
+	urls := [4]string{
 		serviceURL + "CreateApplication",
+		serviceURL + "UpdateApplication",
 		serviceURL + "DeleteApplication",
 		serviceURL + "GetApplication",
 	}
@@ -319,6 +369,52 @@ func (c *daemonJSONClient) callCreateApplication(ctx context.Context, in *Create
 	return out, nil
 }
 
+func (c *daemonJSONClient) UpdateApplication(ctx context.Context, in *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+	ctx = ctxsetters.WithPackageName(ctx, "daemon.steady")
+	ctx = ctxsetters.WithServiceName(ctx, "Daemon")
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateApplication")
+	caller := c.callUpdateApplication
+	if c.interceptor != nil {
+		caller = func(ctx context.Context, req *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+			resp, err := c.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateApplicationRequest) when calling interceptor")
+					}
+					return c.callUpdateApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+	return caller(ctx, in)
+}
+
+func (c *daemonJSONClient) callUpdateApplication(ctx context.Context, in *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+	out := new(UpdateApplicationResponse)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	if err != nil {
+		twerr, ok := err.(twirp.Error)
+		if !ok {
+			twerr = twirp.InternalErrorWith(err)
+		}
+		callClientError(ctx, c.opts.Hooks, twerr)
+		return nil, err
+	}
+
+	callClientResponseReceived(ctx, c.opts.Hooks)
+
+	return out, nil
+}
+
 func (c *daemonJSONClient) DeleteApplication(ctx context.Context, in *DeleteApplicationRequest) (*Application, error) {
 	ctx = ctxsetters.WithPackageName(ctx, "daemon.steady")
 	ctx = ctxsetters.WithServiceName(ctx, "Daemon")
@@ -350,7 +446,7 @@ func (c *daemonJSONClient) DeleteApplication(ctx context.Context, in *DeleteAppl
 
 func (c *daemonJSONClient) callDeleteApplication(ctx context.Context, in *DeleteApplicationRequest) (*Application, error) {
 	out := new(Application)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[1], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -396,7 +492,7 @@ func (c *daemonJSONClient) GetApplication(ctx context.Context, in *GetApplicatio
 
 func (c *daemonJSONClient) callGetApplication(ctx context.Context, in *GetApplicationRequest) (*Application, error) {
 	out := new(Application)
-	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[2], in, out)
+	ctx, err := doJSONRequest(ctx, c.client, c.opts.Hooks, c.urls[3], in, out)
 	if err != nil {
 		twerr, ok := err.(twirp.Error)
 		if !ok {
@@ -510,6 +606,9 @@ func (s *daemonServer) ServeHTTP(resp http.ResponseWriter, req *http.Request) {
 	switch method {
 	case "CreateApplication":
 		s.serveCreateApplication(ctx, resp, req)
+		return
+	case "UpdateApplication":
+		s.serveUpdateApplication(ctx, resp, req)
 		return
 	case "DeleteApplication":
 		s.serveDeleteApplication(ctx, resp, req)
@@ -681,6 +780,186 @@ func (s *daemonServer) serveCreateApplicationProtobuf(ctx context.Context, resp 
 	}
 	if respContent == nil {
 		s.writeError(ctx, resp, twirp.InternalError("received a nil *Application and nil error while calling CreateApplication. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	respBytes, err := proto.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal proto response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/protobuf")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *daemonServer) serveUpdateApplication(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	header := req.Header.Get("Content-Type")
+	i := strings.Index(header, ";")
+	if i == -1 {
+		i = len(header)
+	}
+	switch strings.TrimSpace(strings.ToLower(header[:i])) {
+	case "application/json":
+		s.serveUpdateApplicationJSON(ctx, resp, req)
+	case "application/protobuf":
+		s.serveUpdateApplicationProtobuf(ctx, resp, req)
+	default:
+		msg := fmt.Sprintf("unexpected Content-Type: %q", req.Header.Get("Content-Type"))
+		twerr := badRouteError(msg, req.Method, req.URL.Path)
+		s.writeError(ctx, resp, twerr)
+	}
+}
+
+func (s *daemonServer) serveUpdateApplicationJSON(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	d := json.NewDecoder(req.Body)
+	rawReqBody := json.RawMessage{}
+	if err := d.Decode(&rawReqBody); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+	reqContent := new(UpdateApplicationRequest)
+	unmarshaler := protojson.UnmarshalOptions{DiscardUnknown: true}
+	if err = unmarshaler.Unmarshal(rawReqBody, reqContent); err != nil {
+		s.handleRequestBodyError(ctx, resp, "the json request could not be decoded", err)
+		return
+	}
+
+	handler := s.Daemon.UpdateApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateApplicationRequest) when calling interceptor")
+					}
+					return s.Daemon.UpdateApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateApplicationResponse and nil error while calling UpdateApplication. nil responses are not supported"))
+		return
+	}
+
+	ctx = callResponsePrepared(ctx, s.hooks)
+
+	marshaler := &protojson.MarshalOptions{UseProtoNames: !s.jsonCamelCase, EmitUnpopulated: !s.jsonSkipDefaults}
+	respBytes, err := marshaler.Marshal(respContent)
+	if err != nil {
+		s.writeError(ctx, resp, wrapInternal(err, "failed to marshal json response"))
+		return
+	}
+
+	ctx = ctxsetters.WithStatusCode(ctx, http.StatusOK)
+	resp.Header().Set("Content-Type", "application/json")
+	resp.Header().Set("Content-Length", strconv.Itoa(len(respBytes)))
+	resp.WriteHeader(http.StatusOK)
+
+	if n, err := resp.Write(respBytes); err != nil {
+		msg := fmt.Sprintf("failed to write response, %d of %d bytes written: %s", n, len(respBytes), err.Error())
+		twerr := twirp.NewError(twirp.Unknown, msg)
+		ctx = callError(ctx, s.hooks, twerr)
+	}
+	callResponseSent(ctx, s.hooks)
+}
+
+func (s *daemonServer) serveUpdateApplicationProtobuf(ctx context.Context, resp http.ResponseWriter, req *http.Request) {
+	var err error
+	ctx = ctxsetters.WithMethodName(ctx, "UpdateApplication")
+	ctx, err = callRequestRouted(ctx, s.hooks)
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+
+	buf, err := io.ReadAll(req.Body)
+	if err != nil {
+		s.handleRequestBodyError(ctx, resp, "failed to read request body", err)
+		return
+	}
+	reqContent := new(UpdateApplicationRequest)
+	if err = proto.Unmarshal(buf, reqContent); err != nil {
+		s.writeError(ctx, resp, malformedRequestError("the protobuf request could not be decoded"))
+		return
+	}
+
+	handler := s.Daemon.UpdateApplication
+	if s.interceptor != nil {
+		handler = func(ctx context.Context, req *UpdateApplicationRequest) (*UpdateApplicationResponse, error) {
+			resp, err := s.interceptor(
+				func(ctx context.Context, req interface{}) (interface{}, error) {
+					typedReq, ok := req.(*UpdateApplicationRequest)
+					if !ok {
+						return nil, twirp.InternalError("failed type assertion req.(*UpdateApplicationRequest) when calling interceptor")
+					}
+					return s.Daemon.UpdateApplication(ctx, typedReq)
+				},
+			)(ctx, req)
+			if resp != nil {
+				typedResp, ok := resp.(*UpdateApplicationResponse)
+				if !ok {
+					return nil, twirp.InternalError("failed type assertion resp.(*UpdateApplicationResponse) when calling interceptor")
+				}
+				return typedResp, err
+			}
+			return nil, err
+		}
+	}
+
+	// Call service method
+	var respContent *UpdateApplicationResponse
+	func() {
+		defer ensurePanicResponses(ctx, resp, s.hooks)
+		respContent, err = handler(ctx, reqContent)
+	}()
+
+	if err != nil {
+		s.writeError(ctx, resp, err)
+		return
+	}
+	if respContent == nil {
+		s.writeError(ctx, resp, twirp.InternalError("received a nil *UpdateApplicationResponse and nil error while calling UpdateApplication. nil responses are not supported"))
 		return
 	}
 
@@ -1645,22 +1924,25 @@ func callClientError(ctx context.Context, h *twirp.ClientHooks, err twirp.Error)
 }
 
 var twirpFileDescriptor0 = []byte{
-	// 266 bytes of a gzipped FileDescriptorProto
-	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0x8c, 0x92, 0xd1, 0x4a, 0xc3, 0x30,
-	0x14, 0x86, 0xd9, 0x26, 0x05, 0xcf, 0x36, 0x61, 0x07, 0x94, 0xb2, 0x1b, 0xa5, 0x0a, 0x2a, 0x83,
-	0x14, 0xf4, 0x09, 0x74, 0x43, 0xef, 0x7b, 0x35, 0xbc, 0x91, 0x2c, 0x3d, 0xcc, 0xc2, 0xd2, 0xc4,
-	0xf4, 0x14, 0xf4, 0x2d, 0x7c, 0x64, 0x31, 0x8d, 0xb0, 0xad, 0xdb, 0xd8, 0x55, 0x72, 0x7e, 0xbe,
-	0xfc, 0x1c, 0x3e, 0x02, 0x83, 0x5c, 0x92, 0x36, 0xa5, 0xb0, 0xce, 0xb0, 0xc1, 0x61, 0x98, 0x2a,
-	0x26, 0x99, 0x7f, 0x27, 0x2f, 0x10, 0x4f, 0x1d, 0x49, 0xa6, 0x27, 0x6b, 0x57, 0x85, 0x92, 0x5c,
-	0x98, 0x32, 0xa3, 0xcf, 0x9a, 0x2a, 0x46, 0x84, 0x93, 0x52, 0x6a, 0x8a, 0x3b, 0x57, 0x9d, 0xbb,
-	0xd3, 0xcc, 0xdf, 0xf1, 0x02, 0xa2, 0x4a, 0xb9, 0xc2, 0x72, 0xdc, 0xf5, 0x69, 0x98, 0x12, 0x01,
-	0xf1, 0x8c, 0x56, 0x74, 0x6c, 0x4f, 0x32, 0x81, 0xf3, 0x57, 0xe2, 0x23, 0xe1, 0x25, 0xf4, 0xd7,
-	0xc8, 0x9d, 0x7b, 0x5d, 0xc3, 0xd0, 0x35, 0x0d, 0xef, 0xca, 0xd4, 0x65, 0xb3, 0x5e, 0x2f, 0x1b,
-	0x84, 0x70, 0xfa, 0x97, 0xe1, 0x25, 0xf4, 0x2b, 0x96, 0xee, 0x1f, 0xe9, 0x79, 0x04, 0x7c, 0xe4,
-	0x81, 0x87, 0x9f, 0x2e, 0x44, 0x33, 0xef, 0x07, 0xe7, 0x30, 0x6a, 0x89, 0xc1, 0x5b, 0xb1, 0x61,
-	0x4f, 0xec, 0x53, 0x37, 0x1e, 0x6f, 0x81, 0xeb, 0x25, 0x73, 0x18, 0xb5, 0x54, 0xb5, 0x9a, 0xf7,
-	0xc9, 0x3c, 0xd8, 0x9c, 0xc1, 0xd9, 0xa6, 0x54, 0xbc, 0xd9, 0xa2, 0x77, 0x3a, 0x3f, 0xd4, 0xf9,
-	0x3c, 0x79, 0xbb, 0x5f, 0x16, 0xfc, 0x51, 0x2f, 0x84, 0x32, 0x3a, 0xd5, 0xf2, 0x4b, 0xab, 0x3c,
-	0x6d, 0xb8, 0xb4, 0x79, 0x15, 0x0e, 0x67, 0xd5, 0x22, 0xf2, 0x7f, 0xec, 0xf1, 0x37, 0x00, 0x00,
-	0xff, 0xff, 0xb5, 0x15, 0xee, 0x40, 0x73, 0x02, 0x00, 0x00,
+	// 317 bytes of a gzipped FileDescriptorProto
+	0x1f, 0x8b, 0x08, 0x00, 0x00, 0x00, 0x00, 0x00, 0x02, 0xff, 0xa4, 0x93, 0xcf, 0x4b, 0xfb, 0x40,
+	0x10, 0xc5, 0x69, 0xfb, 0x25, 0xf0, 0x9d, 0xb4, 0x42, 0x16, 0x94, 0x98, 0x8b, 0x12, 0x05, 0x2b,
+	0x85, 0x04, 0xea, 0xd5, 0x8b, 0xb6, 0xe8, 0x3d, 0x20, 0x54, 0x2f, 0xb2, 0xdd, 0x8c, 0x35, 0xd0,
+	0x64, 0xd7, 0xdd, 0x0d, 0xe8, 0x7f, 0xee, 0x51, 0xba, 0x89, 0x98, 0x36, 0x3f, 0x2c, 0x78, 0x4a,
+	0xf6, 0xf1, 0xd9, 0x37, 0x93, 0x99, 0x17, 0x18, 0xc6, 0x14, 0x53, 0x9e, 0x05, 0x42, 0x72, 0xcd,
+	0xc9, 0xa8, 0x3c, 0x29, 0x8d, 0x34, 0xfe, 0xf0, 0xef, 0xc0, 0x9d, 0x49, 0xa4, 0x1a, 0x6f, 0x84,
+	0x58, 0x27, 0x8c, 0xea, 0x84, 0x67, 0x11, 0xbe, 0xe5, 0xa8, 0x34, 0x21, 0xf0, 0x2f, 0xa3, 0x29,
+	0xba, 0xbd, 0xd3, 0xde, 0xf8, 0x7f, 0x64, 0xde, 0xc9, 0x11, 0x58, 0x8a, 0xc9, 0x44, 0x68, 0xb7,
+	0x6f, 0xd4, 0xf2, 0xe4, 0x07, 0xe0, 0xce, 0x71, 0x8d, 0xfb, 0xfa, 0xf8, 0x13, 0x38, 0xbc, 0x47,
+	0xbd, 0x27, 0xbc, 0x02, 0xbb, 0x42, 0x36, 0xf6, 0x75, 0x06, 0x23, 0x59, 0x38, 0x3c, 0x33, 0x9e,
+	0x67, 0x45, 0x7b, 0x83, 0x68, 0x58, 0x8a, 0xb3, 0x8d, 0x46, 0x4e, 0xc0, 0x56, 0x9a, 0xca, 0x6f,
+	0x64, 0x60, 0x10, 0x30, 0x92, 0x01, 0x36, 0xd3, 0x78, 0x10, 0xf1, 0xdf, 0xa7, 0xf1, 0x08, 0xc7,
+	0x0d, 0x3e, 0x4a, 0xf0, 0x4c, 0x21, 0xb9, 0x06, 0x9b, 0xfe, 0xc8, 0xc6, 0xcf, 0x9e, 0x7a, 0xc1,
+	0xd6, 0x5e, 0x82, 0xea, 0xc5, 0x2a, 0x3e, 0xfd, 0xec, 0x83, 0x35, 0x37, 0x28, 0x59, 0x80, 0x53,
+	0xdb, 0x1d, 0xb9, 0xd8, 0x31, 0x6a, 0xdb, 0xae, 0xd7, 0x51, 0x91, 0xbc, 0x80, 0x53, 0xeb, 0xbf,
+	0xe6, 0xdc, 0x36, 0x29, 0x6f, 0xfc, 0x3b, 0x58, 0x8e, 0x62, 0x01, 0x4e, 0x2d, 0x35, 0xb5, 0x3a,
+	0x6d, 0xb9, 0xea, 0xfc, 0x82, 0x08, 0x0e, 0xb6, 0xf3, 0x45, 0xce, 0x77, 0xe8, 0xc6, 0xf8, 0x75,
+	0x79, 0xde, 0x4e, 0x9e, 0x2e, 0x57, 0x89, 0x7e, 0xcd, 0x97, 0x01, 0xe3, 0x69, 0x98, 0xd2, 0xf7,
+	0x94, 0xc5, 0x61, 0xc1, 0x85, 0xc5, 0xad, 0xf2, 0x21, 0x05, 0x5b, 0x5a, 0xe6, 0x77, 0xbb, 0xfa,
+	0x0a, 0x00, 0x00, 0xff, 0xff, 0xa5, 0xa6, 0x64, 0x82, 0x7e, 0x03, 0x00, 0x00,
 }

@@ -205,12 +205,10 @@ func (s *Server) RunApplication(ctx context.Context, req *steadyrpc.RunApplicati
 	app, err := s.db.CreateApplication(ctx, db.CreateApplicationParams{
 		Name:   req.Name,
 		UserID: sql.NullInt64{},
+		Source: req.Source,
 	})
 	if err != nil {
 		return nil, err
-	}
-	if s.daemonClient == nil {
-		return nil, twirp.InternalError("no daemon client available")
 	}
 	if _, err := s.daemonClient.CreateApplication(ctx, &daemonrpc.CreateApplicationRequest{
 		Name:   app.Name,
@@ -247,4 +245,39 @@ func (s *Server) GetApplication(ctx context.Context, req *steadyrpc.GetApplicati
 		},
 		Url: s.appURL(resp.Name),
 	}, nil
+}
+
+func (s *Server) UpdateApplication(ctx context.Context, req *steadyrpc.UpdateApplicationRequest) (
+	_ *steadyrpc.UpdateApplicationResponse, err error,
+) {
+	app, err := s.db.GetApplication(ctx, req.Name)
+	if err != nil {
+		return nil, err
+	}
+	if !app.UserID.Valid {
+		userSession, err := s.getUserSession(ctx)
+		if err != nil {
+			return nil, err
+		}
+		if app.UserID.Int64 != userSession.UserID {
+			return nil, twirp.NewError(twirp.PermissionDenied, "this application is owned by a different user")
+		}
+	}
+	if _, err := s.daemonClient.UpdateApplication(ctx, &daemonrpc.UpdateApplicationRequest{
+		Name:   app.Name,
+		Script: req.Source,
+	}); err != nil {
+		return nil, err
+	}
+	if app, err = s.db.UpdateApplication(ctx, db.UpdateApplicationParams{
+		Source: req.Source,
+		ID:     app.ID,
+	}); err != nil {
+		return nil, err
+	}
+	return &steadyrpc.UpdateApplicationResponse{Application: &steadyrpc.Application{
+		Name:   app.Name,
+		UserId: app.UserID.Int64,
+		Id:     app.ID,
+	}}, nil
 }

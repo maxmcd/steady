@@ -271,7 +271,7 @@ func (pc *poolContainer) handleUnexpectedClose() {
 	// Assume lock is acquired already
 	info, err := pc.pool.dockerClient.ContainerInspect(context.Background(), pc.id)
 	if err != nil {
-		fmt.Println("WARN: error fetching closed container state: ", err)
+		slog.Error("fetching closed container state", err)
 	}
 	if err == nil {
 		pc.containerState = info.State

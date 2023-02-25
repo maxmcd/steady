@@ -15,10 +15,12 @@ import (
 
 	"github.com/maxmcd/steady/daemon"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
+	"github.com/maxmcd/steady/internal/httpx"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/slicer"
 	"github.com/pkg/errors"
+	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -117,28 +119,34 @@ func (lb *LB) findLiveHost(ctx context.Context, hosts []string, name string) (ho
 }
 
 // Wait until the server has stopped, returning any errors.
-func (lb *LB) Wait() error { return lb.eg.Wait() }
-
-func shutdownServerOnCancel(ctx context.Context, eg *errgroup.Group, server *http.Server) {
-	eg.Go(func() error {
-		<-ctx.Done()
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := server.Shutdown(timeoutCtx); err != nil {
-			fmt.Printf("WARN: error shutting down http server: %v\n", err)
-		}
-		cancel()
-		return nil
-	})
+func (lb *LB) Wait() error {
+	defer slog.Info("Load balancer stopped")
+	return lb.eg.Wait()
 }
 
 // Start the server and listen at the provided address.
 func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err error) {
 	if lb.eg != nil {
-		panic("LB has already started")
+		return fmt.Errorf("LB has already started")
 	}
 	if len(lb.hashRangesSet) == 0 {
-		panic("can't start without host assignments")
+		return fmt.Errorf("can't start without host assignments")
 	}
+
+	lb.publicListener, err = net.Listen("tcp", publicAddr)
+	if err != nil {
+		return err
+	}
+	lb.privateListener, err = net.Listen("tcp", privateAddr)
+	if err != nil {
+		return err
+	}
+	slog.Info("load balancer listening",
+		"private_addr", lb.privateListener.Addr().String(),
+		"public_addr", lb.publicListener.Addr().String(),
+	)
+
+	lb.eg, ctx = errgroup.WithContext(ctx)
 
 	publicServer := &http.Server{
 		Handler: steadyutil.Logger("lb", os.Stdout,
@@ -153,45 +161,21 @@ func (lb *LB) Start(ctx context.Context, publicAddr, privateAddr string) (err er
 		),
 		ReadHeaderTimeout: time.Second * 15,
 	}
+	lb.eg.Go(httpx.ServeContext(ctx, lb.publicListener, publicServer))
 
 	privateServer := &http.Server{
-		Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		Handler: steadyutil.Logger("pb", os.Stdout, http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			// TODO: auth
 			name := r.Header.Get(steadyutil.XAppName)
 			if name == "" {
 				http.Error(w, "not found", http.StatusNotFound)
 			}
 			lb.Handler(name, true, w, r)
-		}),
+		})),
 		ReadHeaderTimeout: time.Second * 15,
 	}
+	lb.eg.Go(httpx.ServeContext(ctx, lb.privateListener, privateServer))
 
-	lb.publicListener, err = net.Listen("tcp", publicAddr)
-	if err != nil {
-		return err
-	}
-
-	lb.privateListener, err = net.Listen("tcp", privateAddr)
-	if err != nil {
-		return err
-	}
-
-	lb.eg, ctx = errgroup.WithContext(ctx)
-
-	lb.eg.Go(func() (err error) {
-		if err = publicServer.Serve(lb.publicListener); err == http.ErrServerClosed {
-			return nil
-		}
-		return err
-	})
-	shutdownServerOnCancel(ctx, lb.eg, publicServer)
-	lb.eg.Go(func() (err error) {
-		if err = privateServer.Serve(lb.privateListener); err == http.ErrServerClosed {
-			return nil
-		}
-		return err
-	})
-	shutdownServerOnCancel(ctx, lb.eg, privateServer)
 	return nil
 }
 

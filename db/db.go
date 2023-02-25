@@ -60,6 +60,9 @@ func Prepare(ctx context.Context, db DBTX) (*Queries, error) {
 	if q.getUserSessionStmt, err = db.PrepareContext(ctx, getUserSession); err != nil {
 		return nil, fmt.Errorf("error preparing query GetUserSession: %w", err)
 	}
+	if q.updateApplicationStmt, err = db.PrepareContext(ctx, updateApplication); err != nil {
+		return nil, fmt.Errorf("error preparing query UpdateApplication: %w", err)
+	}
 	return &q, nil
 }
 
@@ -125,6 +128,11 @@ func (q *Queries) Close() error {
 			err = fmt.Errorf("error closing getUserSessionStmt: %w", cerr)
 		}
 	}
+	if q.updateApplicationStmt != nil {
+		if cerr := q.updateApplicationStmt.Close(); cerr != nil {
+			err = fmt.Errorf("error closing updateApplicationStmt: %w", cerr)
+		}
+	}
 	return err
 }
 
@@ -176,6 +184,7 @@ type Queries struct {
 	getUserApplicationsStmt      *sql.Stmt
 	getUserByEmailOrUsernameStmt *sql.Stmt
 	getUserSessionStmt           *sql.Stmt
+	updateApplicationStmt        *sql.Stmt
 }
 
 func (q *Queries) WithTx(tx *sql.Tx) *Queries {
@@ -194,5 +203,6 @@ func (q *Queries) WithTx(tx *sql.Tx) *Queries {
 		getUserApplicationsStmt:      q.getUserApplicationsStmt,
 		getUserByEmailOrUsernameStmt: q.getUserByEmailOrUsernameStmt,
 		getUserSessionStmt:           q.getUserSessionStmt,
+		updateApplicationStmt:        q.updateApplicationStmt,
 	}
 }

@@ -14,15 +14,26 @@ type server struct {
 var _ daemonrpc.Daemon = new(server)
 
 func (s server) CreateApplication(ctx context.Context, req *daemonrpc.CreateApplicationRequest) (
-	_ *daemonrpc.Application, err error) {
+	_ *daemonrpc.Application, err error,
+) {
 	if _, err := s.daemon.validateAndAddApplication(ctx, req.Name, []byte(req.Script)); err != nil {
 		return nil, twirp.NewError(twirp.InvalidArgument, err.Error())
 	}
 	return &daemonrpc.Application{Name: req.Name}, nil
 }
 
+func (s server) UpdateApplication(ctx context.Context, req *daemonrpc.UpdateApplicationRequest) (
+	_ *daemonrpc.UpdateApplicationResponse, err error,
+) {
+	if err := s.daemon.updateApplication(req.Name, []byte(req.Script)); err != nil {
+		return nil, err
+	}
+	return &daemonrpc.UpdateApplicationResponse{Application: &daemonrpc.Application{Name: req.Name}}, nil
+}
+
 func (s server) DeleteApplication(ctx context.Context, req *daemonrpc.DeleteApplicationRequest) (
-	_ *daemonrpc.Application, err error) {
+	_ *daemonrpc.Application, err error,
+) {
 	name := req.Name
 	s.daemon.applicationsLock.RLock()
 	_, found := s.daemon.applications[name]
@@ -48,7 +59,8 @@ func (s server) DeleteApplication(ctx context.Context, req *daemonrpc.DeleteAppl
 }
 
 func (s server) GetApplication(ctx context.Context, req *daemonrpc.GetApplicationRequest) (
-	_ *daemonrpc.Application, err error) {
+	_ *daemonrpc.Application, err error,
+) {
 	s.daemon.applicationsLock.RLock()
 	app, found := s.daemon.applications[req.Name]
 	s.daemon.applicationsLock.RUnlock()
