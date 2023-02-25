@@ -11,7 +11,6 @@ import (
 	"strings"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/handlers"
 	"github.com/maxmcd/steady/internal/mux"
 	_ "github.com/maxmcd/steady/internal/slogx"
@@ -221,7 +220,6 @@ func (s *Server) login(ctx context.Context, usernameOrEmail string) error {
 }
 
 func (s *Server) signup(ctx context.Context, username, email string) error {
-	spew.Dump(s.steadyClient)
 	_, err := s.steadyClient.Signup(ctx, &steadyrpc.SignupRequest{
 		Username: username,
 		Email:    email,
