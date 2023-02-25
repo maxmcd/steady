@@ -35,7 +35,6 @@ type Suite struct {
 func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
-	fmt.Println("HUH!", suite.minioEnabled)
 	if suite.minioEnabled {
 		opts = append(opts, daemon.DaemonOptionWithS3(daemon.S3Config{
 			AccessKeyID:     suite.minioServer.Username,

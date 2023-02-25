@@ -373,7 +373,7 @@ func (pc *poolContainer) shutdown(ctx context.Context) {
 	defer pc.lock.Unlock()
 	pc.inUse = false
 	_ = pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
-	// _ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
+	_ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
 
 	slog.Debug("Killed", "id", pc.id)
 }

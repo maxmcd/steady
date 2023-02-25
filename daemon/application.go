@@ -4,15 +4,17 @@ import (
 	"bytes"
 	"context"
 	"fmt"
+	"io"
 	"math"
 	"net/http"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"sync"
 	"time"
 
 	"github.com/benbjohnson/litestream"
+	"github.com/maxmcd/steady/internal/boxpool"
+	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/sourcegraph/conc/pool"
 )
 
@@ -38,13 +40,15 @@ type application struct {
 	mutex           sync.Mutex
 	inFlightCounter int
 
-	cmd     *exec.Cmd
+	box     *boxpool.Box
 	running bool
 
 	stopRequestChan chan struct{}
 
 	requestCount int
 	startCount   int
+
+	pool *boxpool.Pool
 
 	cancel func()
 
@@ -57,6 +61,7 @@ func (d *Daemon) newApplication(name string, dir string, port int) *application 
 		name:            name,
 		dir:             dir,
 		port:            port,
+		pool:            d.pool,
 		stopRequestChan: make(chan struct{}),
 		createDBFunc:    d.createDB(name),
 		dbLimitWaiter:   newLimitWaiter(10),
@@ -112,7 +117,12 @@ func (a *application) stopProcess(force bool) {
 	if !a.running {
 		return
 	}
-	_ = a.cmd.Process.Kill()
+	si, err := a.box.Stop()
+	if err != nil {
+		fmt.Println("WARN: ", err)
+	}
+	_ = si
+	// TODO: move logs
 	a.running = false
 	if err := a.checkForDBs(); err != nil {
 		fmt.Println("WARN: ", err)
@@ -124,8 +134,9 @@ func (a *application) shutdown() error {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.cancel()
+	var stopErr error
 	if a.running {
-		_ = a.cmd.Process.Kill()
+		_, stopErr = a.box.Stop()
 		a.running = false
 	}
 	var err error
@@ -135,6 +146,9 @@ func (a *application) shutdown() error {
 				err = fmt.Errorf("close db: path=%s err=%w", db.Path(), e)
 			}
 		}
+	}
+	if stopErr != nil {
+		return stopErr
 	}
 	return err
 }
@@ -200,7 +214,7 @@ func (a *application) newRequest(ctx context.Context) (err error) {
 	if !a.running {
 		a.startCount++
 		a.running = true
-		a.cmd, err = bunRun(a.dir, a.port, a.Env)
+		a.box, err = bunRun(a.pool, a.dir, a.port, a.Env)
 		return err
 	}
 	return nil
@@ -215,70 +229,59 @@ func (a *application) endOfRequest() {
 	a.mutex.Unlock()
 }
 
-func bunRun(dir string, port int, env []string) (*exec.Cmd, error) {
-	cmd := exec.Command("bun", "index.ts")
-
-	cmd.Dir = dir
-	cmd.Env = append([]string{fmt.Sprintf("PORT=%d", port)}, env...)
-
-	// TODO: log to file
-	var buf bytes.Buffer
-	cmd.Stderr = os.Stdout
-	cmd.Stdout = os.Stdout
-	err := cmd.Start()
+func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Box, error) {
+	healthEndpoint := steadyutil.RandomString(10)
+	box, err := pool.RunBox(context.Background(),
+		[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
+		dir,
+		append([]string{
+			"STEADY_INDEX_LOCATION=/opt/app/index.ts",
+			"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
+			fmt.Sprintf("PORT=%d", port),
+		}, env...),
+	)
 	if err != nil {
 		return nil, err
 	}
-	// Mutex to prevent race on access of process state both while ending the
-	// process and also during out checks
-	lock := sync.Mutex{}
-	var processState *os.ProcessState
 
-	go func() {
-		// Ensure ProcessState is populated in the event of a failure
-		_ = cmd.Wait()
-		lock.Lock()
-		processState = cmd.ProcessState
-		lock.Unlock()
-	}()
 	count := 20
 	for i := 0; i < count; i++ {
 		// TODO: replace this all with a custom version of Bun so that we don't
 		// impact user applications, or a wrapper script
-		req, err := http.Get(fmt.Sprintf("http://localhost:%d/health", port))
+		req, err := http.Get(fmt.Sprintf("http://%s:%d/%s", box.IPAddress(), port, healthEndpoint))
 		if err == nil {
 			_ = req.Body.Close()
 			break
 		}
 
-		exited := false
-		exitCode := 0
-		lock.Lock()
-		// TODO: clean up!
-		exists := processState != nil
-		if exists {
-			exitCode = processState.ExitCode()
-			exited = processState.Exited()
+		exitCode, running, err := box.Status()
+		if err != nil {
+			_, _ = box.Stop()
+			return nil, err
 		}
-		lock.Unlock()
-		if exists && exited {
-			if exitCode != 0 {
-				if len(buf.Bytes()) == 0 {
-					return nil, fmt.Errorf("Exited with code %d", exitCode)
-				}
-				return nil, fmt.Errorf(buf.String())
+		if !running {
+			si, err := box.Stop()
+			if err != nil {
+				return nil, fmt.Errorf("Exited with code %d", exitCode)
 			}
-			return nil, fmt.Errorf("Exited with code %d", exitCode)
+			f, err := os.Open(si.LogFile)
+			if err != nil {
+				return nil, fmt.Errorf("Exited with code %d", exitCode)
+			}
+			var buf bytes.Buffer
+			// TODO: vulnerable to log flood
+			_, _ = io.Copy(&buf, f)
+			return nil, fmt.Errorf(buf.String())
 		}
 
 		if i == count-1 {
-			_ = cmd.Process.Kill()
+			_, _ = box.Stop()
 			return nil, fmt.Errorf("Process is running, but nothing is listening on the expected port")
 		}
 		exponent := time.Duration((i+1)*(i+1)) / 2
 		time.Sleep(time.Millisecond * exponent)
 	}
-	return cmd, nil
+	return box, nil
 }
 
 type singeUseLimitedBroadcast struct {

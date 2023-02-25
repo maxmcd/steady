@@ -23,6 +23,7 @@ import (
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
+	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/netx"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
@@ -40,6 +41,8 @@ type Daemon struct {
 
 	s3Config *S3Config
 
+	pool *boxpool.Pool
+
 	applicationsLock sync.RWMutex
 	applications     map[string]*application
 
@@ -51,9 +54,19 @@ type Daemon struct {
 type DaemonOption func(*Daemon)
 
 func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon {
+	boxpoolDir := filepath.Join(dataDirectory, "boxpool")
+	if err := os.Mkdir(boxpoolDir, 0777); err != nil {
+		panic(err)
+	}
+	pool, err := boxpool.New(context.Background(), "runner", boxpoolDir)
+	if err != nil {
+		panic(err)
+	}
+
 	d := &Daemon{
 		dataDirectory: dataDirectory,
 		addr:          addr,
+		pool:          pool,
 		applications:  map[string]*application{},
 		listenerWait:  &sync.WaitGroup{},
 		client: &http.Client{
@@ -85,7 +98,11 @@ type S3Config struct {
 func DaemonOptionWithS3(cfg S3Config) DaemonOption { return func(d *Daemon) { d.s3Config = &cfg } }
 
 // Wait for the server to exit, returning any errors.
-func (d *Daemon) Wait() error { return d.eg.Wait() }
+func (d *Daemon) Wait() error {
+	err := d.eg.Wait()
+	d.pool.Shutdown()
+	return err
+}
 
 // ServerAddr returns the address of the running server. Will panic if the
 // server hasn't been started yet.
@@ -154,10 +171,15 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 		return
 	}
 
+	if err := app.newRequest(r.Context()); err != nil {
+		http.Error(rw, errors.Wrap(err, "error starting process").Error(), http.StatusInternalServerError)
+		return
+	}
+
 	originalURL := r.URL
 	// Route to correct port
 	appURL := *r.URL
-	appURL.Host = fmt.Sprintf("localhost:%d", app.port)
+	appURL.Host = fmt.Sprintf("%s:%d", app.box.IPAddress(), app.port)
 	appURL.Scheme = "http"
 	r.URL = &appURL
 
@@ -175,10 +197,6 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 		r.URL = originalURL
 	}()
 
-	if err := app.newRequest(r.Context()); err != nil {
-		http.Error(rw, errors.Wrap(err, "error starting process").Error(), http.StatusInternalServerError)
-		return
-	}
 	defer app.endOfRequest()
 
 	{
@@ -301,11 +319,11 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 		return nil, err
 	}
 
-	cmd, err := bunRun(tmpDir, port, nil)
+	box, err := bunRun(d.pool, tmpDir, port, nil)
 	if err != nil {
 		return nil, err
 	}
-	_ = cmd.Process.Kill()
+	_, _ = box.Stop()
 
 	app := d.newApplication(name, tmpDir, port)
 	app.waitForDB()
