@@ -35,7 +35,7 @@ func main() {
 	cfg.daemonTwoAddress = ":8092"
 	cfg.publicLoadBalancerAddress = ":8081"
 	cfg.privateLoadBalanceAddress = ":8082"
-	cfg.webServerAddress = "localhost:8080"
+	cfg.webServerAddress = "0.0.0.0:8080"
 
 	flag.StringVar(&cfg.daemonOneAddress, "daemon-one-address", cfg.daemonOneAddress, "")
 	flag.StringVar(&cfg.daemonTwoAddress, "daemon-two-address", cfg.daemonTwoAddress, "")

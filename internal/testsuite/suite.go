@@ -47,7 +47,9 @@ func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, di
 	}
 	d = daemon.NewDaemon(dir, "localhost:0", opts...)
 	ctx, cancel := context.WithCancel(context.Background())
-	d.Start(ctx)
+	if err := d.Start(ctx); err != nil {
+		suite.T().Fatal(err)
+	}
 	suite.cancels = append(suite.cancels, cancel)
 	suite.daemons = append(suite.daemons, d)
 	if err := suite.assigner.AddHost(d.ServerAddr(), nil); err != nil {

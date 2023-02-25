@@ -5,7 +5,9 @@
 
 <form id="run-application" action="/application" method="POST">
     {{ if .application_error }}
-    <div class="error">{{ .application_error }}</div>
+    <div class="error">
+        <pre>{{ .application_error }}</pre>
+    </div>
     {{ end }}
     <input type="hidden" name="index.ts" />
     <input type="submit" value="Run Application" />

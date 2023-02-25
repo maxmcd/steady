@@ -32,9 +32,11 @@ type Pool struct {
 
 	dockerClient *client.Client
 
-	newContainerWG *sync.WaitGroup
-	lock           *sync.Mutex
-	pool           []*poolContainer
+	newContainerWG sync.WaitGroup
+	wgLock         sync.RWMutex
+
+	lock sync.Mutex
+	pool []*poolContainer
 
 	running bool
 
@@ -43,13 +45,11 @@ type Pool struct {
 
 func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 	p := &Pool{
-		image:          image,
-		dataDir:        dataDir,
-		newContainerWG: &sync.WaitGroup{},
-		lock:           &sync.Mutex{},
-		gid:            os.Getegid(),
-		uid:            os.Getuid(),
-		running:        true,
+		image:   image,
+		dataDir: dataDir,
+		gid:     os.Getegid(),
+		uid:     os.Getuid(),
+		running: true,
 	}
 	var err error
 	p.dockerClient, err = client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -57,6 +57,9 @@ func New(ctx context.Context, image string, dataDir string) (*Pool, error) {
 		return nil, err
 	}
 
+	if _, err := p.addContainer(ctx); err != nil {
+		return nil, err
+	}
 	if _, err := p.addContainer(ctx); err != nil {
 		return nil, err
 	}
@@ -189,7 +192,7 @@ func (p *Pool) nextContainer(ctx context.Context) (*poolContainer, error) {
 	free := []int{}
 	pending := 0
 	temp := p.pool[:0]
-	for i, cont := range p.pool {
+	for _, cont := range p.pool {
 		if cont == nil {
 			temp = append(temp, cont)
 			pending++
@@ -200,7 +203,8 @@ func (p *Pool) nextContainer(ctx context.Context) (*poolContainer, error) {
 			continue
 		}
 		if !cont.isInUse() {
-			free = append(free, i)
+			// len(temp) is the index of this cont in the new array
+			free = append(free, len(temp))
 		}
 		temp = append(temp, cont)
 	}

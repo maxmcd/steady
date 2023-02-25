@@ -63,7 +63,7 @@ func NewMinioServer(ctx context.Context, dir string) (*MinioServer, error) {
 	}
 
 	for i := 0; i < 10; i++ {
-		fmt.Println("minio startup", time.Since(start))
+		slog.Info("minio startup", "dur", time.Since(start))
 		time.Sleep(time.Millisecond * time.Duration(i*i))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 		if _, err = s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
@@ -81,7 +81,7 @@ func NewMinioServer(ctx context.Context, dir string) (*MinioServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("minio startup", time.Since(start))
+	slog.Info("minio startup", "dur", time.Since(start))
 	return &server, nil
 }
 
@@ -128,6 +128,7 @@ func (server *MinioServer) CycleBucket() error {
 	}
 
 	server.BucketName = steadyutil.RandomString(15)
+	fmt.Println("Exists", server.BucketName)
 
 	if _, err := s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(server.BucketName),

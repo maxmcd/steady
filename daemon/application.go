@@ -111,23 +111,21 @@ func (a *application) runLoop() {
 }
 
 func (a *application) updateApplication(src []byte) error {
+	// Queue future requests
+	a.dbLimitWaiter.StartWait()
 	// TODO: drain requests
 	a.stopProcess(true)
 	a.resetKillTimer <- struct{}{}
-	// Queue future requests
-	a.dbLimitWaiter.StartWait()
+	defer a.dbLimitWaiter.Signal()
 
 	f, err := os.Create(filepath.Join(a.dir, "index.ts"))
 	if err != nil {
-		a.dbLimitWaiter.Signal()
 		return err
 	}
 
 	if _, err := f.Write(src); err != nil {
-		a.dbLimitWaiter.Signal()
 		return err
 	}
-
 	// TODO: ensure it is healthy, roll back if needed
 	return nil
 }

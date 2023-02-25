@@ -20,6 +20,10 @@ issues:
     - linters:
         - lll
       source: "^//go:"
+    - path: _test\.go
+      linters:
+        - funlen
+
 linters-settings:
   staticcheck:
     checks: ["SA*", "S1*"]

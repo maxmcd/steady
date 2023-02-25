@@ -23,7 +23,9 @@ func NewLimitedBroadcast(maxWaiting int) *LimitedBroadcast {
 }
 func (l *LimitedBroadcast) StartWait() {
 	l.lock.Lock()
-	close(l.notify) // flush any waiters
+	if l.wait {
+		close(l.notify) // flush any waiters
+	}
 	l.notify = make(chan struct{})
 	l.wait = true
 	l.lock.Unlock()

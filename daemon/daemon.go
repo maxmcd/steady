@@ -182,6 +182,7 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 		return
 	}
 
+	// Need to run here to get app.box below
 	if err := app.newRequest(r.Context()); err != nil {
 		http.Error(rw, errors.Wrap(err, "error starting process").Error(), http.StatusInternalServerError)
 		return
@@ -332,12 +333,10 @@ func (d *Daemon) validateApplication(script []byte) error {
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-
 	port, err := netx.GetFreePort()
 	if err != nil {
 		return err
 	}
-
 	box, err := bunRun(d.pool, tmpDir, port, nil)
 	if err != nil {
 		return err
@@ -382,7 +381,7 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 	var dbs []string
 	if d.s3Config != nil {
 		if err := d.downloadDatabasesIfFound(ctx, tmpDir, name); err != nil {
-			return nil, errors.Wrap(err, "error downloading database")
+			return nil, errors.Wrap(err, "downloading database")
 		}
 	}
 	app.DBs = dbs
