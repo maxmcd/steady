@@ -8,7 +8,6 @@ import (
 	"io"
 	"os"
 	"os/user"
-	"path/filepath"
 	"strconv"
 	"strings"
 	"syscall"
@@ -18,19 +17,6 @@ import (
 	"github.com/maxmcd/steady/internal/execx"
 	"github.com/mitchellh/go-ps"
 )
-
-func removeTmpFiles() error {
-	tmpFiles, err := filepath.Glob("/tmp/*")
-	if err != nil {
-		return err
-	}
-	for _, f := range tmpFiles {
-		if err := os.RemoveAll(f); err != nil {
-			fmt.Fprintln(os.Stderr, err)
-		}
-	}
-	return nil
-}
 
 func main() {
 	var cmd *execx.Cmd

@@ -96,8 +96,9 @@ func NewServer(steadyServer http.Handler) (*Server, error) {
 	s.router.POST("/login", s.loginEndpoint)
 	s.router.POST("/signup", s.signupEndpoint)
 
-	s.router.POST("/application", s.runApplication)
-	s.router.GET("/application/:name", s.showApplication)
+	s.router.POST("/app", s.runApplication)
+	s.router.GET("/app/:name", s.showApplication)
+	s.router.POST("/app/:name", s.updateApplication)
 
 	return s, nil
 }

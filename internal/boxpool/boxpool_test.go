@@ -50,7 +50,9 @@ func TestBasic(t *testing.T) {
 			[]string{
 				"STEADY_INDEX_LOCATION=/opt/app/index.ts",
 				"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
-			})
+			},
+			nil,
+		)
 		if err != nil {
 			t.Fatal(err)
 		}
@@ -107,14 +109,14 @@ func TestErrorStates(t *testing.T) {
 		{
 			name: "invalid datadir",
 			doWork: func(t *testing.T, p *boxpool.Pool) {
-				_, err := p.RunBox(context.Background(), nil, "/a/s/d/f/no-exist", nil)
+				_, err := p.RunBox(context.Background(), nil, "/a/s/d/f/no-exist", nil, nil)
 				assert.Error(t, err)
 			},
 		},
 		{
 			name: "container killed",
 			doWork: func(t *testing.T, p *boxpool.Pool) {
-				box, err := p.RunBox(context.Background(), []string{"sleep", "10000000"}, t.TempDir(), nil)
+				box, err := p.RunBox(context.Background(), []string{"sleep", "10000000"}, t.TempDir(), nil, nil)
 				assert.NoError(t, err)
 				if err := dockerClient.ContainerKill(context.Background(), box.ContainerID(), "SIGKILL"); err != nil {
 					t.Fatal(err)
@@ -128,7 +130,7 @@ func TestErrorStates(t *testing.T) {
 			name: "stop twice",
 			doWork: func(t *testing.T, p *boxpool.Pool) {
 				start := time.Now()
-				box, err := p.RunBox(context.Background(), []string{"sleep", "10000000"}, t.TempDir(), nil)
+				box, err := p.RunBox(context.Background(), []string{"sleep", "10000000"}, t.TempDir(), nil, nil)
 				assert.NoError(t, err)
 				fmt.Println("runBox", time.Since(start))
 				if _, err := box.Stop(); err != nil {
@@ -142,7 +144,7 @@ func TestErrorStates(t *testing.T) {
 		{
 			name: "exit early",
 			doWork: func(t *testing.T, p *boxpool.Pool) {
-				box, err := p.RunBox(context.Background(), []string{"echo", "hi"}, t.TempDir(), nil)
+				box, err := p.RunBox(context.Background(), []string{"echo", "hi"}, t.TempDir(), nil, nil)
 				assert.NoError(t, err)
 
 				for i := 0; i < 100; i++ {
@@ -195,10 +197,12 @@ func TestLogs(t *testing.T) {
 	}
 	t.Cleanup(pool.Shutdown)
 
+	var logs bytes.Buffer
+
 	box, err := pool.RunBox(context.Background(),
 		[]string{"bun", "x", "bun-repl", "--eval",
 			`process.stdout.write('stdout\n'); process.stderr.write('stderr\n')`},
-		t.TempDir(), nil)
+		t.TempDir(), nil, &logs)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -219,4 +223,5 @@ func TestLogs(t *testing.T) {
 	var buf bytes.Buffer
 	_, _ = io.Copy(&buf, f)
 	assert.Equal(t, "stdout\nstderr\n", buf.String())
+	assert.Equal(t, "stdout\nstderr\n", logs.String())
 }

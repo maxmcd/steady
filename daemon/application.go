@@ -263,6 +263,7 @@ func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Bo
 			"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
 			fmt.Sprintf("PORT=%d", port),
 		}, env...),
+		nil,
 	)
 	if err != nil {
 		return nil, err

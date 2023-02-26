@@ -128,7 +128,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 		return nil, err
 	}
 
-	cont := &poolContainer{id: c.ID, pool: p, dataDir: dataDir, lock: &sync.Mutex{}}
+	cont := &poolContainer{id: c.ID, pool: p, dataDir: dataDir}
 
 	if err := p.dockerClient.ContainerStart(ctx, cont.id, types.ContainerStartOptions{}); err != nil {
 		return nil, err
@@ -155,7 +155,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 
 	pr, pw := io.Pipe()
 	go func() {
-		_, _ = stdcopy.StdCopy(pw, os.Stderr, cont.attach.Reader)
+		_, _ = stdcopy.StdCopy(pw, cont, cont.attach.Reader)
 		_ = pw.Close()
 	}()
 
@@ -163,6 +163,17 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 
 	return cont, nil
 }
+
+func (pc *poolContainer) Write(v []byte) (int, error) {
+	pc.logsLock.Lock()
+	if pc.logsWriter != nil {
+		pc.logsLock.Unlock()
+		return pc.logsWriter.Write(v)
+	}
+	pc.logsLock.Unlock()
+	return os.Stderr.Write(v)
+}
+
 func (p *Pool) addContainer(ctx context.Context) (*poolContainer, error) {
 	p.lock.Lock()
 	p.pool = append(p.pool, nil)
@@ -227,10 +238,12 @@ type poolContainer struct {
 	id                    string
 	ipAddress             string
 
-	lock    *sync.Mutex
-	attach  types.HijackedResponse
-	scanner *bufio.Scanner
+	logsLock   sync.Mutex
+	logsWriter io.Writer
+	attach     types.HijackedResponse
+	scanner    *bufio.Scanner
 
+	stateLock      sync.Mutex
 	inUse          bool
 	containerState *types.ContainerState
 }
@@ -289,20 +302,20 @@ func (pc *poolContainer) handleUnexpectedClose() {
 // }
 
 func (pc *poolContainer) isHealthy() bool {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	return pc.containerState == nil
 }
 
 func (pc *poolContainer) isInUse() bool {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	return pc.inUse
 }
 
-func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, env []string) error {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, env []string, logs io.Writer) error {
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	if pc.inUse {
 		return fmt.Errorf("poolContainer is already running")
 	}
@@ -314,6 +327,10 @@ func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, 
 		return err
 	}
 	pc.appDataReturnLocation = dataDir
+
+	pc.logsLock.Lock()
+	pc.logsWriter = logs
+	pc.logsLock.Unlock()
 
 	_, err := pc.sendMsg(ContainerAction{
 		Action: "run",
@@ -337,11 +354,15 @@ type StopInfo struct {
 }
 
 func (pc *poolContainer) stop() (_ *StopInfo, err error) {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	if !pc.inUse {
 		return nil, fmt.Errorf("poolContainer is not running and can't be stopped")
 	}
+	pc.logsLock.Lock()
+	pc.logsWriter = nil
+	pc.logsLock.Unlock()
+
 	_, sendErr := pc.sendMsg(ContainerAction{
 		Action: "stop",
 	})
@@ -360,8 +381,8 @@ func (pc *poolContainer) stop() (_ *StopInfo, err error) {
 }
 
 func (pc *poolContainer) status() (exitCode int, running bool, err error) {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	if !pc.inUse {
 		return 0, false, ErrContainerStopped
 	}
@@ -373,8 +394,8 @@ func (pc *poolContainer) status() (exitCode int, running bool, err error) {
 }
 
 func (pc *poolContainer) shutdown(ctx context.Context) {
-	pc.lock.Lock()
-	defer pc.lock.Unlock()
+	pc.stateLock.Lock()
+	defer pc.stateLock.Unlock()
 	pc.inUse = false
 	_ = pc.pool.dockerClient.ContainerKill(ctx, pc.id, "SIGKILL")
 	_ = pc.pool.dockerClient.ContainerRemove(ctx, pc.id, types.ContainerRemoveOptions{})
@@ -382,12 +403,12 @@ func (pc *poolContainer) shutdown(ctx context.Context) {
 	slog.Debug("Killed", "id", pc.id)
 }
 
-func (p *Pool) RunBox(ctx context.Context, cmd []string, dataDir string, env []string) (*Box, error) {
+func (p *Pool) RunBox(ctx context.Context, cmd []string, dataDir string, env []string, logs io.Writer) (*Box, error) {
 	cont, err := p.nextContainer(ctx)
 	if err != nil {
 		return nil, err
 	}
-	if err := cont.run(ctx, cmd, dataDir, env); err != nil {
+	if err := cont.run(ctx, cmd, dataDir, env, logs); err != nil {
 		return nil, err
 	}
 	return &Box{pool: p, cont: cont, dataDir: dataDir}, nil
