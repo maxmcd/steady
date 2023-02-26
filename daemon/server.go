@@ -2,8 +2,6 @@ package daemon
 
 import (
 	"context"
-	"fmt"
-	"time"
 
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/twitchtv/twirp"
@@ -27,11 +25,9 @@ func (s server) CreateApplication(ctx context.Context, req *daemonrpc.CreateAppl
 func (s server) UpdateApplication(ctx context.Context, req *daemonrpc.UpdateApplicationRequest) (
 	_ *daemonrpc.UpdateApplicationResponse, err error,
 ) {
-	start := time.Now()
 	if err := s.daemon.updateApplication(req.Name, []byte(req.Script)); err != nil {
 		return nil, err
 	}
-	fmt.Println("APPTIME", time.Since(start))
 	return &daemonrpc.UpdateApplicationResponse{Application: &daemonrpc.Application{Name: req.Name}}, nil
 }
 

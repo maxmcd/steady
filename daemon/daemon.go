@@ -242,7 +242,7 @@ func (d *Daemon) StopAllApplications() {
 func (d *Daemon) downloadDatabasesIfFound(ctx context.Context, dir, name string) (err error) {
 	dbs, err := d.findDatabasesForApplication(name)
 	if err != nil {
-		return errors.Wrap(err, "error finding databases")
+		return errors.Wrap(err, "finding databases")
 	}
 
 	for _, db := range dbs {

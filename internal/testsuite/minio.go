@@ -24,6 +24,8 @@ type MinioServer struct {
 	Address    string
 	BucketName string
 
+	dir string
+
 	cancel func()
 	eg     *errgroup.Group
 }
@@ -128,7 +130,6 @@ func (server *MinioServer) CycleBucket() error {
 	}
 
 	server.BucketName = steadyutil.RandomString(15)
-	fmt.Println("Exists", server.BucketName)
 
 	if _, err := s3Client.CreateBucket(&s3.CreateBucketInput{
 		Bucket: aws.String(server.BucketName),
@@ -160,6 +161,10 @@ func (server *MinioServer) S3Client() (*s3.S3, error) {
 func (server *MinioServer) Stop() error {
 	server.cancel()
 	return server.Wait()
+}
+
+func (server *MinioServer) DataDir() string {
+	return server.dir
 }
 
 func (server *MinioServer) Wait() error {

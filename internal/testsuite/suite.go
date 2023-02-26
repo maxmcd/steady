@@ -171,8 +171,12 @@ func (suite *Suite) StartMinioServer() {
 	if suite.minioServer != nil {
 		return
 	}
-	var err error
-	suite.minioServer, err = NewMinioServer(context.Background(), suite.T().TempDir())
+	// suite.T().TempDir() will be cleaned up between tests, must use our own
+	dir, err := os.MkdirTemp("", "")
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	suite.minioServer, err = NewMinioServer(context.Background(), dir)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
