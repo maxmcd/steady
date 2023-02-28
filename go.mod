@@ -13,6 +13,7 @@ require (
 	github.com/mattn/go-sqlite3 v1.14.14
 	github.com/mitchellh/go-ps v1.0.0
 	github.com/pkg/errors v0.9.1
+	github.com/samber/lo v1.37.0
 	github.com/sourcegraph/conc v0.2.1-0.20230218155736-1df97ecbf2e8
 	github.com/stretchr/testify v1.8.1
 	github.com/twitchtv/twirp v8.1.3+incompatible

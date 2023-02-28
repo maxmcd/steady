@@ -143,14 +143,14 @@ func (suite *TestSuite) TestUpdateApplication() {
 	rm.Request(ctx)
 	stop()
 
-	suite.Equal(atomic.LoadInt32(&rm.counterValue), atomic.LoadInt32(&rm.successfulRequestCount))
-	fmt.Println(atomic.LoadInt32(&rm.requestCount), atomic.LoadInt32(&rm.successfulRequestCount))
+	suite.Equal(rm.counterValue.Load(), rm.successfulRequestCount.Load())
+	fmt.Println(rm.requestCount.Load(), rm.successfulRequestCount.Load())
 }
 
 type RequestMaker struct {
-	counterValue           int32
-	successfulRequestCount int32
-	requestCount           int32
+	counterValue           atomic.Int32
+	successfulRequestCount atomic.Int32
+	requestCount           atomic.Int32
 
 	appName string
 	lb      *loadbalancer.LB
@@ -176,17 +176,17 @@ func (rm *RequestMaker) runMany(threads int) func() {
 	}()
 	return func() {
 		// Use these values so that cancelled requests are not included
-		a, b, c := rm.counterValue, rm.successfulRequestCount, rm.requestCount
+		a, b, c := rm.counterValue.Load(), rm.successfulRequestCount.Load(), rm.requestCount.Load()
 		cancel()
 		wg.Wait()
-		atomic.StoreInt32(&rm.counterValue, a)
-		atomic.StoreInt32(&rm.successfulRequestCount, b)
-		atomic.StoreInt32(&rm.requestCount, c)
+		rm.counterValue.Store(a)
+		rm.successfulRequestCount.Store(b)
+		rm.requestCount.Store(c)
 	}
 }
 
 func (rm *RequestMaker) Request(ctx context.Context) {
-	atomic.AddInt32(&rm.requestCount, 1)
+	rm.requestCount.Add(1)
 
 	req, err := http.NewRequest(http.MethodPost,
 		fmt.Sprintf("http://%s", rm.lb.PublicServerAddr()),
@@ -208,9 +208,9 @@ func (rm *RequestMaker) Request(ctx context.Context) {
 	_ = json.NewDecoder(resp.Body).Decode(&jsonResponse)
 	_ = resp.Body.Close()
 	if resp.StatusCode == http.StatusOK {
-		atomic.AddInt32(&rm.successfulRequestCount, 1)
+		rm.successfulRequestCount.Add(1)
 	} else {
 		slog.Error("incorrect status code", nil, "code", resp.StatusCode)
 	}
-	atomic.StoreInt32(&rm.counterValue, int32(jsonResponse["id"].(float64)))
+	rm.counterValue.Store(int32(jsonResponse["id"].(float64)))
 }

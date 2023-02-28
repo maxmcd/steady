@@ -20,7 +20,7 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
-	"github.com/sourcegraph/conc/iter"
+	"github.com/samber/lo/parallel"
 	"golang.org/x/exp/slog"
 )
 
@@ -96,12 +96,7 @@ func (p *Pool) Shutdown() {
 	p.lock.Lock()
 	p.running = false
 	defer p.lock.Unlock()
-	iter.ForEach(p.pool, func(c **poolContainer) {
-		if *c == nil {
-			return
-		}
-		(*c).shutdown(context.Background())
-	})
+	parallel.ForEach(p.pool, func(c *poolContainer, _ int) { c.shutdown(context.Background()) })
 	p.pool = nil
 }
 

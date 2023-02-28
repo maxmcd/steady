@@ -29,6 +29,8 @@ import (
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
+	"github.com/samber/lo"
+	"github.com/samber/lo/parallel"
 	"golang.org/x/exp/slog"
 )
 
@@ -105,11 +107,18 @@ func (d *Daemon) Wait() error {
 	err := d.wait()
 	d.applicationsLock.Lock()
 	defer d.applicationsLock.Unlock()
-	for name, app := range d.applications {
-		// TODO: will need to be parallel if we ever care about shutdown
-		// speed with live applications
-		if err := app.shutdown(); err != nil {
-			slog.Error("error shutting down application", err, "app", name)
+
+	errs := parallel.Map(lo.Entries(d.applications),
+		func(entry lo.Entry[string, *application], _ int) error {
+			if err := entry.Value.shutdown(); err != nil {
+				return fmt.Errorf("shutting down application %q: %w", entry.Key, err)
+			}
+			return nil
+		},
+	)
+	for _, err := range errs {
+		if err != nil {
+			slog.Error(err.Error(), err)
 		}
 	}
 	d.pool.Shutdown()
