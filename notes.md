@@ -1,3 +1,49 @@
+
+# 2023-03-01
+
+Resources for getting some version of git hosting working for the feature below:
+
+
+Example of creating a git server:
+- https://github.com/go-git/go-git/issues/234
+- https://github.com/seankhliao/gitreposerver
+
+
+A brief foray into pluggable fs layers when thinking about how to store this stuff.
+- https://pkg.go.dev/github.com/go-git/go-billy/v5
+- https://github.com/hack-pad/hackpadfs
+- https://github.com/spf13/afero
+
+
+
+# 2023-02-28
+
+Applications could import like so:
+```ts
+import Foo from "steady.sh/maxmcd/foo"
+```
+Which would add the following to the package.json:
+```json
+{"steady.sh/maxmcd/foo": "git://steady.sh/maxmcd/foo.git#v1.0.27"}
+```
+
+We can then allow imports from other projects and get TS definitions linked between projects.
+
+Our helper methods could also do things like this:
+
+```ts
+import counterServer from "steady.sh/maxmcd/counter"
+let app = Steady.runApplication("steady.sh/maxmcd/counter");
+const client = Steady.client(counterServer, app);
+
+console.log(await client.Increment())
+```
+
+A contrived example of something that might look like a type safe server/client
+setup. The Magic here is that Steady.runApplication will use the version from
+package.json to determine which application version to run.
+
+
 # 2023-02-15
 
 Next is a focus on application editing and basic observability:
