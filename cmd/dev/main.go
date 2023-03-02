@@ -21,6 +21,7 @@ import (
 
 type Config struct {
 	dataDirectory             string
+	databaseFile              string
 	daemonOneAddress          string
 	daemonTwoAddress          string
 	publicLoadBalancerAddress string
@@ -31,6 +32,7 @@ type Config struct {
 func main() {
 	cfg := Config{}
 	cfg.dataDirectory = ""
+	cfg.databaseFile = "./steady.sqlite"
 	cfg.daemonOneAddress = ":8091"
 	cfg.daemonTwoAddress = ":8092"
 	cfg.publicLoadBalancerAddress = ":8081"
@@ -130,8 +132,7 @@ func run(ctx context.Context, cfg Config) func() error {
 				PrivateLoadBalancerURL: "http://" + lb.PrivateServerAddr(),
 				DaemonClient:           daemon.NewClient("http://"+lb.PrivateServerAddr(), nil),
 			},
-			steady.OptionWithSqlite(filepath.Join(cfg.dataDirectory, "./steady.sqlite")))
-
+			steady.OptionWithSqlite(cfg.databaseFile))
 	server, err := web.NewServer(steadyHandler)
 	if err != nil {
 		panic(err)

@@ -96,7 +96,6 @@ func (a *application) runLoop() {
 	a.mutex.Unlock()
 	killTimer := time.NewTimer(math.MaxInt64)
 	for {
-		// TODO: stop loop
 		select {
 		case <-a.resetKillTimer:
 			killTimer.Reset(math.MaxInt64)

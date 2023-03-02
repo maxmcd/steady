@@ -1,5 +1,4 @@
 import { Database } from "bun:sqlite";
-import { format } from "path";
 
 let db = new Database("db.sqlite");
 
@@ -19,17 +18,18 @@ export default {
   port: port,
   async fetch(request: Request): Promise<Response> {
     console.log(`http: ${request.method} ${request.url}`)
-    if (request.method === "POST") {
-      let req: { email: string } = await request.json();
-      // console.log(req, request, JSON.stringify(request.headers));
-      if (!req.email) return new Response("no", { status: 401 });
-      // db.exec("insert into user (email) values (?)", req.email);
-
-      // return new Response("");
-      return new Response(JSON.stringify(insertUser.all(req.email)[0]));
+    if (request.method !== "POST") {
+      // return all users
+      return new Response(JSON.stringify(db.query("select * from user").all()));
     }
-    // return all users
-    return new Response(JSON.stringify(db.query("select * from user").all()));
+
+    let req: { email: string } = await request.json();
+    // console.log(req, request, JSON.stringify(request.headers));
+    if (!req.email) return new Response("no", { status: 401 });
+    // db.exec("insert into user (email) values (?)", req.email);
+
+    // return new Response("");
+    return new Response("All users: "+JSON.stringify(insertUser.all(req.email)[0]));
   },
 };
 
