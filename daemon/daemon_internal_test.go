@@ -7,7 +7,6 @@ import (
 	"testing"
 
 	"github.com/maxmcd/steady/internal/boxpool"
-	"github.com/maxmcd/steady/internal/netx"
 )
 
 func Test_bunRun(t *testing.T) {
@@ -35,11 +34,7 @@ func Test_bunRun(t *testing.T) {
 			}
 			_, _ = f.Write([]byte(tt.script))
 			_ = f.Close()
-			port, err := netx.GetFreePort()
-			if err != nil {
-				t.Fatal(err)
-			}
-			box, err := bunRun(pool, dir, port, nil)
+			box, err := bunRun(pool, dir, nil)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
 				return

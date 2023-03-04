@@ -13,6 +13,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/davecgh/go-spew/spew"
 	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/execx"
 	"github.com/mitchellh/go-ps"
@@ -20,7 +21,7 @@ import (
 
 func main() {
 	var cmd *execx.Cmd
-
+	var logs *os.File
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		var action boxpool.ContainerAction
@@ -31,7 +32,10 @@ func main() {
 		}
 		switch action.Action {
 		case "run":
-			logs, err := os.Create("/opt/log.log")
+			fi, err := os.Stat("/opt")
+			spew.Fdump(os.Stderr, fi, err)
+			fmt.Fprintln(os.Stderr, fi, err)
+			logs, err = os.Create("/opt/log.log")
 			if err != nil {
 				sendError(err)
 				continue
@@ -66,6 +70,7 @@ func main() {
 				sendError(fmt.Errorf("shutting down process: %w", err))
 			}
 			cmd = nil
+			_ = logs.Close()
 
 			sendResponse(boxpool.ContainerResponse{Err: ""})
 			// if err := removeTmpFiles(); err != nil {

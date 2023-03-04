@@ -29,8 +29,7 @@ var (
 // after a period of inactivity.
 type application struct {
 	name string
-	// port is the port this application listens on
-	port int
+
 	// dir is the directory that contains all application data
 	dir string
 
@@ -59,11 +58,10 @@ type application struct {
 	createDBFunc func(string) (*litestream.DB, error)
 }
 
-func (d *Daemon) newApplication(name string, dir string, port int) *application {
+func (d *Daemon) newApplication(name string, dir string) *application {
 	w := &application{
 		name:            name,
 		dir:             dir,
-		port:            port,
 		pool:            d.pool,
 		stopRequestChan: make(chan struct{}),
 		resetKillTimer:  make(chan struct{}),
@@ -237,7 +235,7 @@ func (a *application) newRequest(ctx context.Context) (err error) {
 	if !a.running {
 		a.startCount++
 		a.running = true
-		a.box, err = bunRun(a.pool, a.dir, a.port, a.Env)
+		a.box, err = bunRun(a.pool, a.dir, a.Env)
 		return err
 	}
 	return nil
@@ -252,7 +250,7 @@ func (a *application) endOfRequest() {
 	a.mutex.Unlock()
 }
 
-func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Box, error) {
+func bunRun(pool *boxpool.Pool, dir string, env []string) (*boxpool.Box, error) {
 	healthEndpoint := steadyutil.RandomString(10)
 	box, err := pool.RunBox(context.Background(),
 		[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
@@ -260,7 +258,7 @@ func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Bo
 		append([]string{
 			"STEADY_INDEX_LOCATION=/opt/app/index.ts",
 			"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
-			fmt.Sprintf("PORT=%d", port),
+			"PORT=80",
 		}, env...),
 		nil,
 	)
@@ -272,7 +270,7 @@ func bunRun(pool *boxpool.Pool, dir string, port int, env []string) (*boxpool.Bo
 	for i := 0; i < count; i++ {
 		// TODO: replace this all with a custom version of Bun so that we don't
 		// impact user applications, or a wrapper script
-		req, err := http.Get(fmt.Sprintf("http://%s:%d/%s", box.IPAddress(), port, healthEndpoint))
+		req, err := http.Get(fmt.Sprintf("http://%s/%s", box.IPAndPort(), healthEndpoint))
 		if err == nil {
 			_ = req.Body.Close()
 			break

@@ -25,7 +25,6 @@ import (
 	"github.com/maxmcd/steady/daemon/daemonrpc"
 	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/httpx"
-	"github.com/maxmcd/steady/internal/netx"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
@@ -200,7 +199,7 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 	originalURL := r.URL
 	// Route to correct port
 	appURL := *r.URL
-	appURL.Host = fmt.Sprintf("%s:%d", app.box.IPAddress(), app.port)
+	appURL.Host = fmt.Sprintf("%s:%d", app.box.IPAndPort())
 	appURL.Scheme = "http"
 	r.URL = &appURL
 
@@ -342,11 +341,7 @@ func (d *Daemon) validateApplication(script []byte) error {
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	port, err := netx.GetFreePort()
-	if err != nil {
-		return err
-	}
-	box, err := bunRun(d.pool, tmpDir, port, nil)
+	box, err := bunRun(d.pool, tmpDir, nil)
 	if err != nil {
 		return err
 	}
@@ -376,7 +371,7 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return nil, fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	app := d.newApplication(name, tmpDir, 3000)
+	app := d.newApplication(name, tmpDir)
 	app.waitForDB()
 	app.start()
 	d.applicationsLock.Lock()

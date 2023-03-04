@@ -60,7 +60,7 @@ func TestBasic(t *testing.T) {
 		start = time.Now()
 
 		for i := 0; i < 20; i++ {
-			res, err := http.Get(fmt.Sprintf("http://%s:3000/"+healthEndpoint, box.IPAddress()))
+			res, err := http.Get(fmt.Sprintf("http://%s:3000/"+healthEndpoint, box.IPAndPort()))
 			if err == nil {
 				_, _ = io.Copy(os.Stdout, res.Body)
 				_ = res.Body.Close()

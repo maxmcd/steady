@@ -11,6 +11,7 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"runtime"
 	"sync"
 	"time"
 
@@ -18,6 +19,7 @@ import (
 	"github.com/docker/docker/api/types/container"
 	"github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/stdcopy"
+	"github.com/docker/go-connections/nat"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/samber/lo/parallel"
@@ -107,14 +109,16 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}
 
 	c, err := p.dockerClient.ContainerCreate(ctx, &container.Config{
-		Image:       p.image,
-		Cmd:         nil,
-		AttachStdin: true,
-		OpenStdin:   true,
-		Tty:         false,
+		Image:        p.image,
+		Cmd:          nil,
+		AttachStdin:  true,
+		OpenStdin:    true,
+		Tty:          false,
+		ExposedPorts: nat.PortSet{nat.Port("80"): struct{}{}},
 	}, &container.HostConfig{
 		ReadonlyRootfs: true,
 		Binds:          []string{dataDir + ":/opt"},
+		PortBindings:   nat.PortMap{nat.Port("80"): []nat.PortBinding{{HostIP: "0.0.0.0", HostPort: "0"}}},
 		// TODO: gvisor doesn't support bun :(
 		// [pid    14] <... io_uring_setup resumed>}) = -1 ENOSYS (Function not implemented)
 		// Runtime:        "runsc",
@@ -146,6 +150,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}
 
 	cont.ipAddress = info.NetworkSettings.IPAddress
+	cont.dockerBindingAddress = info.NetworkSettings.Ports[nat.Port("80/tcp")][0].HostPort
 	cont.attach = resp
 
 	pr, pw := io.Pipe()
@@ -231,7 +236,9 @@ type poolContainer struct {
 	appDataReturnLocation string
 	pool                  *Pool
 	id                    string
-	ipAddress             string
+
+	dockerBindingAddress string
+	ipAddress            string
 
 	logsLock   sync.Mutex
 	logsWriter io.Writer
@@ -415,8 +422,17 @@ type Box struct {
 	dataDir string
 }
 
-func (b *Box) IPAddress() string {
-	return b.cont.ipAddress
+func (b *Box) LinuxIPAndPort() string {
+	return b.cont.ipAddress + ":80"
+}
+
+// IPAndPort returns an ip addr + port that the box is reachable on. Will use a
+// docker port binding if runtime.GOOS is "darwin".
+func (b *Box) IPAndPort() string {
+	if runtime.GOOS == "darwin" {
+		return b.cont.dockerBindingAddress
+	}
+	return b.LinuxIPAndPort()
 }
 
 // Exec opens a shell session within the box.
