@@ -18,7 +18,7 @@ jobs:
           DOCKER_BUILDKIT: "1"
         run: |
           make generate
-          go mod tidy
+          nix-shell --run "go mod tidy"
           git status
           git diff
           [[ -z $(git status -s) ]]
