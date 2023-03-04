@@ -48,6 +48,7 @@ func TestBasic(t *testing.T) {
 			[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
 			appDir,
 			[]string{
+				"PORT=80",
 				"STEADY_INDEX_LOCATION=/opt/app/index.ts",
 				"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
 			},
@@ -60,7 +61,8 @@ func TestBasic(t *testing.T) {
 		start = time.Now()
 
 		for i := 0; i < 20; i++ {
-			res, err := http.Get(fmt.Sprintf("http://%s:3000/"+healthEndpoint, box.IPAndPort()))
+			var res *http.Response
+			res, err = http.Get(fmt.Sprintf("http://%s/"+healthEndpoint, box.IPAndPort()))
 			if err == nil {
 				_, _ = io.Copy(os.Stdout, res.Body)
 				_ = res.Body.Close()
@@ -75,6 +77,9 @@ func TestBasic(t *testing.T) {
 			if !running {
 				t.Fatal("not running")
 			}
+		}
+		if err != nil {
+			t.Fatal(err)
 		}
 
 		fmt.Println("alive", time.Since(start))
@@ -94,8 +99,7 @@ func TestErrorStates(t *testing.T) {
 	}
 
 	// Use the same pool to help catch tests related to atypical execution
-	// order. Will possibly make tests harder to debug. My kingdom for
-	// determinism.
+	// order.
 	pool, err := boxpool.New(context.Background(), "runner", t.TempDir())
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +148,8 @@ func TestErrorStates(t *testing.T) {
 		{
 			name: "exit early",
 			doWork: func(t *testing.T, p *boxpool.Pool) {
-				box, err := p.RunBox(context.Background(), []string{"echo", "hi"}, t.TempDir(), nil, nil)
+				var buf bytes.Buffer
+				box, err := p.RunBox(context.Background(), []string{"echo", "hi"}, t.TempDir(), nil, &buf)
 				assert.NoError(t, err)
 
 				for i := 0; i < 100; i++ {
@@ -157,16 +162,9 @@ func TestErrorStates(t *testing.T) {
 				require.NoError(t, err)
 				assert.Equal(t, 0, exitCode)
 				assert.Equal(t, false, running)
-				cr, err := box.Stop()
-				if err != nil {
+				if _, err := box.Stop(); err != nil {
 					t.Fatal(err)
 				}
-				f, err := os.Open(cr.LogFile)
-				if err != nil {
-					t.Fatal(err)
-				}
-				var buf bytes.Buffer
-				_, _ = io.Copy(&buf, f)
 				assert.Equal(t, "hi\n", buf.String())
 			},
 		},
@@ -206,22 +204,11 @@ func TestLogs(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	for {
-		if _, running, _ := box.Status(); !running {
-			break
-		}
+	for _, running, _ := box.Status(); !running; _, running, _ = box.Status() {
 	}
-	cr, err := box.Stop()
-	if err != nil {
+	if _, err := box.Stop(); err != nil {
 		t.Fatal(err)
 	}
 
-	f, err := os.Open(cr.LogFile)
-	if err != nil {
-		t.Fatal(err)
-	}
-	var buf bytes.Buffer
-	_, _ = io.Copy(&buf, f)
-	assert.Equal(t, "stdout\nstderr\n", buf.String())
 	assert.Equal(t, "stdout\nstderr\n", logs.String())
 }

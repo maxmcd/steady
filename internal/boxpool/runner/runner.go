@@ -5,15 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"os"
-	"os/user"
-	"strconv"
 	"strings"
 	"syscall"
 	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/execx"
 	"github.com/mitchellh/go-ps"
@@ -21,7 +17,6 @@ import (
 
 func main() {
 	var cmd *execx.Cmd
-	var logs *os.File
 	scanner := bufio.NewScanner(os.Stdin)
 	for scanner.Scan() {
 		var action boxpool.ContainerAction
@@ -32,22 +27,14 @@ func main() {
 		}
 		switch action.Action {
 		case "run":
-			fi, err := os.Stat("/opt")
-			spew.Fdump(os.Stderr, fi, err)
-			fmt.Fprintln(os.Stderr, fi, err)
-			logs, err = os.Create("/opt/log.log")
-			if err != nil {
-				sendError(err)
-				continue
-			}
 			exec := action.Exec
 			cmd = execx.Command(exec.Cmd[0], exec.Cmd[1:]...)
 			cmd.SysProcAttr = &syscall.SysProcAttr{}
 			cmd.SysProcAttr.Credential = &syscall.Credential{Uid: uint32(exec.Uid), Gid: uint32(exec.Gid)}
 			cmd.Env = exec.Env
 			cmd.Dir = "/opt/app"
-			cmd.Stdout = io.MultiWriter(logs, os.Stderr)
-			cmd.Stderr = io.MultiWriter(logs, os.Stderr)
+			cmd.Stdout = os.Stderr
+			cmd.Stderr = os.Stderr
 			if err := cmd.Start(); err != nil {
 				cmd = nil
 				sendError(err)
@@ -70,7 +57,6 @@ func main() {
 				sendError(fmt.Errorf("shutting down process: %w", err))
 			}
 			cmd = nil
-			_ = logs.Close()
 
 			sendResponse(boxpool.ContainerResponse{Err: ""})
 			// if err := removeTmpFiles(); err != nil {
@@ -103,10 +89,4 @@ func sendError(err error) {
 
 func sendResponse(resp boxpool.ContainerResponse) {
 	_ = json.NewEncoder(os.Stdout).Encode(resp)
-}
-
-func userToCred(u *user.User) *syscall.Credential {
-	uid, _ := strconv.Atoi(u.Uid)
-	gid, _ := strconv.Atoi(u.Gid)
-	return &syscall.Credential{Uid: uint32(uid), Gid: uint32(gid)}
 }

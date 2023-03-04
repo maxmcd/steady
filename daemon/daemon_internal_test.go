@@ -2,6 +2,7 @@ package daemon
 
 import (
 	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
@@ -34,7 +35,8 @@ func Test_bunRun(t *testing.T) {
 			}
 			_, _ = f.Write([]byte(tt.script))
 			_ = f.Close()
-			box, err := bunRun(pool, dir, nil)
+			box, err := bunRun(pool, dir, nil, os.Stdout)
+			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
 				return

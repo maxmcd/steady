@@ -1,7 +1,6 @@
 package daemon
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"io"
@@ -14,6 +13,7 @@ import (
 
 	"github.com/benbjohnson/litestream"
 	"github.com/maxmcd/steady/internal/boxpool"
+	"github.com/maxmcd/steady/internal/ring"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/syncx"
 	"github.com/sourcegraph/conc/pool"
@@ -235,7 +235,7 @@ func (a *application) newRequest(ctx context.Context) (err error) {
 	if !a.running {
 		a.startCount++
 		a.running = true
-		a.box, err = bunRun(a.pool, a.dir, a.Env)
+		a.box, err = bunRun(a.pool, a.dir, a.Env, nil)
 		return err
 	}
 	return nil
@@ -250,7 +250,13 @@ func (a *application) endOfRequest() {
 	a.mutex.Unlock()
 }
 
-func bunRun(pool *boxpool.Pool, dir string, env []string) (*boxpool.Box, error) {
+func bunRun(pool *boxpool.Pool, dir string, env []string, logs io.Writer) (*boxpool.Box, error) {
+	buffer := ring.NewBuffer(1024)
+	var logWriter io.Writer = buffer
+	if logs != nil {
+		logWriter = io.MultiWriter(buffer, logs)
+	}
+
 	healthEndpoint := steadyutil.RandomString(10)
 	box, err := pool.RunBox(context.Background(),
 		[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
@@ -260,7 +266,7 @@ func bunRun(pool *boxpool.Pool, dir string, env []string) (*boxpool.Box, error) 
 			"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
 			"PORT=80",
 		}, env...),
-		nil,
+		logWriter,
 	)
 	if err != nil {
 		return nil, err
@@ -282,18 +288,11 @@ func bunRun(pool *boxpool.Pool, dir string, env []string) (*boxpool.Box, error) 
 			return nil, err
 		}
 		if !running {
-			si, err := box.Stop()
+			_, err := box.Stop()
 			if err != nil {
 				return nil, fmt.Errorf("Exited with code %d", exitCode)
 			}
-			f, err := os.Open(si.LogFile)
-			if err != nil {
-				return nil, fmt.Errorf("Exited with code %d", exitCode)
-			}
-			var buf bytes.Buffer
-			// TODO: vulnerable to log flood
-			_, _ = io.Copy(&buf, f)
-			return nil, fmt.Errorf(buf.String())
+			return nil, fmt.Errorf(string(buffer.Bytes()))
 		}
 
 		if i == count-1 {

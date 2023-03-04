@@ -199,7 +199,7 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 	originalURL := r.URL
 	// Route to correct port
 	appURL := *r.URL
-	appURL.Host = fmt.Sprintf("%s:%d", app.box.IPAndPort())
+	appURL.Host = fmt.Sprintf("%s", app.box.IPAndPort())
 	appURL.Scheme = "http"
 	r.URL = &appURL
 
@@ -341,7 +341,7 @@ func (d *Daemon) validateApplication(script []byte) error {
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	box, err := bunRun(d.pool, tmpDir, nil)
+	box, err := bunRun(d.pool, tmpDir, nil, nil)
 	if err != nil {
 		return err
 	}

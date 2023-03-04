@@ -13,7 +13,6 @@ import (
 	"path/filepath"
 	"runtime"
 	"sync"
-	"time"
 
 	"github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/container"
@@ -21,7 +20,6 @@ import (
 	"github.com/docker/docker/pkg/stdcopy"
 	"github.com/docker/go-connections/nat"
 	_ "github.com/maxmcd/steady/internal/slogx"
-	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/samber/lo/parallel"
 	"golang.org/x/exp/slog"
 )
@@ -150,7 +148,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 	}
 
 	cont.ipAddress = info.NetworkSettings.IPAddress
-	cont.dockerBindingAddress = info.NetworkSettings.Ports[nat.Port("80/tcp")][0].HostPort
+	cont.darwinLocalhostAddr = "localhost:" + info.NetworkSettings.Ports[nat.Port("80/tcp")][0].HostPort
 	cont.attach = resp
 
 	pr, pw := io.Pipe()
@@ -237,8 +235,8 @@ type poolContainer struct {
 	pool                  *Pool
 	id                    string
 
-	dockerBindingAddress string
-	ipAddress            string
+	darwinLocalhostAddr string
+	ipAddress           string
 
 	logsLock   sync.Mutex
 	logsWriter io.Writer
@@ -352,7 +350,6 @@ func (pc *poolContainer) run(ctx context.Context, cmd []string, dataDir string, 
 
 type StopInfo struct {
 	DataDir string
-	LogFile string
 }
 
 func (pc *poolContainer) stop() (_ *StopInfo, err error) {
@@ -368,18 +365,16 @@ func (pc *poolContainer) stop() (_ *StopInfo, err error) {
 	_, sendErr := pc.sendMsg(ContainerAction{
 		Action: "stop",
 	})
-	logName := filepath.Join(pc.pool.dataDir, fmt.Sprintf("%d-%s.log", time.Now().UnixNano(), steadyutil.RandomString(4)))
-	// TODO: if we can't do this we should report the error and also clean the
-	// container up to be used again?
-	_ = os.Rename(filepath.Join(pc.dataDir, "app"), pc.appDataReturnLocation)
-	_ = os.Rename(filepath.Join(pc.dataDir, "log.log"), logName)
+	if err := os.Rename(filepath.Join(pc.dataDir, "app"), pc.appDataReturnLocation); err != nil {
+		slog.Error("", err)
+	}
 	// TODO: we need to ensure the container is healthy and can be used again
 	// before setting inUse to false
 	pc.inUse = false
 	if sendErr != nil {
 		return nil, sendErr
 	}
-	return &StopInfo{DataDir: pc.appDataReturnLocation, LogFile: logName}, nil
+	return &StopInfo{DataDir: pc.appDataReturnLocation}, nil
 }
 
 func (pc *poolContainer) status() (exitCode int, running bool, err error) {
@@ -430,7 +425,7 @@ func (b *Box) LinuxIPAndPort() string {
 // docker port binding if runtime.GOOS is "darwin".
 func (b *Box) IPAndPort() string {
 	if runtime.GOOS == "darwin" {
-		return b.cont.dockerBindingAddress
+		return b.cont.darwinLocalhostAddr
 	}
 	return b.LinuxIPAndPort()
 }
