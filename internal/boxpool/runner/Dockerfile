@@ -9,9 +9,9 @@ RUN curl -fsSL https://bun.sh/install | bash
 ENV BUN_INSTALL="/home/steady/.bun"
 ENV PATH="$BUN_INSTALL/bin:$PATH"
 # Install supporting files needed for bun repl.
-RUN bun x bun-repl --print 'console.log(1)'
+RUN bun add -g bun-repl
 # Patch the location of the history log
-COPY ./internal/boxpool/runner/replmanager.ts /tmp/bun-repl@latest--bunx/node_modules/bun-repl/src/replmanager.ts
+COPY ./internal/boxpool/runner/replmanager.ts /home/steady/.bun/install/global/node_modules/bun-repl/src/replmanager.ts
 
 
 FROM golang:1.20-bullseye as go

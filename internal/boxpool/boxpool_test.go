@@ -198,13 +198,16 @@ func TestLogs(t *testing.T) {
 	var logs bytes.Buffer
 
 	box, err := pool.RunBox(context.Background(),
-		[]string{"bun", "x", "bun-repl", "--eval",
+		[]string{"bun-repl", "--eval",
 			`process.stdout.write('stdout\n'); process.stderr.write('stderr\n')`},
-		t.TempDir(), nil, &logs)
+		t.TempDir(), nil, io.MultiWriter(os.Stdout, &logs))
 	if err != nil {
 		t.Fatal(err)
 	}
-	for _, running, _ := box.Status(); !running; _, running, _ = box.Status() {
+	for {
+		if _, running, _ := box.Status(); !running {
+			break
+		}
 	}
 	if _, err := box.Stop(); err != nil {
 		t.Fatal(err)

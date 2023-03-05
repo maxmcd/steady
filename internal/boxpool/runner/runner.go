@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"os/exec"
 	"strings"
 	"syscall"
 	"time"
@@ -47,7 +48,11 @@ func main() {
 				continue
 			}
 			if !cmd.Running() {
-				sendResponse(boxpool.ContainerResponse{Err: ""})
+				if cmd.ExitCode() != 0 {
+					sendError(&exec.ExitError{ProcessState: cmd.ProcessState})
+				} else {
+					sendResponse(boxpool.ContainerResponse{Err: ""})
+				}
 				continue
 			}
 			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)

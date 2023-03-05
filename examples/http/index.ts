@@ -17,7 +17,7 @@ let insertUser = db.query("insert into user (email) values (?) returning *");
 export default {
   port: port,
   async fetch(request: Request): Promise<Response> {
-    console.log(`http: ${request.method} ${request.url}`)
+    console.log(`http: ${request.method} ${request.url}`);
     if (request.method !== "POST") {
       // return all users
       return new Response(JSON.stringify(db.query("select * from user").all()));
@@ -29,7 +29,6 @@ export default {
     // db.exec("insert into user (email) values (?)", req.email);
 
     // return new Response("");
-    return new Response("All users: "+JSON.stringify(insertUser.all(req.email)[0]));
+    return new Response(JSON.stringify(insertUser.all(req.email)[0]));
   },
 };
-

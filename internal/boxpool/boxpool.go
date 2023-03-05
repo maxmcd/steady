@@ -120,6 +120,8 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 		// TODO: gvisor doesn't support bun :(
 		// [pid    14] <... io_uring_setup resumed>}) = -1 ENOSYS (Function not implemented)
 		// Runtime:        "runsc",
+		// If needed:
+		// CapAdd: strslice.StrSlice{"SYS_PTRACE"},
 	}, nil, nil, "")
 	if err != nil {
 		return nil, err
