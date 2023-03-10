@@ -7,15 +7,10 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/maxmcd/steady/internal/boxpool"
+	"github.com/maxmcd/steady/internal/netx"
 )
 
 func Test_bunRun(t *testing.T) {
-	pool, err := boxpool.New(context.Background(), "runner", t.TempDir())
-	if err != nil {
-		t.Fatal(err)
-	}
-	t.Cleanup(pool.Shutdown)
 	tests := []struct {
 		name    string
 		script  string
@@ -35,14 +30,18 @@ func Test_bunRun(t *testing.T) {
 			}
 			_, _ = f.Write([]byte(tt.script))
 			_ = f.Close()
-			box, err := bunRun(pool, dir, nil, os.Stdout)
+			port, err := netx.GetFreePort()
+			if err != nil {
+				t.Fatal(err)
+			}
+			cmd, err := bunRun(dir, port, nil, os.Stdout)
 			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if box != nil {
-				if _, err := box.Stop(); err != nil {
+			if cmd != nil {
+				if err := cmd.Shutdown(context.TODO()); err != nil {
 					t.Fatal(err)
 				}
 			}

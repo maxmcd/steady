@@ -3,6 +3,8 @@ on:
   push:
 jobs:
   tests:
+    concurrency:
+      group: ${{ github.workflow }}-${{ github.event_name }}-${{ github.event.pull_request.number }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3

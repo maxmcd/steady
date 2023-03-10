@@ -23,8 +23,8 @@ import (
 	"github.com/benbjohnson/litestream"
 	"github.com/benbjohnson/litestream/s3"
 	"github.com/maxmcd/steady/daemon/daemonrpc"
-	"github.com/maxmcd/steady/internal/boxpool"
 	"github.com/maxmcd/steady/internal/httpx"
+	"github.com/maxmcd/steady/internal/netx"
 	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/pkg/errors"
@@ -43,8 +43,6 @@ type Daemon struct {
 
 	s3Config *S3Config
 
-	pool *boxpool.Pool
-
 	applicationsLock sync.RWMutex
 	applications     map[string]*application
 
@@ -55,19 +53,9 @@ type Daemon struct {
 type DaemonOption func(*Daemon)
 
 func NewDaemon(dataDirectory string, addr string, opts ...DaemonOption) *Daemon {
-	boxpoolDir := filepath.Join(dataDirectory, "boxpool")
-	if err := os.Mkdir(boxpoolDir, 0777); err != nil {
-		panic(err)
-	}
-	pool, err := boxpool.New(context.Background(), "runner", boxpoolDir)
-	if err != nil {
-		panic(err)
-	}
-
 	d := &Daemon{
 		dataDirectory: dataDirectory,
 		addr:          addr,
-		pool:          pool,
 		applications:  map[string]*application{},
 		client: &http.Client{
 			Transport: &http.Transport{
@@ -120,7 +108,6 @@ func (d *Daemon) Wait() error {
 			slog.Error(err.Error(), err)
 		}
 	}
-	d.pool.Shutdown()
 	return err
 }
 
@@ -199,7 +186,7 @@ func (d *Daemon) applicationHandler(name string, rw http.ResponseWriter, r *http
 	originalURL := r.URL
 	// Route to correct port
 	appURL := *r.URL
-	appURL.Host = fmt.Sprintf("%s", app.box.IPAndPort())
+	appURL.Host = fmt.Sprintf("localhost:%d", app.port)
 	appURL.Scheme = "http"
 	r.URL = &appURL
 
@@ -338,14 +325,18 @@ func (d *Daemon) validateApplication(script []byte) error {
 		return err
 	}
 	fileName := filepath.Join(tmpDir, "index.ts")
-	if err := os.WriteFile(fileName, script, 0600); err != nil {
+	if err := os.WriteFile(fileName, script, 0666); err != nil {
 		return fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	box, err := bunRun(d.pool, tmpDir, nil, nil)
+	port, err := netx.GetFreePort()
 	if err != nil {
 		return err
 	}
-	_, _ = box.Stop()
+	cmd, err := bunRun(tmpDir, port, nil, nil)
+	if err != nil {
+		return err
+	}
+	_ = cmd.Shutdown(context.TODO())
 	return os.RemoveAll(tmpDir)
 }
 
@@ -371,7 +362,11 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return nil, fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	app := d.newApplication(name, tmpDir)
+	port, err := netx.GetFreePort()
+	if err != nil {
+		return nil, err
+	}
+	app := d.newApplication(name, tmpDir, port)
 	app.waitForDB()
 	app.start()
 	d.applicationsLock.Lock()

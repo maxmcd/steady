@@ -11,8 +11,10 @@ import (
 	"sync"
 	"time"
 
+	_ "embed"
+
 	"github.com/benbjohnson/litestream"
-	"github.com/maxmcd/steady/internal/boxpool"
+	"github.com/maxmcd/steady/internal/execx"
 	"github.com/maxmcd/steady/internal/ring"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/syncx"
@@ -24,6 +26,9 @@ var (
 	maxBufferedRequests = 10
 )
 
+//go:embed wrapper.ts
+var wrapperTS []byte
+
 // application is an application instance. Data for the application is stored in
 // a directory and the application is started to handle requests and killed
 // after a period of inactivity.
@@ -31,7 +36,8 @@ type application struct {
 	name string
 
 	// dir is the directory that contains all application data
-	dir string
+	dir  string
+	port int
 
 	DBs []string
 	Env []string
@@ -41,7 +47,7 @@ type application struct {
 	mutex           sync.Mutex
 	inFlightCounter int
 
-	box     *boxpool.Box
+	cmd     *execx.Cmd
 	running bool
 
 	stopRequestChan chan struct{}
@@ -50,26 +56,24 @@ type application struct {
 	requestCount int
 	startCount   int
 
-	pool *boxpool.Pool
-
 	cancel func()
 
 	dbs          map[string]*litestream.DB
 	createDBFunc func(string) (*litestream.DB, error)
 }
 
-func (d *Daemon) newApplication(name string, dir string) *application {
-	w := &application{
+func (d *Daemon) newApplication(name string, dir string, port int) *application {
+	a := &application{
 		name:            name,
 		dir:             dir,
-		pool:            d.pool,
+		port:            port,
 		stopRequestChan: make(chan struct{}),
 		resetKillTimer:  make(chan struct{}),
 		createDBFunc:    d.createDB(name),
 		dbLimitWaiter:   syncx.NewLimitedBroadcast(maxBufferedRequests),
 		dbs:             make(map[string]*litestream.DB),
 	}
-	return w
+	return a
 }
 func (a *application) waitForDB() {
 	a.dbLimitWaiter.StartWait()
@@ -138,12 +142,11 @@ func (a *application) stopProcess(force bool) {
 	if !a.running {
 		return
 	}
-	si, err := a.box.Stop()
-	if err != nil {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+	if err := a.cmd.Shutdown(ctx); err != nil {
 		slog.Error("error stopping process", err)
 	}
-	_ = si
-	// TODO: move logs
+	cancel()
 	a.running = false
 	if err := a.checkForDBs(); err != nil {
 		slog.Error("error checking for dbs", err)
@@ -157,7 +160,9 @@ func (a *application) shutdown() error {
 	a.cancel()
 	var stopErr error
 	if a.running {
-		_, stopErr = a.box.Stop()
+		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+		stopErr = a.cmd.Shutdown(ctx)
+		cancel()
 		a.running = false
 	}
 	var err error
@@ -235,7 +240,7 @@ func (a *application) newRequest(ctx context.Context) (err error) {
 	if !a.running {
 		a.startCount++
 		a.running = true
-		a.box, err = bunRun(a.pool, a.dir, a.Env, nil)
+		a.cmd, err = bunRun(a.dir, a.port, a.Env, nil)
 		return err
 	}
 	return nil
@@ -250,25 +255,32 @@ func (a *application) endOfRequest() {
 	a.mutex.Unlock()
 }
 
-func bunRun(pool *boxpool.Pool, dir string, env []string, logs io.Writer) (*boxpool.Box, error) {
+func bunRun(dir string, port int, env []string, logs io.Writer) (*execx.Cmd, error) {
 	buffer := ring.NewBuffer(1024)
 	var logWriter io.Writer = buffer
 	if logs != nil {
 		logWriter = io.MultiWriter(buffer, logs)
 	}
 
+	wrapperPath := filepath.Join(dir, "wrapper.ts")
+	if _, err := os.Stat(wrapperPath); os.IsNotExist(err) {
+		if err := os.WriteFile(wrapperPath, wrapperTS, 0666); err != nil {
+			return nil, err
+		}
+	}
+
 	healthEndpoint := steadyutil.RandomString(10)
-	box, err := pool.RunBox(context.Background(),
-		[]string{"bun", "run", "/home/steady/wrapper.ts", "--no-install"},
-		dir,
-		append([]string{
-			"STEADY_INDEX_LOCATION=/opt/app/index.ts",
-			"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
-			"PORT=80",
-		}, env...),
-		logWriter,
-	)
-	if err != nil {
+	cmd := execx.Command("bun", "run", "--no-install", "wrapper.ts")
+	cmd.Dir = dir
+	cmd.Env = append(cmd.Env, []string{
+		"STEADY_INDEX_LOCATION=/opt/app/index.ts",
+		"STEADY_HEALTH_ENDPOINT=/" + healthEndpoint,
+		fmt.Sprintf("PORT=%d", port)}...)
+	cmd.Env = append(cmd.Env, env...)
+	cmd.Stderr = logWriter
+	cmd.Stdout = logWriter
+
+	if err := cmd.Start(); err != nil {
 		return nil, err
 	}
 
@@ -276,31 +288,29 @@ func bunRun(pool *boxpool.Pool, dir string, env []string, logs io.Writer) (*boxp
 	for i := 0; i < count; i++ {
 		// TODO: replace this all with a custom version of Bun so that we don't
 		// impact user applications, or a wrapper script
-		req, err := http.Get(fmt.Sprintf("http://%s/%s", box.IPAndPort(), healthEndpoint))
+		req, err := http.Get(fmt.Sprintf("http://localhost:%d/%s", port, healthEndpoint))
 		if err == nil {
 			_ = req.Body.Close()
 			break
 		}
 
-		exitCode, running, err := box.Status()
-		if err != nil {
-			_, _ = box.Stop()
-			return nil, err
-		}
-		if !running {
-			_, err := box.Stop()
-			if err != nil {
-				return nil, fmt.Errorf("Exited with code %d", exitCode)
+		if !cmd.Running() {
+			maybeErrLogs := string(buffer.Bytes())
+			err := fmt.Errorf("Exited with code %d", cmd.ExitCode())
+			if len(maybeErrLogs) > 0 {
+				err = fmt.Errorf("%s\n%s", err.Error(), maybeErrLogs)
 			}
-			return nil, fmt.Errorf(string(buffer.Bytes()))
+			return nil, err
 		}
 
 		if i == count-1 {
-			_, _ = box.Stop()
+			ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*100)
+			_ = cmd.Shutdown(ctx)
+			cancel()
 			return nil, fmt.Errorf("Process is running, but nothing is listening on the expected port")
 		}
 		exponent := time.Duration((i+1)*(i+1)) / 2
 		time.Sleep(time.Millisecond * exponent)
 	}
-	return box, nil
+	return cmd, nil
 }
