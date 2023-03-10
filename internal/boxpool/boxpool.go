@@ -167,7 +167,7 @@ func (p *Pool) startContainer(ctx context.Context) (_ *poolContainer, err error)
 func (pc *poolContainer) Write(v []byte) (int, error) {
 	pc.logsLock.Lock()
 	if pc.logsWriter != nil {
-		pc.logsLock.Unlock()
+		defer pc.logsLock.Unlock()
 		return pc.logsWriter.Write(v)
 	}
 	pc.logsLock.Unlock()
