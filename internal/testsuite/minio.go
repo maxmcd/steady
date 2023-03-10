@@ -14,6 +14,7 @@ import (
 	"github.com/aws/aws-sdk-go/service/s3"
 	"github.com/maxmcd/steady/internal/netx"
 	"github.com/maxmcd/steady/internal/steadyutil"
+	"golang.org/x/exp/slog"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -22,6 +23,8 @@ type MinioServer struct {
 	Password   string
 	Address    string
 	BucketName string
+
+	dir string
 
 	cancel func()
 	eg     *errgroup.Group
@@ -62,7 +65,7 @@ func NewMinioServer(ctx context.Context, dir string) (*MinioServer, error) {
 	}
 
 	for i := 0; i < 10; i++ {
-		fmt.Println("minio startup", time.Since(start))
+		slog.Info("minio startup", "dur", time.Since(start))
 		time.Sleep(time.Millisecond * time.Duration(i*i))
 		ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*50)
 		if _, err = s3Client.CreateBucketWithContext(ctx, &s3.CreateBucketInput{
@@ -80,7 +83,7 @@ func NewMinioServer(ctx context.Context, dir string) (*MinioServer, error) {
 	if err != nil {
 		return nil, err
 	}
-	fmt.Println("minio startup", time.Since(start))
+	slog.Info("minio startup", "dur", time.Since(start))
 	return &server, nil
 }
 
@@ -160,7 +163,12 @@ func (server *MinioServer) Stop() error {
 	return server.Wait()
 }
 
+func (server *MinioServer) DataDir() string {
+	return server.dir
+}
+
 func (server *MinioServer) Wait() error {
+	defer slog.Info("minio stopped")
 	if err := server.eg.Wait(); err != nil && !strings.Contains(err.Error(), "killed") {
 		return err
 	}

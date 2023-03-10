@@ -92,7 +92,22 @@ func (s *Server) runApplication(c *mux.Context) error {
 			"application_error", twirp.InvalidArgument)
 	}
 
-	c.Redirect("/application", resp.Application.Name)
+	c.Redirect("/app", resp.Application.Name)
+	return nil
+}
+
+func (s *Server) updateApplication(c *mux.Context) error {
+	source := c.Request.FormValue("index.ts")
+	resp, err := s.steadyClient.RunApplication(c.Request.Context(), &steadyrpc.RunApplicationRequest{
+		Source: source,
+	})
+	if err != nil {
+		return NewTemplateError(
+			err, "index.go.html",
+			"application_error", twirp.InvalidArgument)
+	}
+
+	c.Redirect("/app", resp.Application.Name)
 	return nil
 }
 

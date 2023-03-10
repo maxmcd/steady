@@ -3,22 +3,21 @@ package web
 import (
 	"context"
 	"embed"
-	"fmt"
 	"html/template"
 	"net"
 	"net/http"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/davecgh/go-spew/spew"
 	"github.com/gorilla/handlers"
+	"github.com/maxmcd/steady/internal/httpx"
 	"github.com/maxmcd/steady/internal/mux"
+	_ "github.com/maxmcd/steady/internal/slogx"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/pkg/errors"
 	"github.com/twitchtv/twirp"
-	"golang.org/x/sync/errgroup"
+	"golang.org/x/exp/slog"
 )
 
 //go:embed templates/*
@@ -34,11 +33,11 @@ type Server struct {
 	steadyServer http.Handler
 
 	listener net.Listener
-	eg       *errgroup.Group
+	wait     func() error
 }
 
 func (s *Server) Addr() string {
-	if s.eg == nil {
+	if s.wait == nil {
 		panic("Cannot call Addr when the server has not been started")
 	}
 	return s.listener.Addr().String()
@@ -50,33 +49,18 @@ func (s *Server) Start(ctx context.Context, addr string) error {
 	if err != nil {
 		return err
 	}
-
+	slog.Info("web server listening", "addr", s.listener.Addr().String())
 	s.steadyClient = steadyrpc.NewSteadyProtobufClient("http://"+s.listener.Addr().String(), http.DefaultClient)
 
-	s.eg, ctx = errgroup.WithContext(ctx)
-	srv := http.Server{
-		Handler: s.Handler(),
-	}
-	s.eg.Go(func() (err error) {
-		err = srv.Serve(s.listener)
-		if err == http.ErrServerClosed {
-			return nil
-		}
-		return err
-	})
-	s.eg.Go(func() error {
-		<-ctx.Done()
-		timeoutCtx, cancel := context.WithTimeout(ctx, time.Minute) // TODO: vet this time
-		if err := srv.Shutdown(timeoutCtx); err != nil {
-			fmt.Printf("WARN: error shutting down web server: %v\n", err)
-		}
-		cancel()
-		return nil
-	})
+	s.wait = httpx.ServeContext(ctx, s.listener, &http.Server{Handler: s.Handler()})
 	return nil
 }
 func (s *Server) Wait() error {
-	return s.eg.Wait()
+	defer slog.Info("web server stopped")
+	if s.wait == nil {
+		panic("cannot call Wait when the server has not been started")
+	}
+	return s.wait()
 }
 
 func NewServer(steadyServer http.Handler) (*Server, error) {
@@ -112,8 +96,9 @@ func NewServer(steadyServer http.Handler) (*Server, error) {
 	s.router.POST("/login", s.loginEndpoint)
 	s.router.POST("/signup", s.signupEndpoint)
 
-	s.router.POST("/application", s.runApplication)
-	s.router.GET("/application/:name", s.showApplication)
+	s.router.POST("/app", s.runApplication)
+	s.router.GET("/app/:name", s.showApplication)
+	s.router.POST("/app/:name", s.updateApplication)
 
 	return s, nil
 }
@@ -220,7 +205,6 @@ func (s *Server) login(ctx context.Context, usernameOrEmail string) error {
 }
 
 func (s *Server) signup(ctx context.Context, username, email string) error {
-	spew.Dump(s.steadyClient)
 	_, err := s.steadyClient.Signup(ctx, &steadyrpc.SignupRequest{
 		Username: username,
 		Email:    email,

@@ -2,7 +2,7 @@ import { client } from "twirpscript";
 import { Login } from "./steady.pb";
 
 import * as monaco from "monaco-editor";
-console.log("iasdfi");
+
 self.MonacoEnvironment = {
   getWorkerUrl: function (moduleId, label) {
     if (label === "json") {

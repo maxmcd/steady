@@ -90,7 +90,6 @@ func (suite *Suite) TestUserSignup() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
-		fmt.Println(resp.Cookies())
 		require.Equal(http.StatusOK, resp.StatusCode)
 		require.Equal("profile",
 			suite.findInDoc(doc, ".header a[href$='/@steady']"))
@@ -146,7 +145,6 @@ func (suite *Suite) TestUserSignup() {
 		suite.Contains(suite.findInDoc(doc, ".flash"), "login link is on its way to your inbox")
 
 		resp, doc = suite.webRequest(http.NewRequest(http.MethodGet, addr+es.LatestEmail(), nil))
-		fmt.Println(resp.Cookies())
 		suite.Equal(http.StatusOK, resp.StatusCode)
 		suite.Equal("profile",
 			suite.findInDoc(doc, ".header a[href$='/@steady']"))
@@ -198,13 +196,13 @@ func (suite *Suite) TestRunApplication() {
 			expectedError: "Application source cannot be empty",
 		},
 	} {
-		resp, doc := suite.postForm(addr+"/application", tt.form)
+		resp, doc := suite.postForm(addr+"/app", tt.form)
 		require.Equal(http.StatusBadRequest, resp.StatusCode)
-		suite.Contains(suite.findInDoc(doc, "form[action$='/application'] .error"), tt.expectedError)
+		suite.Contains(suite.findInDoc(doc, "form[action$='/app'] .error"), tt.expectedError)
 	}
 
 	signupForm := url.Values{"index.ts": {suite.LoadExampleScript("http")}}
-	resp, doc := suite.postForm(addr+"/application", signupForm)
+	resp, doc := suite.postForm(addr+"/app", signupForm)
 	suite.Equal(http.StatusOK, resp.StatusCode)
 	appURL := doc.Find("a.app-url").Text()
 	fmt.Println(appURL)

@@ -1,14 +1,21 @@
 package daemon
 
 import (
+	"context"
+	"fmt"
 	"os"
 	"path/filepath"
 	"testing"
 
-	"github.com/maxmcd/steady/internal/netx"
+	"github.com/maxmcd/steady/internal/boxpool"
 )
 
 func Test_bunRun(t *testing.T) {
+	pool, err := boxpool.New(context.Background(), "runner", t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(pool.Shutdown)
 	tests := []struct {
 		name    string
 		script  string
@@ -16,7 +23,7 @@ func Test_bunRun(t *testing.T) {
 	}{
 		{"junk script", "asdfasdf", true},
 		{"no server", "console.log('hi')", true},
-		{"wrong port", `export default { port: 12345, fetch(request) { return new Response("Hello")} };`, true},
+		{"no server long running", "setTimeout(() => {}, 100_000)", true},
 		{"a good one", `export default { port: process.env.PORT, fetch(request) { return new Response("Hello")} };`, false},
 	}
 	for _, tt := range tests {
@@ -28,17 +35,14 @@ func Test_bunRun(t *testing.T) {
 			}
 			_, _ = f.Write([]byte(tt.script))
 			_ = f.Close()
-			port, err := netx.GetFreePort()
-			if err != nil {
-				t.Fatal(err)
-			}
-			got, err := bunRun(dir, port, nil)
+			box, err := bunRun(pool, dir, nil, os.Stdout)
+			fmt.Println(err)
 			if (err != nil) != tt.wantErr {
 				t.Errorf("bunRun() error = %v, wantErr %v", err, tt.wantErr)
 				return
 			}
-			if got != nil && got.Process != nil {
-				if err := got.Process.Kill(); err != nil {
+			if box != nil {
+				if _, err := box.Stop(); err != nil {
 					t.Fatal(err)
 				}
 			}

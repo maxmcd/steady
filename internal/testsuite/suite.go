@@ -35,7 +35,6 @@ type Suite struct {
 func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, dir string) {
 	dir = suite.T().TempDir()
 
-	fmt.Println("HUH!", suite.minioEnabled)
 	if suite.minioEnabled {
 		opts = append(opts, daemon.DaemonOptionWithS3(daemon.S3Config{
 			AccessKeyID:     suite.minioServer.Username,
@@ -48,7 +47,9 @@ func (suite *Suite) NewDaemon(opts ...daemon.DaemonOption) (d *daemon.Daemon, di
 	}
 	d = daemon.NewDaemon(dir, "localhost:0", opts...)
 	ctx, cancel := context.WithCancel(context.Background())
-	d.Start(ctx)
+	if err := d.Start(ctx); err != nil {
+		suite.T().Fatal(err)
+	}
 	suite.cancels = append(suite.cancels, cancel)
 	suite.daemons = append(suite.daemons, d)
 	if err := suite.assigner.AddHost(d.ServerAddr(), nil); err != nil {
@@ -170,8 +171,12 @@ func (suite *Suite) StartMinioServer() {
 	if suite.minioServer != nil {
 		return
 	}
-	var err error
-	suite.minioServer, err = NewMinioServer(context.Background(), suite.T().TempDir())
+	// suite.T().TempDir() will be cleaned up between tests, must use our own
+	dir, err := os.MkdirTemp("", "")
+	if err != nil {
+		suite.T().Fatal(err)
+	}
+	suite.minioServer, err = NewMinioServer(context.Background(), dir)
 	if err != nil {
 		suite.T().Fatal(err)
 	}
@@ -219,8 +224,19 @@ func (suite *Suite) NewDaemonClient(addr string) *daemon.Client {
 	return daemon.NewClient(fmt.Sprintf("http://%s", addr), nil)
 }
 
+func (suite *Suite) repoRoot() string {
+	dir, err := os.Getwd()
+	suite.Require().NoError(err)
+	for {
+		if _, err := os.Stat(filepath.Join(dir, "go.mod")); !os.IsNotExist(err) {
+			return dir
+		}
+		dir = filepath.Join(dir, "..")
+	}
+}
+
 func (suite *Suite) LoadExampleScript(name string) string {
-	abs, err := filepath.Abs("../examples/" + name)
+	abs, err := filepath.Abs(filepath.Join(suite.repoRoot(), "/examples/"+name))
 	if err != nil {
 		suite.T().Fatal(err)
 	}

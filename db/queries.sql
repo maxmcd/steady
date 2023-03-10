@@ -45,6 +45,11 @@ SELECT *
 FROM applications
 WHERE name = ?;
 -- name: CreateApplication :one
-INSERT into applications (name, user_id)
-values (?, ?)
+INSERT into applications (name, source, user_id)
+values (?, ?, ?)
+RETURNING *;
+-- name: UpdateApplication :one
+UPDATE applications
+SET source = ?
+WHERE id = ?
 RETURNING *;

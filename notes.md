@@ -1,3 +1,87 @@
+
+# 2023-03-08
+
+Type safe bun server lib! https://elysiajs.com/
+
+Consider just patching bun to be safe?
+
+- [Filesystem stuff for node-scoped libs](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/node/types.zig#L547-L548)
+- [Would also need to patch direct uses of the filesystem, eg sqlite](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/bindings/sqlite/sqlite.exports.js#L175)
+- [OS file should be audited](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/node/node_os.zig#L14-L15)
+- [No syscalls](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/node/syscall.zig)
+- [Module imports can access the OS](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/module_loader.zig)
+- Most explicit node modules that are candidates for removal [could be removed here](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/module_loader.zig#L1655)
+- [JavaScriptCore](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/bun-jsc.exports.js#L1-L2) seems safe, is it?
+- [Need to be sure node:path is stubbed](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/path.exports.js#L7)
+- [Gotta make sure wasi keeps working](https://github.com/oven-sh/bun/blob/deb7a2b19225265ad8f847da300f9f6db7c5e8b3/src/bun.js/wasi.exports.js#L771-L773)
+- Sqlite seems to be the only non-node import that uses the filesystem. Make sure that's the case?
+- How can we test this? Possible to run a subset of Bun tests and then confirm that syscalls match what we expect?
+
+Could also just remove os/syscall/net/dns/http/child_process/wasi entirely and deal with adding them when needed. Just use sqlite for now.
+
+# 2023-03-01
+
+Resources for getting some version of git hosting working for the feature below:
+
+
+Example of creating a git server:
+- https://github.com/go-git/go-git/issues/234
+- https://github.com/seankhliao/gitreposerver
+
+
+A brief foray into pluggable fs layers when thinking about how to store this stuff.
+- https://pkg.go.dev/github.com/go-git/go-billy/v5
+- https://github.com/hack-pad/hackpadfs
+- https://github.com/spf13/afero
+
+
+
+# 2023-02-28
+
+Applications could import like so:
+```ts
+import Foo from "steady.sh/maxmcd/foo"
+```
+Which would add the following to the package.json:
+```json
+{"steady.sh/maxmcd/foo": "git://steady.sh/maxmcd/foo.git#v1.0.27"}
+```
+
+We can then allow imports from other projects and get TS definitions linked between projects.
+
+Our helper methods could also do things like this:
+
+```ts
+import counterServer from "steady.sh/maxmcd/counter"
+let app = Steady.runApplication("steady.sh/maxmcd/counter");
+const client = Steady.client(counterServer, app);
+
+console.log(await client.Increment())
+```
+
+A contrived example of something that might look like a type safe server/client
+setup. The Magic here is that Steady.runApplication will use the version from
+package.json to determine which application version to run.
+
+
+# 2023-02-15
+
+Next is a focus on application editing and basic observability:
+
+- Edit an existing application
+    - Send code to existing daemon
+    - Oh, try and run code with copy of the database first, see if it runs? Stretch goal.
+    - Do we need to keep multiple versions and do a roll-back on failure?
+    - Stop app, attempt to start new one
+        - Swap source code out "under-foot", otherwise we have to move databases around?
+- Service logs
+    - Logs dir, combine stdout/stderr for now
+    - New versions append to the log
+    - No journaling for now
+- CLI/repl
+- Actual sandboxing?
+- Request log
+
 # 2023-02-14
 
 Things to do:

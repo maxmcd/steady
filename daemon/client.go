@@ -59,3 +59,8 @@ func (c Client) GetApplication(ctx context.Context, req *daemonrpc.GetApplicatio
 	*daemonrpc.Application, error) {
 	return c.daemon.GetApplication(addHeader(ctx, req), req)
 }
+
+func (c Client) UpdateApplication(ctx context.Context, req *daemonrpc.UpdateApplicationRequest) (
+	*daemonrpc.UpdateApplicationResponse, error) {
+	return c.daemon.UpdateApplication(addHeader(ctx, req), req)
+}

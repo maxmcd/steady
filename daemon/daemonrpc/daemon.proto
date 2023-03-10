@@ -6,6 +6,8 @@ option go_package = "github.com/maxmcd/steady/daemon/daemonrpc";
 
 service Daemon {
   rpc CreateApplication(CreateApplicationRequest) returns (Application);
+  rpc UpdateApplication(UpdateApplicationRequest)
+      returns (UpdateApplicationResponse);
   rpc DeleteApplication(DeleteApplicationRequest) returns (Application);
   rpc GetApplication(GetApplicationRequest) returns (Application);
 }
@@ -14,6 +16,7 @@ message CreateApplicationRequest {
   string name = 1;
   string script = 2;
 }
+
 message DeleteApplicationRequest { string name = 1; }
 message GetApplicationRequest { string name = 1; }
 
@@ -22,3 +25,10 @@ message Application {
   int64 request_count = 2;
   int64 start_count = 3;
 }
+
+message UpdateApplicationRequest {
+  string name = 1;
+  string script = 2;
+}
+
+message UpdateApplicationResponse { Application application = 1; }

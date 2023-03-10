@@ -18,8 +18,13 @@ jobs:
           DOCKER_BUILDKIT: "1"
         run: |
           make generate
+          nix-shell --run "go mod tidy"
           git status
+          git diff
           [[ -z $(git status -s) ]]
+      # for your debugging needs, will pause job and print ssh connection string
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
       - env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
         run: |

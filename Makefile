@@ -5,7 +5,7 @@ SHELL := nix-shell
 .PHONY: test generate
 
 test:
-	go test -v -count=1 -cover ./...
+	go test -v -race -count=1 -cover ./...
 
 test_ci:
 	go test -v \
