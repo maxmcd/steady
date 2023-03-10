@@ -15,7 +15,6 @@ import (
 
 	"github.com/benbjohnson/litestream"
 	"github.com/maxmcd/steady/internal/execx"
-	"github.com/maxmcd/steady/internal/netx"
 	"github.com/maxmcd/steady/internal/ring"
 	"github.com/maxmcd/steady/internal/steadyutil"
 	"github.com/maxmcd/steady/internal/syncx"
@@ -63,24 +62,18 @@ type application struct {
 	createDBFunc func(string) (*litestream.DB, error)
 }
 
-func (d *Daemon) newApplication(name string, dir string) (*application, error) {
-	f, err := os.Create(filepath.Join(dir, "wrapper.ts"))
-	if err != nil {
-		return nil, err
-	}
-	if _, err := f.Write(wrapperTS); err != nil {
-		return nil, err
-	}
+func (d *Daemon) newApplication(name string, dir string, port int) *application {
 	a := &application{
 		name:            name,
 		dir:             dir,
+		port:            port,
 		stopRequestChan: make(chan struct{}),
 		resetKillTimer:  make(chan struct{}),
 		createDBFunc:    d.createDB(name),
 		dbLimitWaiter:   syncx.NewLimitedBroadcast(maxBufferedRequests),
 		dbs:             make(map[string]*litestream.DB),
 	}
-	return a, nil
+	return a
 }
 func (a *application) waitForDB() {
 	a.dbLimitWaiter.StartWait()
@@ -240,19 +233,14 @@ func (a *application) newRequest(ctx context.Context) (err error) {
 	if err := a.dbLimitWaiter.Wait(ctx); err != nil {
 		return err
 	}
-	port, err := netx.GetFreePort()
-	if err != nil {
-		return err
-	}
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 	a.inFlightCounter++
 	a.requestCount++
-	a.port = port
 	if !a.running {
 		a.startCount++
 		a.running = true
-		a.cmd, err = bunRun(a.dir, port, a.Env, nil)
+		a.cmd, err = bunRun(a.dir, a.port, a.Env, nil)
 		return err
 	}
 	return nil
@@ -274,8 +262,15 @@ func bunRun(dir string, port int, env []string, logs io.Writer) (*execx.Cmd, err
 		logWriter = io.MultiWriter(buffer, logs)
 	}
 
+	wrapperPath := filepath.Join(dir, "wrapper.ts")
+	if _, err := os.Stat(wrapperPath); os.IsNotExist(err) {
+		if err := os.WriteFile(wrapperPath, wrapperTS, 0666); err != nil {
+			return nil, err
+		}
+	}
+
 	healthEndpoint := steadyutil.RandomString(10)
-	cmd := execx.Command("bun", "run", "--no-install", "index.ts")
+	cmd := execx.Command("bun", "run", "--no-install", "wrapper.ts")
 	cmd.Dir = dir
 	cmd.Env = append(cmd.Env, []string{
 		"STEADY_INDEX_LOCATION=/opt/app/index.ts",

@@ -328,10 +328,6 @@ func (d *Daemon) validateApplication(script []byte) error {
 	if err := os.WriteFile(fileName, script, 0666); err != nil {
 		return fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	wrapperFilename := filepath.Join(tmpDir, "wrapper.ts")
-	if err := os.WriteFile(wrapperFilename, wrapperTS, 0666); err != nil {
-		return fmt.Errorf("creating file %q: %w", wrapperFilename, err)
-	}
 	port, err := netx.GetFreePort()
 	if err != nil {
 		return err
@@ -366,10 +362,11 @@ func (d *Daemon) validateAndAddApplication(ctx context.Context, name string, scr
 	if err := os.WriteFile(fileName, script, 0600); err != nil {
 		return nil, fmt.Errorf("creating file %q: %w", fileName, err)
 	}
-	app, err := d.newApplication(name, tmpDir)
+	port, err := netx.GetFreePort()
 	if err != nil {
 		return nil, err
 	}
+	app := d.newApplication(name, tmpDir, port)
 	app.waitForDB()
 	app.start()
 	d.applicationsLock.Lock()
