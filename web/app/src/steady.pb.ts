@@ -72,6 +72,7 @@ export interface Application {
   id: bigint;
   userId: bigint;
   name: string;
+  source: string;
 }
 
 export interface GetApplicationRequest {
@@ -1287,6 +1288,7 @@ export const Application = {
       id: 0n,
       userId: 0n,
       name: "",
+      source: "",
     };
   },
 
@@ -1305,6 +1307,9 @@ export const Application = {
     }
     if (msg.name) {
       writer.writeString(3, msg.name);
+    }
+    if (msg.source) {
+      writer.writeString(4, msg.source);
     }
     return writer;
   },
@@ -1326,6 +1331,10 @@ export const Application = {
         }
         case 3: {
           msg.name = reader.readString();
+          break;
+        }
+        case 4: {
+          msg.source = reader.readString();
           break;
         }
         default: {
@@ -2378,6 +2387,7 @@ export const ApplicationJSON = {
       id: 0n,
       userId: 0n,
       name: "",
+      source: "",
     };
   },
 
@@ -2394,6 +2404,9 @@ export const ApplicationJSON = {
     }
     if (msg.name) {
       json["name"] = msg.name;
+    }
+    if (msg.source) {
+      json["source"] = msg.source;
     }
     return json;
   },
@@ -2413,6 +2426,10 @@ export const ApplicationJSON = {
     const _name_ = json["name"];
     if (_name_) {
       msg.name = _name_;
+    }
+    const _source_ = json["source"];
+    if (_source_) {
+      msg.source = _source_;
     }
     return msg;
   },

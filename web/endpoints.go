@@ -9,10 +9,15 @@ import (
 	"github.com/maxmcd/steady/internal/mux"
 	"github.com/maxmcd/steady/steady/steadyrpc"
 	"github.com/twitchtv/twirp"
+	"golang.org/x/exp/slog"
 )
 
 func (s *Server) assetsEndpoints(c *mux.Context) error {
 	path := c.Params.ByName("path")
+	slog.Info(path)
+	if path == "/bun-types/types.d.ts" {
+		return s.bunTypesEndpoint(c)
+	}
 	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(filepath.Ext(path)))
 	f, err := distFiles.Open(
 		filepath.Join("app/dist/", c.Params.ByName("path")))
@@ -22,7 +27,12 @@ func (s *Server) assetsEndpoints(c *mux.Context) error {
 
 	_, _ = io.Copy(c.Writer, f)
 	return nil
+}
 
+func (s *Server) bunTypesEndpoint(c *mux.Context) error {
+	c.Writer.Header().Set("Content-Type", mime.TypeByExtension(".ts"))
+	c.Writer.Write(bunTypes)
+	return nil
 }
 
 func (s *Server) logoutEndpoint(c *mux.Context) error {
@@ -59,6 +69,7 @@ func (s *Server) loginEndpoint(c *mux.Context) error {
 	val := c.Request.FormValue("username_or_email")
 	err := s.login(c.Request.Context(), val)
 	if err != nil {
+		c.Data["username_or_email"] = val
 		return NewTemplateError(err, "login.go.html", "login_error", twirp.InvalidArgument)
 	}
 	c.AddFlash("An email with a login link is on its way to your inbox.")
@@ -68,11 +79,12 @@ func (s *Server) loginEndpoint(c *mux.Context) error {
 }
 
 func (s *Server) signupEndpoint(c *mux.Context) error {
-	err := s.signup(c.Request.Context(),
-		c.Request.FormValue("username"),
-		c.Request.FormValue("email"),
-	)
+	username := c.Request.FormValue("username")
+	email := c.Request.FormValue("email")
+	err := s.signup(c.Request.Context(), username, email)
 	if err != nil {
+		c.Data["username"] = username
+		c.Data["email"] = email
 		return NewTemplateError(err, "login.go.html", "signup_error", twirp.InvalidArgument)
 	}
 	c.AddFlash("An email with a login link is on its way to your inbox.")
