@@ -26,6 +26,9 @@ var templates embed.FS
 //go:embed app/dist/*
 var distFiles embed.FS
 
+//go:embed bun-types/node_modules/bun-types/types.d.ts
+var bunTypes []byte
+
 type Server struct {
 	t            *template.Template
 	router       *mux.Router

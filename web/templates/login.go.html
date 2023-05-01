@@ -1,6 +1,5 @@
 {{ template "header" . }}
 
-
 <br />
 <br />
 
@@ -11,8 +10,8 @@
       <tr>
         <td>username or email:</td>
         <td>
-          <input type="text" name="username_or_email" size="20" autocorrect="off" spellcheck="false"
-            autocapitalize="off" autofocus="true" />
+          <input value="{{ .username_or_email }}" type="text" name="username_or_email" size="20" autocorrect="off"
+            spellcheck="false" autocapitalize="off" autofocus="true" />
         </td>
       </tr>
       {{ if .login_error }}
@@ -34,12 +33,14 @@
     <tbody>
       <tr>
         <td>username:</td>
-        <td> <input type="text" name="username" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        <td> <input value="{{ .username }}" type="text" name="username" size="20" autocorrect="off" spellcheck="false"
+            autocapitalize="off" />
         </td>
       </tr>
       <tr>
         <td>email:</td>
-        <td> <input type="text" name="email" size="20" autocorrect="off" spellcheck="false" autocapitalize="off" />
+        <td> <input value="{{ .email }}" type="text" name="email" size="20" autocorrect="off" spellcheck="false"
+            autocapitalize="off" />
         </td>
       </tr>
       {{ if .signup_error }}

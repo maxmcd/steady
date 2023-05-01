@@ -242,6 +242,7 @@ func (s *Server) GetApplication(ctx context.Context, req *steadyrpc.GetApplicati
 			Name:   resp.Name,
 			UserId: resp.UserID.Int64,
 			Id:     resp.ID,
+			Source: resp.Source,
 		},
 		Url: s.appURL(resp.Name),
 	}, nil
