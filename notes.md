@@ -1,3 +1,12 @@
+# 2023-05-01
+
+Minimum features:
+
+1. Web editor to edit bun
+2. Run the thing you're editing, get a link to it in browser
+3. Add additional files to the project.
+4. Import other projects?
+
 
 # 2023-03-08
 
