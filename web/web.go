@@ -26,7 +26,7 @@ var templates embed.FS
 //go:embed app/dist/*
 var distFiles embed.FS
 
-//go:embed app/node_modules/bun-types/types.d.ts
+//go:embed bun-types/node_modules/bun-types/types.d.ts
 var bunTypes []byte
 
 type Server struct {
